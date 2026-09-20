@@ -1,4 +1,11 @@
-type SoundName = 'harvest' | 'stock' | 'money' | 'checkout' | 'upgrade' | 'purchase';
+type SoundName =
+  | 'harvest'
+  | 'stock'
+  | 'money'
+  | 'checkout'
+  | 'upgrade'
+  | 'purchase'
+  | 'discard';
 
 /** Original synthesized tones; no downloaded or licensed audio files. */
 export class AudioManager {
@@ -31,6 +38,7 @@ export class AudioManager {
       checkout: [440, 554],
       upgrade: [523, 659, 784, 1046],
       purchase: [587, 784],
+      discard: [294, 220],
     };
     tones[name].forEach((frequency, index) => this.tone(frequency, index * 0.075, 0.1, 0.045));
   }

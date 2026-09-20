@@ -86,6 +86,19 @@ describe('economy and capacity invariants', () => {
     expect(inventory.harvest('corn')).toBe(0);
     expect(inventory.stock('egg', -2)).toBe(0);
   });
+
+  it('discards every carried item without changing shelves or earnings', () => {
+    const state = createInitialState();
+    const inventory = new InventorySystem(state);
+    state.inventory.tomato = 3;
+    state.inventory.egg = 2;
+    state.shelves.tomato = 4;
+    expect(inventory.discardAll()).toBe(5);
+    expect(inventory.total).toBe(0);
+    expect(state.shelves.tomato).toBe(4);
+    expect(state.money).toBe(0);
+    expect(inventory.discardAll()).toBe(0);
+  });
 });
 
 describe('production and player interaction', () => {
@@ -154,6 +167,31 @@ describe('production and player interaction', () => {
         .map((event) => event.text),
     ).toEqual(['Tomato shelf full']);
     expect(engine.state.inventory.tomato).toBe(8);
+  });
+
+  it('requires a deliberate trash-bin hold and only empties once per visit', () => {
+    const engine = new GameEngine();
+    engine.state.inventory.tomato = 2;
+    engine.state.inventory.egg = 1;
+    engine.state.player = { ...GAME_CONFIG.trash };
+    advance(engine, GAME_CONFIG.trashHoldTime - 50);
+    expect(itemCount(engine.state.inventory)).toBe(3);
+    expect(engine.trashProgress).toBeGreaterThan(0.9);
+    advance(engine, 50);
+    expect(itemCount(engine.state.inventory)).toBe(0);
+    expect(engine.drainEvents()).toContainEqual({
+      type: 'discard',
+      text: 'Discarded 3 items',
+      ...GAME_CONFIG.trash,
+    });
+    engine.state.inventory.tomato = 1;
+    advance(engine, GAME_CONFIG.trashHoldTime + 100);
+    expect(engine.state.inventory.tomato).toBe(1);
+    engine.state.player = { x: GAME_CONFIG.trash.x - 100, y: GAME_CONFIG.trash.y };
+    advance(engine, 50);
+    engine.state.player = { ...GAME_CONFIG.trash };
+    advance(engine, GAME_CONFIG.trashHoldTime);
+    expect(engine.state.inventory.tomato).toBe(0);
   });
 });
 

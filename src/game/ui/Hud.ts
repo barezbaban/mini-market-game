@@ -1,4 +1,5 @@
 import { PRODUCTS } from '../data/products';
+import { GAME_CONFIG } from '../data/gameConfig';
 import { playerLevel, UPGRADES, upgradeAvailable, upgradeCost, xpForLevel } from '../data/upgrades';
 import type { GameState } from '../types';
 import { icon, productIcon } from './icons';
@@ -94,6 +95,8 @@ export class Hud {
         state.upgrades[upgrade.id] < upgrade.maxLevel &&
         Math.hypot(state.player.x - upgrade.position.x, state.player.y - upgrade.position.y) < 80,
     );
+    const nearTrash =
+      Math.hypot(state.player.x - GAME_CONFIG.trash.x, state.player.y - GAME_CONFIG.trash.y) < 85;
     const key = [
       state.money,
       ...Object.values(state.inventory),
@@ -105,6 +108,7 @@ export class Hud {
       ...Object.values(state.upgrades),
       state.unlockedProducts.join(':'),
       nearbyUpgrade?.id,
+      nearTrash,
     ].join(',');
     if (key === this.cached) return;
     this.cached = key;
@@ -163,6 +167,10 @@ export class Hud {
           : 'Stay on the pad to buy';
       this.hint.innerHTML = `<strong>${nearbyUpgrade.name} · $${cost.toLocaleString()}</strong><span>${instruction} · Or open Manage for details.</span>`;
     }
+    if (nearTrash)
+      this.hint.innerHTML = count
+        ? `<strong>Trash bin · ${count} item${count === 1 ? '' : 's'}</strong><span>Stay close for 1 second to discard everything.</span>`
+        : '<strong>Trash bin · basket empty</strong><span>Carry unwanted items here to discard them.</span>';
     this.soundButton.innerHTML = icon(state.soundEnabled ? 'sound' : 'mute');
     this.soundButton.setAttribute(
       'aria-label',

@@ -187,6 +187,7 @@ test('world labels use unique mounted signs and intentional status badges', asyn
     'office:customers:title',
     'office:accountant:title',
     'checkout:title',
+    'trash:title',
     ...['tomato', 'egg', 'corn', 'coffee', 'carrot', 'tomatoPaste', 'groundCoffee'].map(
       (id) => `shelf:${id}:title`,
     ),
@@ -319,9 +320,12 @@ test('critical signs stay legible and contained in the compact landscape view', 
 
   await focusCamera(page, { x: 990, y: 780 });
   bounds = await labelBounds(page);
-  const office = ['office:team:title', 'office:customers:title', 'office:accountant:title'].map(
-    (id) => expectContained(bounds, id, viewport),
-  );
+  const office = [
+    'office:team:title',
+    'office:customers:title',
+    'office:accountant:title',
+    'trash:title',
+  ].map((id) => expectContained(bounds, id, viewport));
   expectVisibleLabelsLegible(bounds, viewport);
   for (let first = 0; first < office.length; first += 1)
     for (let second = first + 1; second < office.length; second += 1)

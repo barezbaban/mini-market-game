@@ -16,6 +16,14 @@ export class InventorySystem {
     return Math.max(0, this.state.inventoryCapacity - this.total);
   }
 
+  discardAll(): number {
+    const discarded = this.total;
+    PRODUCTS.forEach(({ id }) => {
+      this.state.inventory[id] = 0;
+    });
+    return discarded;
+  }
+
   harvest(id: ProductId, requested = 1, plotIndex?: number): number {
     return this.harvestInto(
       id,

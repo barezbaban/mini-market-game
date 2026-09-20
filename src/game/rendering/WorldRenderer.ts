@@ -69,6 +69,7 @@ export class WorldRenderer {
   private readonly checkoutRing: Mesh;
   private readonly checkoutProgress: Mesh;
   private readonly checkoutLabel: WorldLabel;
+  private readonly trashProgress: Mesh;
   private readonly objective = new Group();
   private previousPlayer = { ...GAME_CONFIG.playerStart } as Vec2;
   private width = 1;
@@ -97,6 +98,7 @@ export class WorldRenderer {
     this.scene.add(sun);
     this.drawEnvironment();
     this.drawMarket();
+    this.trashProgress = this.drawTrashBin();
     this.batchStaticWorld();
     this.displays = new StoreDisplays(this.scene);
     this.drawOffice();
@@ -189,7 +191,7 @@ export class WorldRenderer {
     };
   }
 
-  update(state: GameState, timeMs: number, deltaMs: number): void {
+  update(state: GameState, timeMs: number, deltaMs: number, trashProgress = 0): void {
     this.lastState = state;
     const dx = state.player.x - this.previousPlayer.x;
     const dy = state.player.y - this.previousPlayer.y;
@@ -294,6 +296,11 @@ export class WorldRenderer {
       Math.floor(Math.min(1, state.checkoutProgress / checkoutDuration(state)) * 64) * 6,
     );
     this.checkoutLabel.setText('CHECKOUT', '#ffffff', '#168a65');
+    this.trashProgress.visible = trashProgress > 0;
+    this.trashProgress.geometry.setDrawRange(
+      0,
+      Math.floor(Math.min(1, trashProgress) * 64) * 6,
+    );
     this.updateTransfers(deltaMs);
     this.updateObjective(state, timeMs);
     this.updateCamera(deltaMs);
@@ -548,6 +555,32 @@ export class WorldRenderer {
       stamp.object.position.set(x, 1, -2.7);
     });
     block(this.scene, 3.6, 0.047, 0.06, 0.85, 0.02, 0.5, C.green);
+  }
+
+  private drawTrashBin(): Mesh {
+    const bin = new Group();
+    bin.position.copy(toWorld(GAME_CONFIG.trash));
+    bin.name = 'trash-bin';
+    this.scene.add(bin);
+    block(bin, 0, 0.34, 0, 0.52, 0.62, 0.5, C.darkGreen);
+    block(bin, 0, 0.68, -0.015, 0.59, 0.1, 0.57, C.green);
+    block(bin, 0, 0.75, 0.03, 0.18, 0.08, 0.1, C.cream);
+    block(bin, 0, 0.4, 0.258, 0.74, 0.4, 0.025, C.cream);
+    const title = label(bin, 'TRASH', 0.68, 0.34, {
+      id: 'trash:title',
+      kind: 'object',
+      mount: 'surface',
+      foreground: '#ffffff',
+      background: '#117054',
+      border: false,
+    });
+    title.object.position.set(0, 0.4, 0.274);
+    const outline = ring(bin, 0.47, C.white, 0.035);
+    outline.position.y = 0.045;
+    const progress = ring(bin, 0.4, C.peach, 0.065);
+    progress.position.y = 0.052;
+    progress.visible = false;
+    return progress;
   }
 
   private drawUpgrades(): void {

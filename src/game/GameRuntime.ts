@@ -124,7 +124,8 @@ export class GameRuntime {
       if (important || this.saveTimer >= GAME_CONFIG.saveInterval) this.persist();
     }
     // Keep presenting while paused so resizing, camera easing, and test fixtures stay visible.
-    if (!this.contextLost) this.world.update(engine.state, this.animationTime, delta);
+    if (!this.contextLost)
+      this.world.update(engine.state, this.animationTime, delta, engine.trashProgress);
     this.floating.update(this.animationTime);
     this.hudTimer += delta;
     if (this.hudTimer >= 100) {

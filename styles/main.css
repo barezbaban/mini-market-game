@@ -376,6 +376,9 @@ kbd {
 .world-float[data-type='upgrade'] {
   color: #efffb6;
 }
+.world-float.discard {
+  color: #ffd1bb;
+}
 .pause-overlay,
 .loading {
   position: absolute;

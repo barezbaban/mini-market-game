@@ -145,7 +145,7 @@ export interface GameState {
   accountantElapsed: number;
 }
 export interface GameEvent {
-  type: 'harvest' | 'stock' | 'money' | 'upgrade' | 'notice' | 'checkout';
+  type: 'harvest' | 'stock' | 'money' | 'upgrade' | 'notice' | 'checkout' | 'discard';
   text: string;
   x: number;
   y: number;

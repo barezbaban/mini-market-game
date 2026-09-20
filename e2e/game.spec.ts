@@ -3,6 +3,7 @@ import type { WorldRenderer } from '../src/game/rendering/WorldRenderer';
 import type { GameEngine } from '../src/game/systems/GameEngine';
 import type { SaveSystem } from '../src/game/systems/SaveSystem';
 import type { GameState } from '../src/game/types';
+import { GAME_CONFIG } from '../src/game/data/gameConfig';
 import stuckQueue from '../tests/fixtures/stuck-queue.json' with { type: 'json' };
 
 declare global {
@@ -118,6 +119,34 @@ test('keyboard harvest, shelf stocking, customer payment, and reload persistence
   expect((await state(page)).totalServed).toBe(current.totalServed);
   await expect(page.locator('#money-value')).toHaveText(`$${current.money}`);
   expect(errors).toEqual([]);
+});
+
+test('trash bin deliberately empties the carried basket and saves the result', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate((trash) => {
+    const { engine } = window.__MARKET__;
+    window.__MARKET__.setPaused(true);
+    engine.state.inventory.tomato = 2;
+    engine.state.inventory.egg = 1;
+    engine.state.player = { ...trash };
+  }, GAME_CONFIG.trash);
+  await expect(page.locator('#objective-text')).toContainText(
+    'Stay close for 1 second to discard everything.',
+  );
+  await advance(page, 950);
+  expect(Object.values((await state(page)).inventory).reduce((sum, count) => sum + count, 0)).toBe(
+    3,
+  );
+  await advance(page, 50);
+  expect(Object.values((await state(page)).inventory).reduce((sum, count) => sum + count, 0)).toBe(
+    0,
+  );
+  await page.evaluate(() => window.__MARKET__.save.save(window.__MARKET__.engine.snapshot()));
+  await page.reload();
+  await page.waitForFunction(() => window.__MARKET__?.ready);
+  expect(Object.values((await state(page)).inventory).reduce((sum, count) => sum + count, 0)).toBe(
+    0,
+  );
 });
 
 test('upgrade hold, corn production, hired cashier, tutorial and settings persistence', async ({

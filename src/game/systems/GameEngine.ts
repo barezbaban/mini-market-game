@@ -32,6 +32,8 @@ export class GameEngine {
   private lastUpgradeAttempt: UpgradeId | null = null;
   private lastBlockedZone: string | null = null;
   private nextBlockedNotice = 0;
+  private trashElapsed = 0;
+  private trashUsedThisVisit = false;
 
   constructor(readonly state: GameState = createInitialState()) {
     if (!this.canWalk(state.player)) state.player = { ...GAME_CONFIG.playerStart };
@@ -67,6 +69,9 @@ export class GameEngine {
     this.events = [];
     return events;
   }
+  get trashProgress(): number {
+    return Math.min(1, this.trashElapsed / GAME_CONFIG.trashHoldTime);
+  }
 
   private canWalk(point: Vec2): boolean {
     const bounds = GAME_CONFIG.bounds;
@@ -93,7 +98,35 @@ export class GameEngine {
       )
         return false;
     }
+    if (
+      Math.abs(point.x - GAME_CONFIG.trash.x) < 32 &&
+      Math.abs(point.y - GAME_CONFIG.trash.y) < 32
+    )
+      return false;
     return !(point.x > 863 && point.x < 937 && point.y > 172 && point.y < 260);
+  }
+
+  private updateTrash(deltaMs: number): void {
+    const nearby = distance(this.state.player, GAME_CONFIG.trash) <= GAME_CONFIG.interactionRadius;
+    if (!nearby) {
+      this.trashElapsed = 0;
+      this.trashUsedThisVisit = false;
+      return;
+    }
+    if (this.trashUsedThisVisit || this.inventory.total === 0) {
+      this.trashElapsed = 0;
+      return;
+    }
+    this.trashElapsed = Math.min(GAME_CONFIG.trashHoldTime, this.trashElapsed + deltaMs);
+    if (this.trashElapsed < GAME_CONFIG.trashHoldTime) return;
+    const discarded = this.inventory.discardAll();
+    this.trashElapsed = 0;
+    this.trashUsedThisVisit = true;
+    this.events.push({
+      type: 'discard',
+      text: `Discarded ${discarded} item${discarded === 1 ? '' : 's'}`,
+      ...GAME_CONFIG.trash,
+    });
   }
 
   private movePlayer(deltaMs: number, input: Vec2): void {
@@ -115,6 +148,7 @@ export class GameEngine {
     this.harvestElapsed = Math.min(GAME_CONFIG.harvestInterval, this.harvestElapsed + deltaMs);
     this.stockElapsed = Math.min(GAME_CONFIG.stockInterval, this.stockElapsed + deltaMs);
     this.machineElapsed = Math.min(GAME_CONFIG.harvestInterval, this.machineElapsed + deltaMs);
+    this.updateTrash(deltaMs);
     for (const product of PRODUCTS) {
       if (!this.state.unlockedProducts.includes(product.id)) continue;
       const plotIndex = Array.from(
