@@ -8,26 +8,35 @@ A small farm, a friendly market, and room to grow. Mini Market Manager is an ori
 
 Start with **$0**, a basket that holds **8 items**, a tomato patch, and a chicken area. Walk near ripe produce to collect it, carry it to the matching shelf, and wait at checkout to serve customers. All everyday interactions happen automatically when you are close enough.
 
-Grow → harvest → carry → stock → serve → earn → upgrade.
+Grow → harvest → process → carry → stock → serve → earn → upgrade.
 
-The market occupies the top of the map; the farm sits below it. Customers enter through the market entrance, find available products, form a checkout line, pay, and leave. Stand on an affordable upgrade pad for a little over a second to purchase it.
+The market occupies the top of the map; the farms and processing areas sit below it. Customers enter through the market entrance, find available products, form a checkout line, pay, and leave. Open **Manage** to inspect and purchase upgrades, or stand on an affordable world pad for a little over a second. The management window pauses the simulation while you plan.
 
-| Product  | Production time | Sale price | Availability           |
-| -------- | --------------- | ---------- | ---------------------- |
-| Tomatoes | 5 seconds       | $5         | Available at the start |
-| Eggs     | 7 seconds       | $7         | Available at the start |
-| Corn     | 10 seconds      | $10        | Unlock for $150        |
+| Product       | Production                       | Sale price | Availability                |
+| ------------- | -------------------------------- | ---------- | --------------------------- |
+| Tomatoes      | 3 per plant / 3 seconds          | $5         | Available at the start      |
+| Eggs          | 1 per nest / 4 seconds           | $7         | Available at the start      |
+| Corn          | 2 per plot / 5 seconds           | $10        | Unlock for $150             |
+| Tomato paste  | 1 tomato → 1 can; 6-second batch | $15        | Production wing and cannery |
+| Coffee beans  | 2 per plant / 4 seconds          | $12        | Coffee corner               |
+| Ground coffee | 1 bean → 1 bag; 8-second batch   | $24        | Coffee corner and grinder   |
+| Carrots       | 1 per bed / 2 seconds            | $8         | Carrot garden               |
 
-Spend earnings on a bigger basket ($100), a larger tomato shelf ($120), more frequent customers ($90), corn ($150), or a cashier ($300). The cashier serves the checkout automatically so you can concentrate on production and stocking.
+All seven shelves hold **12 items**. Add up to five tomato plants, nests, corn plots, and coffee plants; the carrot garden supports eight beds. Every plot has its own production timer. Machines process **up to** 2, 4, 6, or 8 ingredients per batch as they are upgraded, and start a smaller batch when less input is available. Stand near a machine while carrying its raw ingredient to supply it, then collect the finished products when your basket has room.
+
+Expand eastward in three stages: **production wing ($250)**, **coffee corner ($500)**, and **carrot garden ($1,000)**. The management cards show current capacity, the next effect, the exact next price, and any prerequisite. Most repeated upgrades grow more expensive; the carrot-bed price increases by 20% each time.
+
+Hire up to **three helpers** to harvest, operate machines, and stock shelves. Their baskets grow **2 → 3 → 4 → 5 → 6** items; ten speed levels multiply walking speed by **1.10** at each upgrade. A cashier has five levels, with checkout time divided by 1.25 at each level after hiring. A marketing director has ten levels, each adding 20% of the base customer arrival rate. An accountant has five levels and earns **5 XP per level every 10 seconds** while the market runs. Sales also award **5 XP**. The compact HUD shows your player level and progress toward the next level.
 
 ## Features
 
 - Original low-poly 3D world, rounded characters, produce models, and shop branding.
-- Full-screen game presentation with soft lighting, shadows, and a compact HUD.
+- Full-screen game presentation with clear lighting, no world shadows, and a compact HUD.
 - Automatic harvesting, stocking, and checkout; no interaction button needed.
-- Three products with configurable production, prices, capacities, and unlocks.
+- Seven products, independently growing farm plots, and two processing machines.
 - Customer state machines, an orderly checkout queue, and a hireable cashier.
-- Five in-world upgrades with prices, hold progress, and affordability feedback.
+- Three store expansions and management tabs for Store, Farms, Machines, and Staff.
+- Upgradeable helpers, cashier, marketing director, and accountant; player XP and levels.
 - Floating feedback, carried products, stock indicators, and a short first-time tutorial.
 - Desktop movement and a virtual joystick for touch screens.
 - Local saves, a sound toggle, and a confirmed reset in Settings.
@@ -35,14 +44,15 @@ Spend earnings on a bigger basket ($100), a larger tomato shelf ($120), more fre
 
 ## Controls
 
-| Action           | Desktop                                     | Touch                              |
-| ---------------- | ------------------------------------------- | ---------------------------------- |
-| Move             | **WASD**, **arrow keys**, or drag the world | Virtual joystick or drag the world |
-| Harvest or stock | Stand near a farm or matching shelf         | Same                               |
-| Serve checkout   | Stand beside the checkout counter           | Same                               |
-| Buy an upgrade   | Hold position on its upgrade pad            | Same                               |
-| Sound            | Use the speaker button in the toolbar       | Tap the speaker button             |
-| Reset progress   | Open **Settings**                           | Tap **Settings**                   |
+| Action            | Desktop                                     | Touch                              |
+| ----------------- | ------------------------------------------- | ---------------------------------- |
+| Move              | **WASD**, **arrow keys**, or drag the world | Virtual joystick or drag the world |
+| Harvest or stock  | Stand near a farm or matching shelf         | Same                               |
+| Serve checkout    | Stand beside the checkout counter           | Same                               |
+| Buy an upgrade    | Open **Manage**, or hold on a world pad     | Same                               |
+| See all inventory | Open the **Basket** dropdown                | Tap **Basket**                     |
+| Sound             | Use the speaker button in the toolbar       | Tap the speaker button             |
+| Reset progress    | Open **Settings**                           | Tap **Settings**                   |
 
 The game fills the browser window. The camera and overlays adapt to desktop, tablet, phone landscape, and phone portrait. Touch movement does not scroll the page; drag an open part of the world to position a temporary joystick, or use the fixed touch joystick.
 
@@ -53,6 +63,10 @@ The game fills the browser window. The camera and overlays adapt to desktop, tab
 The screenshots are captured from the running application. Scenery, characters, and produce are original 3D meshes created for this project.
 
 [Mobile landscape screenshot](docs/screenshots/mobile-landscape.png) · [Mobile portrait screenshot](docs/screenshots/mobile-portrait.png)
+
+[Expanded store](docs/screenshots/expanded-store.png) · [Management panel](docs/screenshots/management.png)
+
+The expanded-store, management, and mobile-portrait captures use isolated demonstration fixtures with selected upgrades and currency, so new areas and controls can be shown. These fixtures do not represent progression earned during a play session or modify a player's saved market. The desktop capture advances an isolated gameplay session; mobile landscape shows a fresh market.
 
 ## Technology
 
@@ -139,7 +153,7 @@ src/
     data/                     # Product, upgrade, and game configuration
     managers/                 # Audio and other shared presentation services
     rendering/                # Three.js renderer, original models, and world meshes
-    systems/                  # Inventory, economy, farming, checkout, saves
+    systems/                  # Inventory, farms, machines, workers, progression, saves
     ui/                       # HUD, feedback, and touch input
     GameRuntime.ts            # Frame loop, input, lifecycle, and presentation events
     types.ts                  # Shared contracts
@@ -156,6 +170,7 @@ Game rules live outside rendering. A storage interface separates game state from
 - Change the working title and global timings in `src/game/data/gameConfig.ts`.
 - Tune product names, growth times, prices, and shelf locations in `src/game/data/products.ts`.
 - Tune upgrade descriptions, costs, and positions in `src/game/data/upgrades.ts`.
+- Configure processing recipes, batch timings, and buffers in `src/game/data/machines.ts`.
 - Keep new content in these definitions and reuse the shared systems. The [extension guide](docs/architecture.md) explains how to add products, workers, and persistent storage.
 
 The world and characters are built from original procedural 3D meshes with shared geometry and materials. SVG icons support the HTML interface; small canvas textures provide readable world labels. Audio uses original procedural sounds, so no external model or sound pack is needed. The interface uses optional Google Fonts with system-font fallbacks. Third-party fonts and libraries retain their respective licenses. See [asset credits](docs/credits.md).
@@ -164,11 +179,11 @@ The world and characters are built from original procedural 3D meshes with share
 
 ### Phase 2 — A busier neighborhood market
 
-More products and shelves; farmers and shelf stockers; a storage room; multiple checkout counters; richer customer patience; daily objectives and achievements.
+Additional recipes; a storage room; multiple checkout counters; richer customer patience; daily objectives and achievements.
 
 ### Phase 3 — A growing business
 
-Multiple supermarket locations; player levels; cosmetic customization; store analytics; opt-in accounts and cloud saves; leaderboards.
+Multiple supermarket locations; cosmetic customization; store analytics; opt-in accounts and cloud saves; leaderboards.
 
 ### Phase 4 — More ways to play
 

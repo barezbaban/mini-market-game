@@ -1,6 +1,17 @@
 import { GAME_CONFIG } from '../data/gameConfig';
-import { PRODUCTS } from '../data/products';
-import type { GameState } from '../types';
+import { PRODUCTS, plotCount } from '../data/products';
+import type { GameState, ProductId } from '../types';
+
+/** Plot buffers are authoritative; these aliases keep the HUD and saved totals useful. */
+export function refreshFarmTotals(state: GameState, id?: ProductId): void {
+  for (const product of PRODUCTS) {
+    if (id && product.id !== id) continue;
+    const farm = state.farms[product.id];
+    const count = plotCount(state, product.id);
+    farm.ready = farm.plots.slice(0, count).reduce((total, plot) => total + plot.ready, 0);
+    farm.elapsed = count ? (farm.plots[0]?.elapsed ?? 0) : 0;
+  }
+}
 
 export class FarmingSystem {
   constructor(private readonly state: GameState) {}
@@ -8,20 +19,24 @@ export class FarmingSystem {
   update(deltaMs: number): void {
     if (!Number.isFinite(deltaMs) || deltaMs <= 0) return;
     for (const product of PRODUCTS) {
-      if (!this.state.unlockedProducts.includes(product.id)) continue;
-      const farm = this.state.farms[product.id];
-      if (farm.ready >= GAME_CONFIG.farmCapacity) {
-        farm.elapsed = 0;
-        continue;
+      for (const plot of this.state.farms[product.id].plots.slice(
+        0,
+        plotCount(this.state, product.id),
+      )) {
+        if (plot.ready >= GAME_CONFIG.farmCapacity) {
+          plot.elapsed = 0;
+          continue;
+        }
+        plot.elapsed += deltaMs;
+        const batches = Math.floor(plot.elapsed / product.productionTime);
+        plot.ready = Math.min(
+          GAME_CONFIG.farmCapacity,
+          plot.ready + batches * product.yieldPerPlot,
+        );
+        plot.elapsed =
+          plot.ready === GAME_CONFIG.farmCapacity ? 0 : plot.elapsed % product.productionTime;
       }
-      farm.elapsed += deltaMs;
-      const grown = Math.min(
-        GAME_CONFIG.farmCapacity - farm.ready,
-        Math.floor(farm.elapsed / product.productionTime),
-      );
-      farm.ready += grown;
-      farm.elapsed =
-        farm.ready === GAME_CONFIG.farmCapacity ? 0 : farm.elapsed % product.productionTime;
     }
+    refreshFarmTotals(this.state);
   }
 }

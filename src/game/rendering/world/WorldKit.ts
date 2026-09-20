@@ -63,8 +63,8 @@ export function block(
   const mesh = new Mesh(rounded ? roundedCube : cube, material(color));
   mesh.position.set(x, y, z);
   mesh.scale.set(width, height, depth);
-  mesh.castShadow = height > 0.03;
-  mesh.receiveShadow = true;
+  mesh.castShadow = false;
+  mesh.receiveShadow = false;
   parent.add(mesh);
   return mesh;
 }
@@ -81,8 +81,8 @@ export function disc(
   const mesh = new Mesh(cylinder, material(color));
   mesh.position.set(x, y, z);
   mesh.scale.set(radius, height, radius);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
+  mesh.castShadow = false;
+  mesh.receiveShadow = false;
   parent.add(mesh);
   return mesh;
 }
@@ -98,8 +98,8 @@ export function sphere(
   const mesh = new Mesh(ball, material(color));
   mesh.position.set(x, y, z);
   mesh.scale.setScalar(radius);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
+  mesh.castShadow = false;
+  mesh.receiveShadow = false;
   parent.add(mesh);
   return mesh;
 }

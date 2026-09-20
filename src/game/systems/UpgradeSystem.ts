@@ -1,19 +1,44 @@
 import { GAME_CONFIG } from '../data/gameConfig';
-import { PRODUCTS } from '../data/products';
-import { UPGRADES } from '../data/upgrades';
-import type { GameEvent, GameState, UpgradeId } from '../types';
+import { PRODUCTS, emptyItems } from '../data/products';
+import { UPGRADES, upgradeAvailable, upgradeCost } from '../data/upgrades';
+import type { GameEvent, GameState, UpgradeId, WorkerData } from '../types';
 import { EconomySystem } from './EconomySystem';
+import { refreshFarmTotals } from './FarmingSystem';
 
-/** Derived values are rebuilt on load; saved capacities cannot grant free upgrades. */
+export function createWorker(id: number): WorkerData {
+  const position = { x: 965 + (id - 1) * 22, y: 480 };
+  return {
+    id,
+    ...position,
+    basket: emptyItems(),
+    task: 'idle',
+    product: null,
+    target: { ...position },
+    path: [],
+    actionElapsed: 0,
+  };
+}
+
+/** Hiring adds workers; level upgrades preserve all existing workers and their baskets. */
+export function syncWorkers(state: GameState): void {
+  const desired = Math.min(3, state.upgrades.helpers);
+  while (state.workers.length < desired) {
+    const id = Math.max(0, ...state.workers.map((worker) => worker.id)) + 1;
+    state.workers.push(createWorker(id));
+  }
+}
+
 export function applyUpgradeEffects(state: GameState): void {
   state.inventoryCapacity = GAME_CONFIG.playerStartCapacity + state.upgrades.inventory * 4;
-  for (const product of PRODUCTS)
-    state.shelfCapacities[product.id] =
-      product.shelfCapacity + (product.id === 'tomato' ? state.upgrades.shelf * 4 : 0);
+  for (const product of PRODUCTS) state.shelfCapacities[product.id] = product.shelfCapacity;
   state.unlockedProducts = PRODUCTS.filter(
-    (product) => product.unlockCost === 0 || state.upgrades[product.id as UpgradeId] > 0,
+    (product) =>
+      product.area <= state.upgrades.expansion &&
+      (!product.unlockUpgrade || state.upgrades[product.unlockUpgrade] > 0),
   ).map((product) => product.id);
   state.cashier = state.upgrades.cashier > 0;
+  syncWorkers(state);
+  refreshFarmTotals(state);
 }
 
 export class UpgradeSystem {
@@ -25,20 +50,32 @@ export class UpgradeSystem {
 
   purchase(id: UpgradeId): boolean {
     const upgrade = UPGRADES.find((entry) => entry.id === id);
-    if (!upgrade || this.state.upgrades[id] >= upgrade.maxLevel) return false;
-    if (!this.economy.spend(upgrade.cost)) {
+    if (!upgrade || id === 'shelf' || this.state.upgrades[id] >= upgrade.maxLevel) return false;
+    if (!upgradeAvailable(this.state, id)) {
       this.emit({
         type: 'notice',
-        text: `Need $${upgrade.cost - this.state.money} more`,
+        text: 'Unlock the required area or staff first',
+        ...upgrade.position,
+      });
+      return false;
+    }
+    const cost = upgradeCost(this.state, id);
+    if (!this.economy.spend(cost)) {
+      this.emit({
+        type: 'notice',
+        text: `Need $${cost - this.state.money} more`,
         ...upgrade.position,
       });
       return false;
     }
     this.state.upgrades[id] += 1;
     applyUpgradeEffects(this.state);
-    if (id === 'corn') this.state.farms.corn.ready = Math.max(1, this.state.farms.corn.ready);
     this.state.tutorialStep = Math.max(this.state.tutorialStep, 6);
-    this.emit({ type: 'upgrade', text: upgrade.name, ...upgrade.position });
+    this.emit({
+      type: 'upgrade',
+      text: `${upgrade.name} · level ${this.state.upgrades[id]}`,
+      ...upgrade.position,
+    });
     return true;
   }
 }

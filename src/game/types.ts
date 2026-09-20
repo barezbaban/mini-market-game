@@ -1,5 +1,24 @@
-export type ProductId = 'tomato' | 'egg' | 'corn';
-export type UpgradeId = 'shelf' | 'inventory' | 'customers' | 'corn' | 'cashier';
+export type ProductId =
+  'tomato' | 'egg' | 'corn' | 'coffee' | 'carrot' | 'tomatoPaste' | 'groundCoffee';
+export type MachineId = 'paste' | 'coffee';
+export type UpgradeId =
+  | 'shelf'
+  | 'inventory'
+  | 'customers'
+  | 'corn'
+  | 'cashier'
+  | 'expansion'
+  | 'tomatoPlots'
+  | 'eggPlots'
+  | 'cornPlots'
+  | 'coffeePlots'
+  | 'carrotPlots'
+  | 'pasteMachine'
+  | 'coffeeMachine'
+  | 'helpers'
+  | 'helperCapacity'
+  | 'helperSpeed'
+  | 'accountant';
 export interface Vec2 {
   x: number;
   y: number;
@@ -18,6 +37,12 @@ export interface ProductDefinition {
   color: number;
   shelf: Vec2;
   farm: Vec2;
+  kind: 'farm' | 'processed';
+  area: number;
+  maxPlots: number;
+  yieldPerPlot: number;
+  plotUpgrade?: UpgradeId;
+  unlockUpgrade?: UpgradeId;
 }
 export interface UpgradeDefinition {
   id: UpgradeId;
@@ -28,10 +53,49 @@ export interface UpgradeDefinition {
   maxLevel: number;
   position: Vec2;
   icon: string;
+  category: 'farms' | 'machines' | 'staff' | 'store';
+  costGrowth: number;
+  requires?: Partial<Record<UpgradeId, number>>;
+  inWorld?: boolean;
+}
+export interface FarmPlotState {
+  ready: number;
+  elapsed: number;
 }
 export interface FarmState {
   ready: number;
   elapsed: number;
+  plots: FarmPlotState[];
+}
+export interface MachineDefinition {
+  id: MachineId;
+  name: string;
+  input: ProductId;
+  output: ProductId;
+  position: Vec2;
+  upgrade: UpgradeId;
+  batchMs: number;
+  bufferCapacity: number;
+  area: number;
+}
+export interface MachineState {
+  input: number;
+  output: number;
+  processing: number;
+  elapsed: number;
+}
+export interface WorkerData {
+  id: number;
+  x: number;
+  y: number;
+  basket: ItemCounts;
+  task: 'idle' | 'harvest' | 'stock' | 'supply' | 'collect';
+  product: ProductId | null;
+  target: Vec2;
+  plotIndex?: number;
+  machine?: MachineId;
+  path: Vec2[];
+  actionElapsed: number;
 }
 export type CustomerState =
   | 'ENTERING'
@@ -54,7 +118,7 @@ export interface CustomerData {
   path: Vec2[];
 }
 export interface GameState {
-  version: 1;
+  version: 2;
   money: number;
   inventory: ItemCounts;
   inventoryCapacity: number;
@@ -75,6 +139,10 @@ export interface GameState {
   totalHarvested: number;
   elapsed: number;
   soundEnabled: boolean;
+  machines: Record<MachineId, MachineState>;
+  workers: WorkerData[];
+  xp: number;
+  accountantElapsed: number;
 }
 export interface GameEvent {
   type: 'harvest' | 'stock' | 'money' | 'upgrade' | 'notice' | 'checkout';

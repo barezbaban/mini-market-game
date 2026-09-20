@@ -11,6 +11,7 @@ import {
 } from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import type { ItemCounts, ProductId } from '../types';
+import { emptyItems, PRODUCTS } from '../data/products';
 
 // The whole market shares these resources, including temporary carried products.
 // Removing a model from the scene must not dispose its geometry or material.
@@ -44,8 +45,8 @@ export function mat(color: number): MeshStandardMaterial {
 
 function mesh(geometry: BufferGeometry, color: number): Mesh {
   const result = new Mesh(geometry, mat(color));
-  result.castShadow = true;
-  result.receiveShadow = true;
+  result.castShadow = false;
+  result.receiveShadow = false;
   return result;
 }
 
@@ -141,7 +142,7 @@ export function createProduce(id: ProductId): Group {
     const egg = mesh(geometry, 0xffe5b5);
     egg.scale.set(0.066, 0.09, 0.066);
     produce.add(egg);
-  } else {
+  } else if (id === 'corn') {
     at(produce, pill(0.047, 0.11, PALETTE.corn), 0, 0.015, 0);
     // A few raised kernels make the silhouette readable without a dense mesh.
     for (let row = 0; row < 3; row++) {
@@ -151,6 +152,30 @@ export function createProduce(id: ProductId): Group {
     }
     at(produce, leaf(0.033, 0.15, 0x64a052), -0.035, -0.015, 0.007).rotation.z = 0.45;
     at(produce, leaf(0.032, 0.16, 0x438b4e), 0.035, -0.025, -0.011).rotation.z = -0.4;
+  } else if (id === 'coffee') {
+    const bean = at(produce, ball(0.066, 0.045, 0.09, 0x785044), 0, 0, 0);
+    bean.rotation.z = -0.18;
+    at(produce, pill(0.009, 0.09, 0x4f372f), 0, 0.043, 0).rotation.x = Math.PI / 2;
+  } else if (id === 'carrot') {
+    const root = at(produce, mesh(cone, 0xf58c32), 0, -0.015, 0);
+    root.scale.set(0.065, 0.23, 0.065);
+    root.rotation.z = Math.PI;
+    for (let i = -1; i <= 1; i += 1) {
+      const sprout = at(produce, leaf(0.025, 0.13, 0x4b984b), i * 0.018, 0.12, 0);
+      sprout.rotation.z = i * -0.35;
+    }
+  } else if (id === 'tomatoPaste') {
+    at(produce, tube(0.074, 0.16, 0xe6654f), 0, 0, 0);
+    at(produce, tube(0.077, 0.013, 0xd1d8d0), 0, -0.078, 0);
+    at(produce, tube(0.077, 0.013, 0xd1d8d0), 0, 0.078, 0);
+    at(produce, ball(0.038, 0.045, 0.006, 0xfff0cb), 0, 0, 0.073);
+    at(produce, ball(0.022, 0.022, 0.008, 0xda4b3f), 0, 0, 0.079);
+  } else if (id === 'groundCoffee') {
+    at(produce, roundedBox(0.14, 0.19, 0.08, 0.02, 0xbd8659), 0, 0, 0);
+    at(produce, box(0.15, 0.022, 0.08, 0x84553c), 0, 0.095, 0);
+    at(produce, roundedBox(0.08, 0.087, 0.009, 0.012, 0xffefd1), 0, 0, 0.045);
+    const bean = at(produce, ball(0.019, 0.028, 0.006, 0x795039), 0, 0, 0.052);
+    bean.rotation.z = 0.3;
   }
   return produce;
 }
@@ -303,20 +328,20 @@ export function createCharacter(
       cargo.rotation.z = moving ? stride * 0.04 : 0;
     },
     setInventory(items) {
-      const counts = { tomato: items.tomato ?? 0, egg: items.egg ?? 0, corn: items.corn ?? 0 };
-      const key = `${counts.tomato}:${counts.egg}:${counts.corn}`;
+      const counts = { ...emptyItems(), ...items };
+      const key = PRODUCTS.map(({ id }) => counts[id] ?? 0).join(':');
       if (key === inventoryKey) return;
       inventoryKey = key;
       cargoItems.clear();
       const products: ProductId[] = [];
-      for (const id of ['tomato', 'egg', 'corn'] as const) {
-        const count = Math.min(12 - products.length, Math.max(0, Math.floor(counts[id])));
+      for (const { id } of PRODUCTS) {
+        const count = Math.min(28 - products.length, Math.max(0, Math.floor(counts[id] ?? 0)));
         for (let index = 0; index < count; index++) products.push(id);
       }
       carrying = products.length > 0;
       cargo.visible = carrying;
       tray.visible = carrying;
-      const used: ItemCounts = { tomato: 0, egg: 0, corn: 0 };
+      const used = emptyItems();
       products.forEach((id, index) => {
         let pool = productPool.get(id);
         if (!pool) {
@@ -326,11 +351,7 @@ export function createCharacter(
         const poolIndex = used[id]++;
         const product = pool[poolIndex] ?? createProduce(id);
         pool[poolIndex] = product;
-        product.position.set(
-          index % 2 === 0 ? -0.074 : 0.074,
-          0.104 + Math.floor(index / 2) * 0.153,
-          0,
-        );
+        product.position.set(((index % 3) - 1) * 0.13, 0.104 + Math.floor(index / 3) * 0.14, 0);
         product.rotation.y = index * 1.6;
         cargoItems.add(product);
       });

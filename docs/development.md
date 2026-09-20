@@ -34,7 +34,7 @@ The flag only changes where npm stores downloaded package data. It does not alte
 
 The browser needs WebGL2. Use a current browser with graphics acceleration enabled; a clear startup message appears if the renderer cannot initialize. The production site remains entirely static and needs no backend or graphics server.
 
-The market uses Three.js meshes, shared materials, an angled camera, and lighting with shadows. Simulation positions remain independent of camera projection. `GameRuntime` maps screen-relative keyboard or joystick movement to the world, advances the game engine, and redraws the scene. The HUD occupies the edges of the full browser window. Check actual devices when tuning render resolution, shadows, camera framing, or touch controls.
+The market uses Three.js meshes, shared materials, an angled camera, and lighting with world shadows disabled. Simulation positions remain independent of camera projection. `GameRuntime` maps screen-relative keyboard or joystick movement to the world, advances the game engine, and redraws the scene. The HUD occupies the edges of the full browser window. Check actual devices when tuning render resolution, camera framing, or touch controls.
 
 ## Debug mode
 
@@ -107,6 +107,10 @@ Start a new game in a separate browser profile or confirm Reset Game in Settings
 11. Toggle sound and test a confirmed reset. Canceling reset must preserve progress.
 12. Use the fixed joystick and drag an open part of the world; test pointer release, orientation changes, and confirm touch movement does not scroll the page.
 13. Check the original 3D characters and carried stacks, crop readiness, shelf counts, checkout spot, upgrade progress, and floating rewards. Ensure important labels and the player remain readable in desktop, tablet, and phone layouts.
+14. Open Manage and visit all four tabs. Check prerequisites, unaffordable buttons, the included 12-item shelf capacity, next-level prices, and capped upgrades. Confirm the simulation pauses and resumes with keyboard focus restored when the dialog closes.
+15. Expand through the production wing, coffee corner, and carrot garden. Add farm units through their caps and verify independent growth. Supply both machines and check their 2/4/6/8-item batch levels, inventory transfer, and save/reload behavior.
+16. Hire three helpers, upgrade carrying capacity and speed, then watch them harvest, supply, collect, and stock without duplication. Upgrade marketing, cashier, and accountant through their limits; verify arrival rate, service timing, passive XP, and the player level meter.
+17. Open the Basket drawer to inspect all seven products. Check management tabs, card scrolling, inventory previews, and close controls on portrait and landscape screens. Confirm a purchase saves without closing the management dialog.
 
 Target desktop viewports include 1920×1080, 1440×900, and 1366×768. Also check an iPad-sized viewport, phone landscape, and phone portrait. Target current Chrome, Safari, Edge, and Firefox; device emulation is useful but does not replace testing a physical touch device.
 

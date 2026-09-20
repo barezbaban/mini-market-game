@@ -1,6 +1,7 @@
 import { GAME_CONFIG } from '../data/gameConfig';
-import { PRODUCTS, emptyItems } from '../data/products';
-import { UPGRADES } from '../data/upgrades';
+import { PRODUCTS, emptyItems, plotCount } from '../data/products';
+import { MACHINES } from '../data/machines';
+import { UPGRADES, checkoutDuration, upgradeAvailable } from '../data/upgrades';
 import type {
   CustomerData,
   CustomerState,
@@ -8,24 +9,37 @@ import type {
   ItemCounts,
   SaveRepository,
   Vec2,
+  UpgradeId,
+  WorkerData,
 } from '../types';
 import { applyUpgradeEffects } from './UpgradeSystem';
 
 export function createInitialState(): GameState {
   const state: GameState = {
-    version: 1,
+    version: 2,
     money: 0,
     inventory: emptyItems(),
     inventoryCapacity: GAME_CONFIG.playerStartCapacity,
     shelves: emptyItems(),
-    shelfCapacities: { tomato: 8, egg: 8, corn: 8 },
-    farms: {
-      tomato: { ready: 3, elapsed: 0 },
-      egg: { ready: 2, elapsed: 0 },
-      corn: { ready: 0, elapsed: 0 },
-    },
+    shelfCapacities: emptyItems(),
+    farms: Object.fromEntries(
+      PRODUCTS.map((product) => [
+        product.id,
+        {
+          ready: product.id === 'tomato' ? 3 : product.id === 'egg' ? 2 : 0,
+          elapsed: 0,
+          plots: Array.from({ length: product.maxPlots }, (_, index) => ({
+            ready: index === 0 ? (product.id === 'tomato' ? 3 : product.id === 'egg' ? 2 : 0) : 0,
+            elapsed: 0,
+          })),
+        },
+      ]),
+    ) as GameState['farms'],
     unlockedProducts: ['tomato', 'egg'],
-    upgrades: { shelf: 0, inventory: 0, customers: 0, corn: 0, cashier: 0 },
+    upgrades: Object.fromEntries(UPGRADES.map((upgrade) => [upgrade.id, 0])) as Record<
+      UpgradeId,
+      number
+    >,
     cashier: false,
     player: { ...GAME_CONFIG.playerStart },
     customers: [],
@@ -38,6 +52,13 @@ export function createInitialState(): GameState {
     totalHarvested: 0,
     elapsed: 0,
     soundEnabled: true,
+    machines: {
+      paste: { input: 0, output: 0, processing: 0, elapsed: 0 },
+      coffee: { input: 0, output: 0, processing: 0, elapsed: 0 },
+    },
+    workers: [],
+    xp: 0,
+    accountantElapsed: 0,
   };
   applyUpgradeEffects(state);
   return state;
@@ -68,19 +89,24 @@ const point = (value: unknown, fallback: Vec2, outside = false): Vec2 => {
   };
 };
 
-/** Accepts only this schema version, repairing individual corrupt values conservatively. */
+/** Migrate the original market without resetting funds, purchases, or unpaid baskets. */
 export function validateSave(value: unknown): GameState | null {
   const raw = object(value);
-  if (raw.version !== 1) return null;
+  if (raw.version !== 1 && raw.version !== 2) return null;
   const state = createInitialState();
   const upgrades = object(raw.upgrades);
   for (const upgrade of UPGRADES)
     state.upgrades[upgrade.id] = integer(upgrades[upgrade.id], 0, upgrade.maxLevel);
+  for (let pass = 0; pass < 2; pass++)
+    for (const upgrade of UPGRADES)
+      if (!upgradeAvailable(state, upgrade.id)) state.upgrades[upgrade.id] = 0;
   applyUpgradeEffects(state);
   state.money = integer(raw.money);
   state.totalEarned = integer(raw.totalEarned);
   state.totalServed = integer(raw.totalServed);
   state.totalHarvested = integer(raw.totalHarvested);
+  state.xp = integer(raw.xp, state.totalServed * 5);
+  state.accountantElapsed = number(raw.accountantElapsed, 0, GAME_CONFIG.accountantInterval - 1);
   state.tutorialStep = integer(raw.tutorialStep, 0, 6);
   state.elapsed = number(raw.elapsed);
   state.player = point(raw.player, state.player);
@@ -97,13 +123,68 @@ export function validateSave(value: unknown): GameState | null {
       ? integer(shelves[product.id], 0, state.shelfCapacities[product.id])
       : 0;
     const farm = object(farms[product.id]);
+    const owned = plotCount(state, product.id);
+    const plots = Array.from({ length: product.maxPlots }, (_, index) => {
+      const original = Array.isArray(farm.plots)
+        ? object(farm.plots[index])
+        : index === 0
+          ? farm
+          : {};
+      return {
+        ready: index < owned ? integer(original.ready, 0, GAME_CONFIG.farmCapacity) : 0,
+        elapsed: index < owned ? number(original.elapsed, 0, product.productionTime - 1) : 0,
+      };
+    });
     state.farms[product.id] = {
-      ready: unlocked
-        ? integer(farm.ready, state.farms[product.id].ready, GAME_CONFIG.farmCapacity)
-        : 0,
-      elapsed: unlocked ? number(farm.elapsed, 0, product.productionTime - 1) : 0,
+      plots,
+      ready: plots.reduce((sum, plot) => sum + plot.ready, 0),
+      elapsed: plots[0]?.elapsed ?? 0,
     };
   }
+  const rawMachines = object(raw.machines);
+  for (const machine of MACHINES) {
+    if (state.upgrades[machine.upgrade] < 1) continue;
+    const stored = object(rawMachines[machine.id]);
+    const output = integer(stored.output, 0, machine.bufferCapacity);
+    const processing = integer(
+      stored.processing,
+      0,
+      Math.min(state.upgrades[machine.upgrade] * 2, machine.bufferCapacity - output),
+    );
+    state.machines[machine.id] = {
+      input: integer(stored.input, 0, machine.bufferCapacity),
+      output,
+      processing,
+      elapsed: processing ? number(stored.elapsed, 0, machine.batchMs - 1) : 0,
+    };
+  }
+  const rawWorkers = Array.isArray(raw.workers) ? raw.workers : [];
+  const workerCapacity = GAME_CONFIG.helperCapacities[state.upgrades.helperCapacity];
+  state.workers = Array.from({ length: state.upgrades.helpers }, (_, index): WorkerData => {
+    const id = index + 1;
+    const original = object(rawWorkers.find((entry) => object(entry).id === id));
+    const position = point(original, { x: 990 + index * 35, y: 780 });
+    const basket = emptyItems();
+    const storedBasket = object(original.basket);
+    let room = workerCapacity;
+    for (const product of PRODUCTS) {
+      basket[product.id] = state.unlockedProducts.includes(product.id)
+        ? integer(storedBasket[product.id], 0, room)
+        : 0;
+      room -= basket[product.id];
+    }
+    // Replan jobs on load, but never discard the goods a helper is carrying.
+    return {
+      id,
+      ...position,
+      basket,
+      task: 'idle',
+      product: null,
+      target: { ...position },
+      path: [],
+      actionElapsed: 0,
+    };
+  });
   const states: CustomerState[] = [
     'ENTERING',
     'MOVING_TO_SHELF',
@@ -164,7 +245,7 @@ export function validateSave(value: unknown): GameState | null {
     }
   }
   state.checkoutProgress = state.customers.some((customer) => customer.state === 'PAYING')
-    ? number(raw.checkoutProgress, 0, GAME_CONFIG.checkoutTime - 1)
+    ? number(raw.checkoutProgress, 0, checkoutDuration(state) - 1)
     : 0;
   return state;
 }

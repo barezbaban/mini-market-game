@@ -3,6 +3,8 @@ import { PRODUCTS, emptyItems } from '../data/products';
 import type { GameEvent, GameState } from '../types';
 import { distance, orderedQueue } from './CustomerSystem';
 import { EconomySystem } from './EconomySystem';
+import { checkoutDuration } from '../data/upgrades';
+import { awardXp } from './ProgressionSystem';
 
 export class CheckoutSystem {
   constructor(
@@ -28,7 +30,7 @@ export class CheckoutSystem {
     }
     customer.state = 'PAYING';
     this.state.checkoutProgress += deltaMs;
-    if (this.state.checkoutProgress < GAME_CONFIG.checkoutTime) return;
+    if (this.state.checkoutProgress < checkoutDuration(this.state)) return;
     const amount = PRODUCTS.reduce(
       (sum, product) => sum + customer.basket[product.id] * product.sellingPrice,
       0,
@@ -38,6 +40,7 @@ export class CheckoutSystem {
       return;
     }
     this.state.totalServed += 1;
+    awardXp(this.state, 5, this.emit);
     this.state.tutorialStep = Math.max(this.state.tutorialStep, 5);
     this.state.checkoutProgress = 0;
     customer.state = 'LEAVING';

@@ -187,7 +187,7 @@ test('a saved blocked queue resumes cashier sales without resetting progress', a
   await openGame(page);
   const initial = await state(page);
   expect(initial.cashier).toBe(true);
-  expect(initial.upgrades).toEqual(stuckQueue.upgrades);
+  expect(initial.upgrades).toMatchObject(stuckQueue.upgrades);
   expect(initial.money).toBe(stuckQueue.money);
 
   // Exercise the actual browser frame loop first, not just accelerated test time.
@@ -206,13 +206,13 @@ test('a saved blocked queue resumes cashier sales without resetting progress', a
   );
   const originalIds = new Set(stuckQueue.customers.map((customer) => customer.id));
   expect(recovered.customers.filter((customer) => originalIds.has(customer.id))).toEqual([]);
-  expect(recovered.upgrades).toEqual(stuckQueue.upgrades);
+  expect(recovered.upgrades).toMatchObject(stuckQueue.upgrades);
   await page.reload();
   await page.waitForFunction(() => window.__MARKET__?.ready);
   const restored = await state(page);
   expect(restored.money).toBe(recovered.money);
   expect(restored.totalServed).toBe(recovered.totalServed);
-  expect(restored.upgrades).toEqual(stuckQueue.upgrades);
+  expect(restored.upgrades).toMatchObject(stuckQueue.upgrades);
   expect(errors).toEqual([]);
 });
 

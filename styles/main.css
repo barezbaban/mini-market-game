@@ -777,3 +777,508 @@ kbd {
     transition: none;
   }
 }
+
+/* Progress and management stay at the edge of the game, with details on demand. */
+.hud-left {
+  gap: 8px;
+}
+.level-card {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  min-width: 139px;
+  border-radius: 12px;
+  background: #fffef0e8;
+  pointer-events: none;
+}
+.level-card > span {
+  font:
+    800 12px 'Outfit',
+    sans-serif;
+  color: #688a41;
+  white-space: nowrap;
+}
+.level-card > div {
+  flex: 1;
+}
+#xp-label {
+  display: block;
+  color: #819264;
+  font-size: 8px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.xp-track {
+  height: 4px;
+  margin-top: 4px;
+  background: #e2eacb;
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 72px;
+}
+#xp-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: #93b851;
+  border-radius: inherit;
+  transition: width 0.2s;
+}
+.manage-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 113px;
+  border: 2px solid #fffdf0;
+  border-radius: 12px;
+  padding: 8px 13px;
+  background: #5d8648;
+  color: #fffdec;
+  font:
+    700 13px 'Outfit',
+    sans-serif;
+  box-shadow: 0 3px 0 #42662b2e;
+  pointer-events: auto;
+}
+.manage-button:hover {
+  background: #4e7939;
+}
+.basket-card {
+  position: relative;
+  pointer-events: auto;
+}
+button.basket-heading {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  gap: 8px;
+}
+button.basket-heading > span:first-child {
+  margin-right: auto;
+}
+.inventory-extra {
+  font-size: 7px;
+  white-space: nowrap;
+  color: #78935a;
+}
+.inventory-detail {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  width: 234px;
+  padding: 14px;
+  border: 2px solid #fffdf4;
+  background: #fffcf0;
+  border-radius: 15px;
+  box-shadow: 0 6px 18px #36532620;
+  z-index: 6;
+}
+.inventory-detail > strong {
+  display: block;
+  margin-bottom: 10px;
+  font:
+    700 13px 'Outfit',
+    sans-serif;
+}
+.inventory-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 0;
+  font-size: 11px;
+}
+.inventory-detail-row > span {
+  flex: 1;
+}
+.inventory-detail-row small {
+  display: block;
+  color: #9a9f88;
+  font-size: 8px;
+  margin-top: 2px;
+}
+.inventory-detail-row b {
+  font:
+    700 14px 'Outfit',
+    sans-serif;
+}
+.inventory-detail-row.locked {
+  color: #9caa8c;
+}
+.inventory-detail-row.locked .produce-icon {
+  opacity: 0.4;
+}
+.game-dialog.management-dialog {
+  width: min(820px, calc(100% - 32px));
+  max-width: 820px;
+  height: min(760px, calc(100dvh - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  overflow: hidden;
+  border-radius: 25px;
+}
+.management-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.management-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px 25px 14px;
+}
+.eyebrow {
+  display: block;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #97a67c;
+}
+.management-header h2 {
+  margin: 5px 0 0;
+  font:
+    700 28px/1.2 'Outfit',
+    sans-serif;
+  letter-spacing: -0.5px;
+}
+.management-summary {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 25px 20px;
+  color: #84936c;
+  font-size: 11px;
+  flex-wrap: wrap;
+}
+.management-summary > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.management-summary > span:first-child {
+  color: #718948;
+}
+.management-summary strong {
+  font:
+    700 18px 'Outfit',
+    sans-serif;
+}
+.management-tabs {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+  padding: 0 25px 12px;
+  border-bottom: 1px solid #e6ebd7;
+}
+.management-tabs button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 7px;
+  border: 0;
+  border-radius: 12px;
+  background: #edf1dd;
+  color: #889970;
+  font:
+    600 13px 'Outfit',
+    sans-serif;
+}
+.management-tabs button[aria-selected='true'] {
+  color: #fffdee;
+  background: #64884c;
+}
+.management-tabs button:hover {
+  background: #dfe8cc;
+  color: #5d7f47;
+}
+.management-tabs button[aria-selected='true']:hover {
+  background: #64884c;
+  color: #fffdee;
+}
+.management-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 25px 24px;
+  scrollbar-color: #c4d2ae transparent;
+  scrollbar-width: thin;
+}
+.management-content:focus-visible {
+  outline-offset: -3px;
+}
+.management-content .management-intro {
+  margin: 15px 0;
+  font-size: 11px;
+  color: #92a078;
+}
+.upgrade-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.upgrade-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 17px;
+  min-width: 0;
+  border: 1px solid #e3e8d3;
+  border-radius: 17px;
+  background: #fffef8;
+}
+.upgrade-card.maxed {
+  background: #f3f6e9;
+}
+.upgrade-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.upgrade-symbol {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 43px;
+  height: 43px;
+  border-radius: 13px;
+  background: #f0f3df;
+  color: #819c5c;
+}
+.upgrade-symbol .produce-icon {
+  width: 31px;
+  height: 31px;
+}
+.upgrade-card-heading small {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  margin: 0;
+  color: #9aa786;
+}
+.upgrade-card h3 {
+  font:
+    700 17px/1.2 'Outfit',
+    sans-serif;
+  letter-spacing: -0.2px;
+  margin: 4px 0 0;
+}
+.upgrade-effect {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  min-height: 36px;
+  border-radius: 9px;
+  background: #f2f5e6;
+  color: #8b9a73;
+  font-size: 11px;
+}
+.upgrade-effect > svg {
+  flex-shrink: 0;
+  color: #9caf7a;
+}
+.upgrade-effect strong {
+  color: #567846;
+  font-weight: 700;
+}
+.upgrade-card > p {
+  font-size: 11px;
+  line-height: 1.55;
+  color: #8b967b;
+  margin: 0;
+}
+.upgrade-requirement {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  line-height: 1.4;
+  color: #b18a51;
+}
+.upgrade-requirement svg {
+  flex-shrink: 0;
+}
+.upgrade-purchase {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  margin-top: auto;
+  padding-top: 2px;
+}
+.upgrade-cost {
+  font:
+    700 18px 'Outfit',
+    sans-serif;
+  color: #678649;
+}
+.upgrade-buy {
+  min-height: 35px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: #719450;
+  color: #fffdec;
+  font:
+    700 11px 'Outfit',
+    sans-serif;
+}
+.upgrade-buy:hover:not(:disabled) {
+  background: #5c803e;
+}
+.upgrade-buy:disabled {
+  cursor: default;
+  color: #9ba785;
+  background: #eef1e3;
+}
+.upgrade-card.unavailable .upgrade-cost {
+  color: #a7b194;
+}
+.upgrade-card.maxed .upgrade-cost {
+  color: #93a378;
+  font-size: 12px;
+}
+.management-status {
+  flex-shrink: 0;
+  padding: 12px 25px;
+  border-top: 1px solid #e6ebd7;
+  color: #8b9a74;
+  font-size: 10px;
+  line-height: 1.4;
+  min-height: 39px;
+  background: #f6f8ec;
+}
+@media (max-width: 600px) {
+  .level-card {
+    min-width: 117px;
+    padding: 6px 8px;
+    gap: 6px;
+  }
+  .level-card > span {
+    font-size: 10px;
+  }
+  #xp-label {
+    font-size: 7px;
+  }
+  .xp-track {
+    min-width: 64px;
+  }
+  .manage-button {
+    min-width: 103px;
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+  .game-dialog.management-dialog {
+    width: calc(100% - 20px);
+    height: calc(100dvh - 24px);
+    max-height: calc(100dvh - 24px);
+    border-radius: 19px;
+  }
+  .management-header {
+    padding: 18px 17px 10px;
+  }
+  .management-header h2 {
+    font-size: 23px;
+  }
+  .management-summary {
+    padding: 0 17px 14px;
+    gap: 10px;
+    font-size: 9px;
+  }
+  .management-summary > span:last-child {
+    display: none;
+  }
+  .management-summary strong {
+    font-size: 16px;
+  }
+  .management-tabs {
+    padding: 0 12px 10px;
+    gap: 4px;
+  }
+  .management-tabs button {
+    flex-direction: column;
+    gap: 5px;
+    padding: 9px 4px;
+    font-size: 11px;
+    border-radius: 10px;
+  }
+  .management-content {
+    padding: 0 13px 16px;
+  }
+  .upgrade-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .upgrade-card {
+    padding: 15px;
+    gap: 10px;
+  }
+  .upgrade-card h3 {
+    font-size: 17px;
+  }
+  .upgrade-effect {
+    justify-content: flex-start;
+  }
+  .management-status {
+    padding: 10px 17px;
+  }
+}
+@media (max-height: 600px) and (orientation: landscape) {
+  .hud-left {
+    gap: 6px;
+  }
+  .level-card {
+    padding: 5px 8px;
+    min-width: 122px;
+  }
+  .level-card > span {
+    font-size: 10px;
+  }
+  #xp-label {
+    font-size: 7px;
+  }
+  .manage-button {
+    min-width: 105px;
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+  .manage-button svg {
+    width: 16px;
+    height: 16px;
+  }
+  .game-dialog.management-dialog {
+    height: calc(100dvh - 18px);
+    max-height: calc(100dvh - 18px);
+  }
+  .management-header {
+    padding: 12px 20px 7px;
+  }
+  .management-header h2 {
+    font-size: 22px;
+  }
+  .management-summary {
+    padding: 0 20px 10px;
+  }
+  .management-tabs {
+    padding: 0 20px 9px;
+  }
+  .management-tabs button {
+    padding: 8px;
+  }
+  .management-content {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  .management-status {
+    padding: 8px 20px;
+    min-height: 29px;
+  }
+}

@@ -8,7 +8,6 @@ import {
   Mesh,
   MeshBasicMaterial,
   OrthographicCamera,
-  PCFShadowMap,
   Scene,
   SRGBColorSpace,
   Vector3,
@@ -18,25 +17,14 @@ import type { BufferGeometry, Material, Texture } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GAME_CONFIG } from '../data/gameConfig';
 import { PRODUCTS } from '../data/products';
-import { UPGRADES } from '../data/upgrades';
-import type { GameEvent, GameState, ProductDefinition, ProductId, UpgradeId, Vec2 } from '../types';
-import { createCharacter, createChicken, createProduce, createTree } from './Models';
+import { UPGRADES, checkoutDuration, upgradeAvailable, upgradeCost } from '../data/upgrades';
+import type { GameEvent, GameState, ProductId, UpgradeId, Vec2 } from '../types';
+import { createCharacter, createProduce, createTree } from './Models';
+import { StoreDisplays } from './world/StoreDisplays';
 import type { CharacterModel } from './Models';
 import { block, crate, disc, label, PALETTE as C, ring, sphere } from './world/WorldKit';
 import type { WorldLabel } from './world/WorldKit';
 
-interface ProductVisual {
-  shelf: Group;
-  shelfItems: Group[];
-  count: WorldLabel;
-  farm: Group;
-  farmItems: Group[];
-  crops: Group;
-  lock: Group;
-  farmCount: WorldLabel;
-  growFill: Mesh;
-  readyRing: Mesh;
-}
 interface UpgradeVisual {
   group: Group;
   outline: Mesh;
@@ -70,9 +58,11 @@ export class WorldRenderer {
   private readonly player: CharacterModel;
   private readonly cashier: CharacterModel;
   private readonly customers: CustomerVisual[] = [];
-  private readonly products = new Map<ProductId, ProductVisual>();
+  private readonly displays: StoreDisplays;
   private readonly upgrades = new Map<UpgradeId, UpgradeVisual>();
-  private readonly chickens: Group[] = [];
+  private readonly workers: { model: CharacterModel; previous: Vec2 }[] = [];
+  private readonly officeStaff: { model: CharacterModel; upgrade: 'customers' | 'accountant' }[] =
+    [];
   private readonly transfers: Transfer[] = [];
   private readonly cameraTarget = new Vector3(-0.85, 0, 0.2);
   private readonly cameraOffset = new Vector3(Math.sin(YAW) * 18, 25.7, Math.cos(YAW) * 18);
@@ -94,8 +84,7 @@ export class WorldRenderer {
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     this.renderer.outputColorSpace = SRGBColorSpace;
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = PCFShadowMap;
+    this.renderer.shadowMap.enabled = false;
     this.renderer.domElement.setAttribute('aria-label', 'Three dimensional mini market game');
     this.renderer.domElement.style.display = 'block';
     host.appendChild(this.renderer.domElement);
@@ -104,22 +93,13 @@ export class WorldRenderer {
     this.scene.add(new AmbientLight(0xffffff, 0.18));
     const sun = new DirectionalLight(0xfff6df, 2.3);
     sun.position.set(-6, 14, 7);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.camera.left = -13;
-    sun.shadow.camera.right = 13;
-    sun.shadow.camera.top = 11;
-    sun.shadow.camera.bottom = -11;
-    sun.shadow.camera.near = 0.5;
-    sun.shadow.camera.far = 40;
-    sun.shadow.normalBias = 0.035;
-    sun.shadow.bias = -0.00015;
-    sun.shadow.radius = 3;
+    sun.castShadow = false;
     this.scene.add(sun);
     this.drawEnvironment();
     this.drawMarket();
     this.batchStaticWorld();
-    PRODUCTS.forEach((product) => this.createProduct(product));
+    this.displays = new StoreDisplays(this.scene);
+    this.drawOffice();
     this.drawUpgrades();
     const checkout = this.drawCheckout();
     this.checkoutRing = checkout.ring;
@@ -144,6 +124,12 @@ export class WorldRenderer {
     this.cashier.setFacing(-1, 0);
     this.cashier.group.visible = false;
     this.scene.add(this.cashier.group);
+    [0x659ec0, 0xba85b2, 0xe5a44e].forEach((color) => {
+      const model = createCharacter('cashier', color);
+      model.group.visible = false;
+      this.scene.add(model.group);
+      this.workers.push({ model, previous: { x: 0, y: 0 } });
+    });
     for (let index = 0; index < GAME_CONFIG.customerMax; index += 1) {
       const model = createCharacter('customer');
       model.group.visible = false;
@@ -151,11 +137,10 @@ export class WorldRenderer {
       const bubble = new Group();
       const background = sphere(bubble, 0, 0, 0, 0.15, C.white);
       background.scale.z *= 0.55;
-      const item = {
-        tomato: createProduce('tomato'),
-        egg: createProduce('egg'),
-        corn: createProduce('corn'),
-      };
+      const item = Object.fromEntries(PRODUCTS.map(({ id }) => [id, createProduce(id)])) as Record<
+        ProductId,
+        Group
+      >;
       Object.values(item).forEach((produce) => {
         produce.scale.setScalar(0.7);
         produce.position.z = 0.08;
@@ -246,16 +231,36 @@ export class WorldRenderer {
         });
       }
     });
-    PRODUCTS.forEach((product) => this.updateProduct(product, state, timeMs));
+    this.displays.update(state, timeMs);
+    this.workers.forEach((visual, index) => {
+      const worker = state.workers[index];
+      visual.model.group.visible = Boolean(worker);
+      if (!worker) return;
+      const dx = worker.x - visual.previous.x;
+      const dy = worker.y - visual.previous.y;
+      const moving = Math.hypot(dx, dy) > 0.01;
+      visual.model.group.position.copy(toWorld(worker));
+      if (moving) visual.model.setFacing(dx, dy);
+      visual.model.setInventory(worker.basket);
+      visual.model.animate(timeMs + worker.id * 113, moving);
+      visual.previous = { x: worker.x, y: worker.y };
+    });
+    this.officeStaff.forEach(({ model, upgrade }) => {
+      model.group.visible = state.upgrades[upgrade] > 0;
+      model.animate(timeMs, false);
+    });
     UPGRADES.forEach((upgrade) => {
-      const visual = this.upgrades.get(upgrade.id)!;
+      const visual = this.upgrades.get(upgrade.id);
+      if (!visual) return;
+      visual.group.visible = upgradeAvailable(state, upgrade.id);
       const complete = state.upgrades[upgrade.id] >= upgrade.maxLevel;
-      const affordable = state.money >= upgrade.cost;
+      const cost = upgradeCost(state, upgrade.id);
+      const affordable = state.money >= cost;
       (visual.outline.material as MeshBasicMaterial).color.set(
         complete ? C.green : affordable ? C.gold : C.white,
       );
       visual.price.setText(
-        complete ? 'DONE' : `$${upgrade.cost}`,
+        complete ? 'MAX' : `$${cost}`,
         complete ? '#128560' : '#17694b',
         complete ? '#def5d9' : '#ffffff',
       );
@@ -280,17 +285,13 @@ export class WorldRenderer {
     this.checkoutProgress.visible = paying;
     this.checkoutProgress.geometry.setDrawRange(
       0,
-      Math.floor(Math.min(1, state.checkoutProgress / GAME_CONFIG.checkoutTime) * 64) * 6,
+      Math.floor(Math.min(1, state.checkoutProgress / checkoutDuration(state)) * 64) * 6,
     );
     this.checkoutLabel.setText(
       state.cashier ? 'CASHIER' : queue.length ? 'CHECK OUT' : 'CHECKOUT',
       '#ffffff',
       '#168a65',
     );
-    this.chickens.forEach((chicken, index) => {
-      chicken.rotation.y = Math.sin(timeMs / 1800 + index * 2.2) * 0.65 + index * 1.7;
-      chicken.position.y = Math.max(0, Math.sin(timeMs / 380 + index * 2)) * 0.025 + 0.14;
-    });
     this.updateTransfers(deltaMs);
     this.updateObjective(state, timeMs);
     this.updateCamera(deltaMs);
@@ -299,7 +300,9 @@ export class WorldRenderer {
 
   showEvent(event: GameEvent): void {
     if (!this.lastState) return;
-    const product = PRODUCTS.find((entry) => event.text.toLowerCase().includes(entry.id));
+    const product = [...PRODUCTS]
+      .sort((a, b) => b.name.length - a.name.length)
+      .find((entry) => event.text.toLowerCase().includes(entry.name.toLowerCase()));
     if ((event.type === 'harvest' || event.type === 'stock') && product) {
       const group = createProduce(product.id);
       group.scale.setScalar(1.3);
@@ -355,7 +358,11 @@ export class WorldRenderer {
     const portrait = this.width / this.height < 1.15;
     const target = portrait
       ? new Vector3(player.x, 0, player.z - 0.3)
-      : new Vector3(player.x * 0.42 - 0.25, 0, player.z * 0.42 - 0.1);
+      : new Vector3(
+          player.x + Math.max(-1.8, Math.min(1.8, -player.x * 0.58 - 0.25)),
+          0,
+          player.z * 0.75 - 0.1,
+        );
     if (!this.initialized) {
       this.cameraTarget.copy(target);
       this.initialized = true;
@@ -388,7 +395,11 @@ export class WorldRenderer {
     else if (state.tutorialStep <= 4) destination = GAME_CONFIG.cashierSpot;
     else if (state.tutorialStep === 5)
       destination = UPGRADES.find(
-        (upgrade) => state.upgrades[upgrade.id] < upgrade.maxLevel && state.money >= upgrade.cost,
+        (upgrade) =>
+          upgrade.inWorld &&
+          upgradeAvailable(state, upgrade.id) &&
+          state.upgrades[upgrade.id] < upgrade.maxLevel &&
+          state.money >= upgradeCost(state, upgrade.id),
       )?.position;
     this.objective.visible = Boolean(destination);
     if (destination) {
@@ -399,31 +410,31 @@ export class WorldRenderer {
 
   private drawEnvironment(): void {
     block(this.scene, 0, -0.14, 0, 80, 0.2, 80, C.grass, false);
-    block(this.scene, 7.55, -0.02, 0, 2.5, 0.05, 50, 0xbfc5aa, false);
-    block(this.scene, 6.17, -0.005, 0, 0.25, 0.08, 50, C.cream, false);
+    block(this.scene, 18.55, -0.02, 0, 2.5, 0.05, 50, 0xbfc5aa, false);
+    block(this.scene, 17.17, -0.005, 0, 0.25, 0.08, 50, C.cream, false);
     for (let z = -18; z < 20; z += 1.3)
-      block(this.scene, 7.55, 0.012, z, 0.08, 0.018, 0.65, C.cream);
-    block(this.scene, 0, -0.005, 0.46, 12.4, 0.055, 0.66, 0xe7dcc1);
-    for (let x = -6; x < 6; x += 0.55)
+      block(this.scene, 18.55, 0.012, z, 0.08, 0.018, 0.65, C.cream);
+    block(this.scene, 5.2, -0.005, 0.46, 22.8, 0.055, 0.66, 0xe7dcc1);
+    for (let x = -6; x < 16.4; x += 0.55)
       block(this.scene, x, 0.026, 0.46, 0.5, 0.016, 0.53, 0xf4eacf);
     block(this.scene, 4.96, -0.008, 0.45, 1.58, 0.065, 6.35, 0xadd789);
-    block(this.scene, -1.62, -0.009, 2.08, 7.45, 0.065, 2.25, 0xa1d67d);
+    block(this.scene, -1.62, -0.009, 3.13, 7.45, 0.065, 4.6, 0xa1d67d);
     for (let x = -5.6; x < 1.3; x += 0.46)
-      block(this.scene, x, 0.3, 3.55, 0.075, 0.63, 0.075, C.cream);
-    [0.22, 0.46].forEach((y) => block(this.scene, -2.3, y, 3.55, 6.7, 0.075, 0.07, C.cream));
+      block(this.scene, x, 0.3, 6, 0.075, 0.63, 0.075, C.cream);
+    [0.22, 0.46].forEach((y) => block(this.scene, -2.3, y, 6, 6.7, 0.075, 0.07, C.cream));
     [
       [-6.1, -3.6, 1.2],
       [-7, -1, 0.95],
       [-6.5, 2, 0.95],
-      [-5.8, 4.2, 1.1],
-      [-3, 5, 1.15],
-      [0.4, 4.8, 1],
-      [3.2, 4.7, 1.15],
+      [-5.8, 6.6, 1.1],
+      [-3, 6.5, 1.15],
+      [0.4, 6.6, 1],
+      [3.2, 6.7, 1.15],
       [5.6, -3.7, 1.1],
       [1.8, -4.6, 1.05],
       [-2.2, -4.5, 1.2],
-      [10.1, -0.9, 1.5],
-      [10.5, 3.4, 1.15],
+      [17.5, -3.9, 1.5],
+      [17.5, 6.4, 1.15],
     ].forEach(([x, z, scale]) => {
       const tree = createTree();
       tree.position.set(x, 0, z);
@@ -433,7 +444,7 @@ export class WorldRenderer {
     for (let index = 0; index < 55; index += 1) {
       const x = Math.sin(index * 29.7) * 9.5;
       const z = Math.cos(index * 17.4) * 7;
-      if ((x > -5.8 && x < 6.3 && z > -3.1 && z < 3.8) || x > 6.1) continue;
+      if ((x > -5.8 && x < 16.3 && z > -3.1 && z < 6.1) || x > 6.1) continue;
       const grass = block(this.scene, x, 0.05, z, 0.07, 0.15, 0.035, C.darkGrass);
       grass.rotation.z = index % 2 ? -0.3 : 0.3;
       if (index % 3 === 0)
@@ -481,8 +492,8 @@ export class WorldRenderer {
       if (!geometry) return;
       const merged = new Mesh(geometry, batch.material);
       merged.name = 'static-scenery';
-      merged.castShadow = batch.castShadow;
-      merged.receiveShadow = true;
+      merged.castShadow = false;
+      merged.receiveShadow = false;
       this.scene.add(merged);
     });
   }
@@ -530,175 +541,22 @@ export class WorldRenderer {
     welcome.object.position.set(3.6, 0.061, 0.06);
   }
 
-  private createProduct(product: ProductDefinition): void {
-    const shelf = new Group();
-    shelf.position.copy(toWorld(product.shelf));
-    this.scene.add(shelf);
-    const accent = product.id === 'tomato' ? 0xf68b6e : product.id === 'egg' ? 0xefc45e : 0x80b968;
-    block(shelf, 0, 0.13, 0, 1.45, 0.22, 0.75, C.green);
-    block(shelf, 0, 0.32, 0, 1.46, 0.15, 0.76, C.cream);
-    block(shelf, 0, 0.64, -0.26, 1.46, 0.08, 0.3, C.wood);
-    [-0.67, 0.67].forEach((x) => block(shelf, x, 0.5, -0.24, 0.07, 0.61, 0.38, C.cream));
-    block(shelf, 0, 0.51, -0.4, 1.45, 0.65, 0.055, C.cream);
-    block(shelf, 0, 0.33, 0.39, 1.42, 0.18, 0.065, accent);
-    const shelfName = label(shelf, product.plural.toUpperCase(), 1.15, 0.18, {
-      foreground: '#ffffff',
-      surface: true,
-    });
-    shelfName.object.position.set(0, 0.33, 0.433);
-    const count = label(shelf, '0 / 8', 0.69, 0.25, {
-      foreground: '#247759',
-      background: '#ffffff',
-    });
-    count.object.position.set(0, 1.05, -0.05);
-    const shelfItems: Group[] = [];
-    for (let index = 0; index < 12; index += 1) {
-      const produce = createProduce(product.id);
-      const row = Math.floor(index / 4);
-      produce.position.set(
-        -0.47 + (index % 4) * 0.31,
-        row === 2 ? 0.77 : 0.46,
-        row === 2 ? -0.26 : 0.17 - row * 0.22,
-      );
-      produce.scale.setScalar(0.9);
-      shelf.add(produce);
-      shelfItems.push(produce);
-    }
-    const farm = new Group();
-    farm.position.copy(toWorld(product.farm));
-    this.scene.add(farm);
-    block(farm, 0, 0.065, 0, 1.64, 0.14, 1.24, C.wood);
-    block(farm, 0, 0.145, 0, 1.5, 0.04, 1.1, product.id === 'egg' ? 0xefcc75 : C.soil);
-    [-1, 1].forEach((side) => {
-      block(farm, side * 0.8, 0.16, 0, 0.075, 0.23, 1.26, 0xe8b983);
-      block(farm, 0, 0.16, side * 0.6, 1.67, 0.23, 0.075, 0xe8b983);
-    });
-    const crops = new Group();
-    farm.add(crops);
-    const farmItems: Group[] = [];
-    for (let index = 0; index < 8; index += 1) {
-      const x = -0.51 + (index % 4) * 0.34;
-      const z = -0.25 + Math.floor(index / 4) * 0.49;
-      if (product.id !== 'egg') {
-        disc(crops, x, 0.3, z, 0.024, product.id === 'corn' ? 0.46 : 0.23, 0x42913c);
-        [-1, 1].forEach((side) => {
-          const leaf = sphere(
-            crops,
-            x + side * 0.07,
-            0.32,
-            z,
-            0.09,
-            product.id === 'corn' ? 0x74ae43 : 0x399847,
-          );
-          leaf.scale.set(0.1125, 0.0225, 0.0585);
-          leaf.rotation.z = side * 0.48;
-        });
-      } else {
-        disc(crops, x, 0.185, z, 0.13, 0.03, 0xc39851);
-        disc(crops, x, 0.204, z, 0.1, 0.02, 0xe2b95d);
-      }
-      const produce = createProduce(product.id);
-      produce.position.set(x, product.id === 'egg' ? 0.25 : product.id === 'corn' ? 0.51 : 0.39, z);
-      if (product.id === 'corn') produce.rotation.z = -0.35;
-      crops.add(produce);
-      farmItems.push(produce);
-    }
-    if (product.id === 'egg') {
-      const coop = new Group();
-      coop.position.set(0, 0, 0.92);
-      farm.add(coop);
-      block(coop, 0, 0.4, 0, 0.66, 0.65, 0.47, C.cream);
-      block(coop, 0, 0.26, -0.245, 0.25, 0.33, 0.035, 0x6e704a);
-      const roof = block(coop, -0.18, 0.78, 0, 0.48, 0.085, 0.65, C.peach);
-      roof.rotation.z = 0.46;
-      const roof2 = block(coop, 0.18, 0.78, 0, 0.48, 0.085, 0.65, C.peach);
-      roof2.rotation.z = -0.46;
-      [-0.53, 0.53].forEach((x, index) => {
-        const chicken = createChicken();
-        chicken.position.set(x, 0.14, 0.4 + index * -0.7);
-        chicken.scale.setScalar(0.85);
-        farm.add(chicken);
-        this.chickens.push(chicken);
-      });
-    }
-    const lock = new Group();
-    farm.add(lock);
-    block(lock, 0, 0.29, 0, 0.58, 0.5, 0.075, C.wood);
-    const lockLabel = label(lock, 'CORN', 0.53, 0.21, { foreground: '#ffffff', surface: true });
-    lockLabel.object.position.set(0, 0.38, 0.075);
-    const unlockLabel = label(lock, 'UNLOCK $150', 1.22, 0.25, {
-      foreground: '#5d7650',
-      background: '#eff7d6',
-    });
-    unlockLabel.object.position.set(0, 0.8, 0);
-    const farmCount = label(farm, '', 0.87, 0.25, { foreground: '#217c52', background: '#ffffff' });
-    farmCount.object.position.set(0, 0.93, -0.26);
-    const progressGroup = new Group();
-    progressGroup.position.set(0, 0.59, -0.68);
-    farm.add(progressGroup);
-    block(progressGroup, 0, 0, 0, 0.65, 0.043, 0.055, 0xf6f7dc);
-    const growFill = block(progressGroup, -0.31, 0.007, 0.001, 0.001, 0.031, 0.058, C.green);
-    const readyRing = ring(farm, 0.69, C.white, 0.024);
-    readyRing.position.y = 0.023;
-    this.products.set(product.id, {
-      shelf,
-      shelfItems,
-      count,
-      farm,
-      farmItems,
-      crops,
-      lock,
-      farmCount,
-      growFill,
-      readyRing,
-    });
-  }
-
-  private updateProduct(product: ProductDefinition, state: GameState, timeMs: number): void {
-    const visual = this.products.get(product.id)!;
-    const unlocked = state.unlockedProducts.includes(product.id);
-    visual.shelfItems.forEach((item, index) => {
-      item.visible = unlocked && index < state.shelves[product.id];
-    });
-    visual.count.setText(
-      unlocked ? `${state.shelves[product.id]} / ${state.shelfCapacities[product.id]}` : 'LOCKED',
-      unlocked ? '#247759' : '#97a490',
-    );
-    visual.crops.visible = unlocked;
-    visual.lock.visible = !unlocked;
-    visual.farmCount.object.visible = unlocked;
-    visual.growFill.parent!.visible = unlocked;
-    visual.readyRing.visible =
-      unlocked &&
-      Math.hypot(state.player.x - product.farm.x, state.player.y - product.farm.y) <=
-        GAME_CONFIG.interactionRadius;
-    const ready = state.farms[product.id].ready;
-    visual.farmCount.setText(
-      ready > 0 ? `${ready} READY` : 'GROWING',
-      ready > 0 ? '#208459' : '#7e8668',
-      ready > 0 ? '#ffffff' : '#f0f2dc',
-    );
-    visual.farmItems.forEach((item, index) => {
-      item.visible = index < ready;
-      if (product.id !== 'egg') item.rotation.y = Math.sin(timeMs / 1900 + index) * 0.12;
-    });
-    const progress =
-      ready >= GAME_CONFIG.farmCapacity
-        ? 1
-        : state.farms[product.id].elapsed / product.productionTime;
-    visual.growFill.scale.x = Math.max(0.002, 0.61 * progress);
-    visual.growFill.position.x = -0.305 + 0.305 * progress;
-  }
-
   private drawUpgrades(): void {
-    const names: Record<UpgradeId, string> = {
+    const names: Partial<Record<UpgradeId, string>> = {
       inventory: 'CARRY MORE',
       shelf: 'BIGGER SHELF',
       customers: 'MORE SHOPPERS',
       corn: 'GROW CORN',
       cashier: 'HIRE CASHIER',
+      expansion: 'EXPAND STORE',
+      tomatoPlots: 'ADD TOMATO PLANT',
+      eggPlots: 'ADD CHICKEN NEST',
+      cornPlots: 'ADD CORN PLOT',
+      carrotPlots: 'ADD CARROT BED',
+      pasteMachine: 'UPGRADE CANNERY',
+      coffeeMachine: 'UPGRADE GRINDER',
     };
-    UPGRADES.forEach((upgrade) => {
+    UPGRADES.filter((upgrade) => upgrade.inWorld).forEach((upgrade) => {
       const group = new Group();
       group.position.copy(toWorld(upgrade.position));
       this.scene.add(group);
@@ -712,7 +570,7 @@ export class WorldRenderer {
       const progress = ring(group, 0.37, C.gold, 0.063);
       progress.position.y = 0.055;
       progress.visible = false;
-      const title = label(group, names[upgrade.id], 1.18, 0.16, {
+      const title = label(group, names[upgrade.id] ?? upgrade.name.toUpperCase(), 1.18, 0.16, {
         flat: true,
         foreground: '#397e4f',
       });
@@ -746,6 +604,36 @@ export class WorldRenderer {
         }
       }
       this.upgrades.set(upgrade.id, { group, outline, progress, price, title });
+    });
+  }
+
+  private drawOffice(): void {
+    const office = new Group();
+    office.position.copy(toWorld({ x: 990, y: 780 }));
+    this.scene.add(office);
+    block(office, 0, 0.015, 0, 2.35, 0.06, 1.5, C.cream);
+    const sign = label(office, 'TEAM OFFICE', 1.85, 0.24, {
+      foreground: '#347655',
+      background: '#f5efda',
+    });
+    sign.object.position.set(0, 0.85, -0.55);
+    const roles = [
+      { upgrade: 'customers' as const, title: 'MARKETING', color: 0xa788be },
+      { upgrade: 'accountant' as const, title: 'ACCOUNTANT', color: 0x6a9db4 },
+    ];
+    roles.forEach((role, index) => {
+      const x = index ? 0.58 : -0.58;
+      block(office, x, 0.4, 0, 0.83, 0.09, 0.55, C.wood);
+      [-0.31, 0.31].forEach((side) => block(office, x + side, 0.2, 0, 0.07, 0.38, 0.4, C.cream));
+      block(office, x, 0.6, -0.11, 0.33, 0.29, 0.045, role.color);
+      block(office, x, 0.6, -0.082, 0.25, 0.19, 0.015, 0xdbefd4);
+      const title = label(office, role.title, 0.94, 0.14, { foreground: '#49765e' });
+      title.object.position.set(x, 0.15, 0.48);
+      const worker = createCharacter('cashier', role.color);
+      worker.group.position.copy(toWorld({ x: 990 + x * 100, y: 817 }));
+      worker.setFacing(0, -1);
+      this.scene.add(worker.group);
+      this.officeStaff.push({ model: worker, upgrade: role.upgrade });
     });
   }
 

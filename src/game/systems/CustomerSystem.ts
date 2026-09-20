@@ -1,5 +1,5 @@
 import { GAME_CONFIG } from '../data/gameConfig';
-import { emptyItems, productById } from '../data/products';
+import { PRODUCTS, emptyItems, productById } from '../data/products';
 import type { CustomerData, GameState, ProductId, Vec2 } from '../types';
 import { InventorySystem, itemCount } from './InventorySystem';
 
@@ -69,6 +69,33 @@ function distanceToApproach(point: Vec2, customer: CustomerData): number {
   return closest;
 }
 
+function crossesSolid(
+  start: Vec2,
+  end: Vec2,
+  left: number,
+  right: number,
+  top: number,
+  bottom: number,
+): boolean {
+  let enter = 0;
+  let exit = 1;
+  for (const [origin, delta, low, high] of [
+    [start.x, end.x - start.x, left + 1e-6, right - 1e-6],
+    [start.y, end.y - start.y, top + 1e-6, bottom - 1e-6],
+  ]) {
+    if (Math.abs(delta) < 1e-9) {
+      if (origin < low || origin > high) return false;
+    } else {
+      const first = (low - origin) / delta;
+      const second = (high - origin) / delta;
+      enter = Math.max(enter, Math.min(first, second));
+      exit = Math.min(exit, Math.max(first, second));
+      if (enter >= exit) return false;
+    }
+  }
+  return enter < exit;
+}
+
 /** Shoppers follow explicit aisle routes, then occupy stable, ordered queue slots. */
 export class CustomerSystem {
   private spawnElapsed: number;
@@ -76,6 +103,7 @@ export class CustomerSystem {
   private nextQueueOrder: number;
   private readonly queueIndices = new Map<number, number>();
   private readonly yielding = new Map<number, { earlierId: number; anchor: Vec2 }>();
+  private readonly blockedElapsed = new Map<number, number>();
 
   constructor(
     private readonly state: GameState,
@@ -281,8 +309,81 @@ export class CustomerSystem {
     return true;
   }
 
+  /** Find a physical route around a stationary crowd when local yielding has no exit. */
+  private routeAroundCrowd(customer: CustomerData, target: Vec2, queue: CustomerData[]): boolean {
+    const obstacles = queue.filter((other) => other.id !== customer.id);
+    const clear = (start: Vec2, end: Vec2): boolean =>
+      obstacles.every((other) => distanceToSegment(other, start, end) >= 26) &&
+      !crossesSolid(start, end, 863, 937, 172, 260) &&
+      PRODUCTS.every(
+        (product) =>
+          !crossesSolid(
+            start,
+            end,
+            product.shelf.x - 78,
+            product.shelf.x + 78,
+            product.shelf.y - 43,
+            product.shelf.y + 44,
+          ),
+      );
+    if (!clear(target, target)) return false;
+    const nodes: Vec2[] = [{ x: customer.x, y: customer.y }, target];
+    const right = GAME_CONFIG.areaBounds[this.state.upgrades.expansion];
+    // Eight points on a 30-unit circle leave every connecting chord outside the
+    // 26-unit collision radius. Intersecting circles discard their inner points.
+    for (const obstacle of obstacles) {
+      for (let direction = 0; direction < 8; direction += 1) {
+        const angle = (direction * Math.PI) / 4;
+        const point = {
+          x: obstacle.x + Math.cos(angle) * 30,
+          y: obstacle.y + Math.sin(angle) * 30,
+        };
+        if (
+          point.x < GAME_CONFIG.bounds.left ||
+          point.x > right ||
+          point.y < GAME_CONFIG.bounds.top ||
+          point.y > GAME_CONFIG.bounds.bottom ||
+          !clear(point, point)
+        )
+          continue;
+        nodes.push(point);
+      }
+    }
+    const costs = nodes.map(() => Infinity);
+    const previous = nodes.map(() => -1);
+    const visited = new Set<number>();
+    costs[0] = 0;
+    while (visited.size < nodes.length) {
+      let next = -1;
+      for (let index = 0; index < nodes.length; index += 1)
+        if (
+          !visited.has(index) &&
+          Number.isFinite(costs[index]) &&
+          (next < 0 || costs[index] < costs[next])
+        )
+          next = index;
+      if (next < 0) return false;
+      if (next === 1) {
+        const route: Vec2[] = [];
+        for (let index = 1; index !== 0; index = previous[index])
+          route.unshift({ ...nodes[index] });
+        customer.path = route;
+        return true;
+      }
+      visited.add(next);
+      for (let index = 0; index < nodes.length; index += 1) {
+        if (visited.has(index)) continue;
+        const cost = costs[next] + distance(nodes[next], nodes[index]);
+        if (cost >= costs[index] || !clear(nodes[next], nodes[index])) continue;
+        costs[index] = cost;
+        previous[index] = next;
+      }
+    }
+    return false;
+  }
+
   update(deltaMs: number): void {
-    const interval = GAME_CONFIG.customerSpawnInterval / (this.state.upgrades.customers ? 1.65 : 1);
+    const interval = GAME_CONFIG.customerSpawnInterval / (1 + this.state.upgrades.customers * 0.2);
     this.spawnElapsed += deltaMs;
     if (this.spawnElapsed >= interval) {
       this.spawnElapsed %= interval;
@@ -326,6 +427,14 @@ export class CustomerSystem {
           customer.x = before.x;
           customer.y = before.y;
           customer.path = before.path;
+          if (index === 0) {
+            const blocked = (this.blockedElapsed.get(customer.id) ?? 0) + deltaMs;
+            this.blockedElapsed.set(customer.id, blocked);
+            if (blocked >= 250) {
+              this.routeAroundCrowd(customer, target, queue);
+              this.blockedElapsed.set(customer.id, 0);
+            }
+          }
           if (
             (obstruction.queueOrder ?? obstruction.id) < (customer.queueOrder ?? customer.id) &&
             customer.state === 'MOVING_TO_CHECKOUT'
@@ -344,7 +453,7 @@ export class CustomerSystem {
               customer.y = yieldPoint.y;
             }
           }
-        }
+        } else this.blockedElapsed.delete(customer.id);
         if (!customer.path.length && customer.state !== 'PAYING') customer.state = 'QUEUEING';
         if (index === 0 && customer.state === 'QUEUEING')
           this.state.tutorialStep = Math.max(this.state.tutorialStep, 4);
@@ -366,6 +475,7 @@ export class CustomerSystem {
         this.state.customers.splice(this.state.customers.indexOf(customer), 1);
         this.queueIndices.delete(customer.id);
         this.yielding.delete(customer.id);
+        this.blockedElapsed.delete(customer.id);
       }
     }
   }

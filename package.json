@@ -1,6 +1,6 @@
 {
   "name": "mini-market-game",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
   "type": "module",
   "description": "An original, cozy farm-to-market management game.",

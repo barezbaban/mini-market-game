@@ -1,4 +1,4 @@
-import type { ProductDefinition } from '../types';
+import type { GameState, ItemCounts, ProductDefinition, ProductId, Vec2 } from '../types';
 
 export const PRODUCTS: ProductDefinition[] = [
   {
@@ -6,44 +6,167 @@ export const PRODUCTS: ProductDefinition[] = [
     name: 'Tomato',
     plural: 'Tomatoes',
     icon: 'tomato',
-    productionTime: 5000,
+    productionTime: 3000,
+    yieldPerPlot: 3,
     sellingPrice: 5,
-    shelfCapacity: 8,
+    shelfCapacity: 12,
     unlockCost: 0,
     sprite: 'tomato',
     color: 0xe96850,
     shelf: { x: 265, y: 240 },
     farm: { x: 265, y: 590 },
+    kind: 'farm',
+    area: 0,
+    maxPlots: 5,
+    plotUpgrade: 'tomatoPlots',
   },
   {
     id: 'egg',
     name: 'Egg',
     plural: 'Eggs',
     icon: 'egg',
-    productionTime: 7000,
+    productionTime: 4000,
+    yieldPerPlot: 1,
     sellingPrice: 7,
-    shelfCapacity: 8,
+    shelfCapacity: 12,
     unlockCost: 0,
     sprite: 'egg',
     color: 0xe8b94d,
     shelf: { x: 475, y: 240 },
     farm: { x: 475, y: 590 },
+    kind: 'farm',
+    area: 0,
+    maxPlots: 5,
+    plotUpgrade: 'eggPlots',
   },
   {
     id: 'corn',
     name: 'Corn',
     plural: 'Corn',
     icon: 'corn',
-    productionTime: 10000,
+    productionTime: 5000,
+    yieldPerPlot: 2,
     sellingPrice: 10,
-    shelfCapacity: 8,
+    shelfCapacity: 12,
     unlockCost: 150,
     sprite: 'corn',
     color: 0xe3b443,
     shelf: { x: 685, y: 240 },
     farm: { x: 685, y: 590 },
+    kind: 'farm',
+    area: 0,
+    maxPlots: 5,
+    plotUpgrade: 'cornPlots',
+    unlockUpgrade: 'corn',
+  },
+  {
+    id: 'tomatoPaste',
+    name: 'Tomato can',
+    plural: 'Tomato paste',
+    icon: 'tomatoPaste',
+    productionTime: 6000,
+    yieldPerPlot: 0,
+    sellingPrice: 15,
+    shelfCapacity: 12,
+    unlockCost: 220,
+    sprite: 'tomatoPaste',
+    color: 0xdc7656,
+    shelf: { x: 1320, y: 240 },
+    farm: { x: 1320, y: 580 },
+    kind: 'processed',
+    area: 1,
+    maxPlots: 0,
+    unlockUpgrade: 'pasteMachine',
+  },
+  {
+    id: 'coffee',
+    name: 'Coffee bean',
+    plural: 'Coffee beans',
+    icon: 'coffee',
+    productionTime: 4000,
+    yieldPerPlot: 2,
+    sellingPrice: 12,
+    shelfCapacity: 12,
+    unlockCost: 0,
+    sprite: 'coffee',
+    color: 0x865846,
+    shelf: { x: 1530, y: 240 },
+    farm: { x: 1530, y: 660 },
+    kind: 'farm',
+    area: 2,
+    maxPlots: 5,
+    plotUpgrade: 'coffeePlots',
+  },
+  {
+    id: 'groundCoffee',
+    name: 'Coffee bag',
+    plural: 'Ground coffee',
+    icon: 'groundCoffee',
+    productionTime: 8000,
+    yieldPerPlot: 0,
+    sellingPrice: 24,
+    shelfCapacity: 12,
+    unlockCost: 280,
+    sprite: 'groundCoffee',
+    color: 0xb98759,
+    shelf: { x: 1740, y: 240 },
+    farm: { x: 1740, y: 580 },
+    kind: 'processed',
+    area: 2,
+    maxPlots: 0,
+    unlockUpgrade: 'coffeeMachine',
+  },
+  {
+    id: 'carrot',
+    name: 'Carrot',
+    plural: 'Carrots',
+    icon: 'carrot',
+    productionTime: 2000,
+    yieldPerPlot: 1,
+    sellingPrice: 8,
+    shelfCapacity: 12,
+    unlockCost: 0,
+    sprite: 'carrot',
+    color: 0xf0953d,
+    shelf: { x: 2010, y: 240 },
+    farm: { x: 1960, y: 640 },
+    kind: 'farm',
+    area: 3,
+    maxPlots: 8,
+    plotUpgrade: 'carrotPlots',
   },
 ];
+export const FARM_PRODUCTS = PRODUCTS.filter((product) => product.kind === 'farm');
 export const productById = (id: string): ProductDefinition | undefined =>
   PRODUCTS.find((product) => product.id === id);
-export const emptyItems = () => ({ tomato: 0, egg: 0, corn: 0 });
+export const emptyItems = (): ItemCounts => ({
+  tomato: 0,
+  egg: 0,
+  corn: 0,
+  coffee: 0,
+  carrot: 0,
+  tomatoPaste: 0,
+  groundCoffee: 0,
+});
+export function plotCount(state: GameState, id: ProductId): number {
+  const product = productById(id)!;
+  return product.kind === 'farm' && state.unlockedProducts.includes(id)
+    ? Math.min(
+        product.maxPlots,
+        1 + (product.plotUpgrade ? state.upgrades[product.plotUpgrade] : 0),
+      )
+    : 0;
+}
+export function plotPosition(id: ProductId, index: number): Vec2 {
+  const product = productById(id)!;
+  if (id === 'carrot')
+    return {
+      x: product.farm.x + (index % 4) * 65 - 65,
+      y: product.farm.y + Math.floor(index / 4) * 100,
+    };
+  if (index === 0) return { ...product.farm };
+  return {
+    x: product.farm.x + (index % 2 ? -57 : 57),
+    y: product.farm.y + Math.ceil(index / 2) * 92,
+  };
+}

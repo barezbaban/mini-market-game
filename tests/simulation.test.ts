@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GAME_CONFIG } from '../src/game/data/gameConfig';
-import { PRODUCTS } from '../src/game/data/products';
+import { PRODUCTS, emptyItems } from '../src/game/data/products';
 import { UPGRADES } from '../src/game/data/upgrades';
 import { CheckoutSystem } from '../src/game/systems/CheckoutSystem';
 import { queuePosition } from '../src/game/systems/CustomerSystem';
@@ -34,7 +34,7 @@ const buyer = (id = 1): CustomerData => ({
   ...queuePosition(0),
   state: 'QUEUEING',
   targetProduct: 'tomato',
-  basket: { tomato: 1, egg: 1, corn: 0 },
+  basket: { ...emptyItems(), tomato: 1, egg: 1 },
   color: 0x739ebd,
   waitTime: 0,
   path: [],
@@ -71,15 +71,17 @@ describe('economy and capacity invariants', () => {
     const inventory = new InventorySystem(state);
     state.farms.tomato.ready = 8;
     state.farms.egg.ready = 8;
+    state.farms.tomato.plots[0].ready = 8;
+    state.farms.egg.plots[0].ready = 8;
     expect(inventory.harvest('tomato', 6)).toBe(6);
     expect(inventory.harvest('egg', 8)).toBe(2);
     expect(inventory.harvest('egg')).toBe(0);
     expect(itemCount(state.inventory)).toBe(8);
-    state.shelves.tomato = 7;
+    state.shelves.tomato = 11;
     expect(inventory.stock('tomato', 6)).toBe(1);
     expect(state.inventory.tomato).toBe(5);
-    expect(state.shelves.tomato).toBe(8);
-    expect(inventory.takeFromShelf('tomato', 100)).toBe(8);
+    expect(state.shelves.tomato).toBe(12);
+    expect(inventory.takeFromShelf('tomato', 100)).toBe(12);
     expect(inventory.takeFromShelf('tomato')).toBe(0);
     expect(inventory.harvest('corn')).toBe(0);
     expect(inventory.stock('egg', -2)).toBe(0);
@@ -90,12 +92,12 @@ describe('production and player interaction', () => {
   it('grows each unlocked crop at its configured interval and respects field capacity', () => {
     const state = createInitialState();
     const farming = new FarmingSystem(state);
-    farming.update(4999);
+    farming.update(2999);
     expect(state.farms.tomato.ready).toBe(3);
     farming.update(1);
-    expect(state.farms.tomato.ready).toBe(4);
+    expect(state.farms.tomato.ready).toBe(6);
     expect(state.farms.egg.ready).toBe(2);
-    farming.update(2000);
+    farming.update(1000);
     expect(state.farms.egg.ready).toBe(3);
     farming.update(100000);
     expect(state.farms.tomato.ready).toBe(GAME_CONFIG.farmCapacity);
@@ -142,7 +144,7 @@ describe('production and player interaction', () => {
         .filter((event) => event.type === 'notice')
         .map((event) => event.text),
     ).toEqual(['Basket full — stock a shelf']);
-    engine.state.shelves.tomato = 8;
+    engine.state.shelves.tomato = 12;
     engine.state.player = { x: PRODUCTS[0].shelf.x, y: PRODUCTS[0].shelf.y + 55 };
     advance(engine, 2900);
     expect(
@@ -156,23 +158,23 @@ describe('production and player interaction', () => {
 });
 
 describe('upgrades', () => {
-  it('purchases each upgrade once, derives its effects, and cannot overspend', () => {
+  it('purchases first upgrade levels, keeps one-time unlocks capped, and cannot overspend', () => {
     const engine = new GameEngine();
     expect(engine.purchaseUpgrade('corn')).toBe(false);
     engine.economy.earn(1000);
-    for (const upgrade of UPGRADES) {
-      expect(engine.purchaseUpgrade(upgrade.id)).toBe(true);
-      expect(engine.purchaseUpgrade(upgrade.id)).toBe(false);
-    }
-    expect(engine.state.money).toBe(
-      1000 - UPGRADES.reduce((sum, upgrade) => sum + upgrade.cost, 0),
-    );
+    for (const id of ['inventory', 'customers', 'corn', 'cashier'] as const)
+      expect(engine.purchaseUpgrade(id)).toBe(true);
+    expect(engine.purchaseUpgrade('corn')).toBe(false);
+    expect(engine.purchaseUpgrade('shelf')).toBe(false);
+    expect(engine.state.money).toBe(1000 - 100 - 90 - 150 - 300);
     expect(engine.state.inventoryCapacity).toBe(12);
     expect(engine.state.shelfCapacities.tomato).toBe(12);
-    expect(engine.state.shelfCapacities.egg).toBe(8);
+    expect(engine.state.shelfCapacities.egg).toBe(12);
     expect(engine.state.cashier).toBe(true);
     expect(engine.state.unlockedProducts).toContain('corn');
-    expect(engine.state.farms.corn.ready).toBe(1);
+    expect(engine.state.farms.corn.ready).toBe(0);
+    engine.farming.update(5000);
+    expect(engine.state.farms.corn.ready).toBe(2);
     expect(engine.state.tutorialStep).toBe(6);
   });
 
@@ -205,7 +207,7 @@ describe('customers and checkout', () => {
     expect(state.totalServed).toBe(1);
     checkout.update(5000);
     expect(state.money).toBe(12);
-    expect(state.customers[0].basket).toEqual({ tomato: 0, egg: 0, corn: 0 });
+    expect(state.customers[0].basket).toEqual(emptyItems());
   });
 
   it('runs stocked shelves through shopping, a queue, and cashier payment without the player', () => {
@@ -347,7 +349,7 @@ describe('save integrity and recovery', () => {
     expect(repaired.inventoryCapacity).toBe(8);
     expect(itemCount(repaired.inventory)).toBe(8);
     expect(repaired.inventory.corn).toBe(0);
-    expect(repaired.shelves).toEqual({ tomato: 8, egg: 0, corn: 0 });
+    expect(repaired.shelves).toEqual({ ...emptyItems(), tomato: 12 });
     expect(repaired.cashier).toBe(false);
   });
 

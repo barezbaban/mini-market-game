@@ -1,6 +1,7 @@
 import { GAME_CONFIG } from '../data/gameConfig';
-import { PRODUCTS } from '../data/products';
-import { UPGRADES } from '../data/upgrades';
+import { PRODUCTS, plotCount, plotPosition, productById } from '../data/products';
+import { MACHINES } from '../data/machines';
+import { UPGRADES, upgradeAvailable } from '../data/upgrades';
 import type { GameEvent, GameState, UpgradeId, Vec2 } from '../types';
 import { CheckoutSystem } from './CheckoutSystem';
 import { CustomerSystem, distance } from './CustomerSystem';
@@ -9,6 +10,9 @@ import { FarmingSystem } from './FarmingSystem';
 import { InventorySystem } from './InventorySystem';
 import { createInitialState } from './SaveSystem';
 import { UpgradeSystem } from './UpgradeSystem';
+import { MachineSystem } from './MachineSystem';
+import { WorkerSystem } from './WorkerSystem';
+import { ProgressionSystem } from './ProgressionSystem';
 
 /** The renderer owns no game rules. This headless simulation runs in browser and tests. */
 export class GameEngine {
@@ -18,9 +22,13 @@ export class GameEngine {
   readonly customers: CustomerSystem;
   readonly checkout: CheckoutSystem;
   readonly upgrades: UpgradeSystem;
+  readonly machines: MachineSystem;
+  readonly workers: WorkerSystem;
+  readonly progression: ProgressionSystem;
   private events: GameEvent[] = [];
   private harvestElapsed: number = GAME_CONFIG.harvestInterval;
   private stockElapsed: number = GAME_CONFIG.stockInterval;
+  private machineElapsed: number = GAME_CONFIG.harvestInterval;
   private lastUpgradeAttempt: UpgradeId | null = null;
   private lastBlockedZone: string | null = null;
   private nextBlockedNotice = 0;
@@ -34,10 +42,22 @@ export class GameEngine {
     this.customers = new CustomerSystem(state, this.inventory);
     this.checkout = new CheckoutSystem(state, this.economy, emit);
     this.upgrades = new UpgradeSystem(state, this.economy, emit);
+    this.machines = new MachineSystem(state, this.inventory, emit);
+    this.workers = new WorkerSystem(state, this.inventory, this.machines, emit);
+    this.progression = new ProgressionSystem(state, emit);
   }
 
   purchaseUpgrade(id: UpgradeId): boolean {
-    return this.upgrades.purchase(id);
+    const purchased = this.upgrades.purchase(id);
+    // Management can construct a processor where the player is standing.
+    // Place them at its loading side instead of trapping them inside new collision geometry.
+    if (purchased && !this.canWalk(this.state.player)) {
+      const machine = MACHINES.find((entry) => entry.upgrade === id);
+      const loadingSide = machine && { x: machine.position.x, y: machine.position.y + 65 };
+      this.state.player =
+        loadingSide && this.canWalk(loadingSide) ? loadingSide : { ...GAME_CONFIG.playerStart };
+    }
+    return purchased;
   }
   snapshot(): GameState {
     return structuredClone(this.state);
@@ -49,11 +69,27 @@ export class GameEngine {
   }
 
   private canWalk(point: Vec2): boolean {
+    const bounds = GAME_CONFIG.bounds;
+    if (
+      point.x < bounds.left ||
+      point.x > GAME_CONFIG.areaBounds[this.state.upgrades.expansion] ||
+      point.y < bounds.top ||
+      point.y > bounds.bottom
+    )
+      return false;
     for (const product of PRODUCTS) {
       if (
         Math.abs(point.x - product.shelf.x) < 78 &&
         point.y > product.shelf.y - 43 &&
         point.y < product.shelf.y + 44
+      )
+        return false;
+    }
+    for (const machine of MACHINES) {
+      if (
+        this.state.upgrades[machine.upgrade] > 0 &&
+        Math.abs(point.x - machine.position.x) < 38 &&
+        Math.abs(point.y - machine.position.y) < 35
       )
         return false;
     }
@@ -65,7 +101,10 @@ export class GameEngine {
     if (!Number.isFinite(magnitude) || magnitude === 0) return;
     const scale = (GAME_CONFIG.playerSpeed * deltaMs) / 1000 / Math.max(1, magnitude);
     const bounds = GAME_CONFIG.bounds;
-    const x = Math.min(bounds.right, Math.max(bounds.left, this.state.player.x + input.x * scale));
+    const x = Math.min(
+      GAME_CONFIG.areaBounds[this.state.upgrades.expansion],
+      Math.max(bounds.left, this.state.player.x + input.x * scale),
+    );
     const y = Math.min(bounds.bottom, Math.max(bounds.top, this.state.player.y + input.y * scale));
     if (this.canWalk({ x, y: this.state.player.y })) this.state.player.x = x;
     if (this.canWalk({ x: this.state.player.x, y })) this.state.player.y = y;
@@ -75,23 +114,29 @@ export class GameEngine {
     let blocked: (GameEvent & { zone: string }) | null = null;
     this.harvestElapsed = Math.min(GAME_CONFIG.harvestInterval, this.harvestElapsed + deltaMs);
     this.stockElapsed = Math.min(GAME_CONFIG.stockInterval, this.stockElapsed + deltaMs);
+    this.machineElapsed = Math.min(GAME_CONFIG.harvestInterval, this.machineElapsed + deltaMs);
     for (const product of PRODUCTS) {
       if (!this.state.unlockedProducts.includes(product.id)) continue;
-      if (distance(this.state.player, product.farm) <= GAME_CONFIG.interactionRadius) {
+      const plotIndex = Array.from(
+        { length: plotCount(this.state, product.id) },
+        (_, index) => index,
+      ).find((index) => distance(this.state.player, plotPosition(product.id, index)) <= 55);
+      if (plotIndex !== undefined) {
+        const harvestPosition = plotPosition(product.id, plotIndex);
         this.state.tutorialStep = Math.max(this.state.tutorialStep, 1);
         if (
           this.harvestElapsed >= GAME_CONFIG.harvestInterval &&
-          this.inventory.harvest(product.id)
+          this.inventory.harvest(product.id, 1, plotIndex)
         ) {
           this.harvestElapsed = 0;
           this.state.tutorialStep = Math.max(this.state.tutorialStep, 2);
-          this.events.push({ type: 'harvest', text: `+1 ${product.name}`, ...product.farm });
+          this.events.push({ type: 'harvest', text: `+1 ${product.name}`, ...harvestPosition });
         }
-        if (this.inventory.room === 0 && this.state.farms[product.id].ready > 0) {
+        if (this.inventory.room === 0 && this.state.farms[product.id].plots[plotIndex].ready > 0) {
           blocked = {
             type: 'notice',
             text: 'Basket full — stock a shelf',
-            ...product.farm,
+            ...harvestPosition,
             zone: `farm:${product.id}`,
           };
         }
@@ -118,6 +163,30 @@ export class GameEngine {
         };
       }
     }
+    if (this.machineElapsed >= GAME_CONFIG.harvestInterval) {
+      for (const machine of MACHINES) {
+        if (
+          !this.machines.isUnlocked(machine.id) ||
+          distance(this.state.player, machine.position) > GAME_CONFIG.interactionRadius
+        )
+          continue;
+        const supplied = this.machines.supply(machine.id, this.state.inventory, 1);
+        const collected = this.machines.collect(
+          machine.id,
+          this.state.inventory,
+          this.state.inventoryCapacity,
+          1,
+        );
+        if (supplied || collected) {
+          this.machineElapsed = 0;
+          this.events.push({
+            type: 'stock',
+            text: collected ? `+${collected} ${productById(machine.output)!.name}` : 'Input loaded',
+            ...machine.position,
+          });
+        }
+      }
+    }
     if (
       blocked &&
       (blocked.zone !== this.lastBlockedZone || this.state.elapsed >= this.nextBlockedNotice)
@@ -129,6 +198,8 @@ export class GameEngine {
     const upgrade = UPGRADES.find(
       (entry) =>
         distance(this.state.player, entry.position) < 40 &&
+        entry.inWorld &&
+        upgradeAvailable(this.state, entry.id) &&
         this.state.upgrades[entry.id] < entry.maxLevel,
     );
     if (!upgrade) {
@@ -142,7 +213,8 @@ export class GameEngine {
       this.state.upgradeProgress = 0;
       this.lastUpgradeAttempt = null;
     }
-    if (this.lastUpgradeAttempt === upgrade.id && !this.economy.canAfford(upgrade.cost)) return;
+    // One purchase per visit: remaining on a pad must not spend several upgrade levels.
+    if (this.lastUpgradeAttempt === upgrade.id) return;
     this.state.upgradeProgress += deltaMs;
     if (this.state.upgradeProgress >= GAME_CONFIG.upgradeHoldTime) {
       this.state.upgradeProgress = GAME_CONFIG.upgradeHoldTime;
@@ -163,6 +235,9 @@ export class GameEngine {
       this.interact(step);
       this.customers.update(step);
       this.checkout.update(step);
+      this.machines.update(step);
+      this.workers.update(step);
+      this.progression.update(step);
       remaining -= step;
     }
   }
