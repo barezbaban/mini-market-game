@@ -10,7 +10,7 @@ Start with **$0**, a basket that holds **8 items**, a tomato patch, and a chicke
 
 Grow → harvest → process → carry → stock → serve → earn → upgrade.
 
-The market occupies the top of the map; the farms and processing areas sit below it. Customers enter through the market entrance, find available products, form a checkout line, pay, and leave. Open **Manage** to inspect and purchase upgrades, or stand on an affordable world pad for a little over a second. The management window pauses the simulation while you plan.
+The market occupies the top of the map; the farms and processing areas sit below it. Customers arrive from outside, walk through the labeled sliding entrance, find available products, form a checkout line, pay, return through the door, and continue off-screen before leaving the simulation. Open **Manage** to inspect and purchase upgrades, or stand on an affordable world pad for a little over a second. The management window pauses the simulation while you plan.
 
 | Product       | Production                       | Sale price | Availability                |
 | ------------- | -------------------------------- | ---------- | --------------------------- |
@@ -36,7 +36,7 @@ The **drive-through service** is available to purchase from the beginning. Cars 
 - Full-screen game presentation with clear lighting, no world shadows, and a compact HUD.
 - Automatic harvesting, stocking, and checkout; no interaction button needed.
 - Seven products, independently growing farm plots, and two processing machines.
-- Customer state machines, an orderly checkout queue, and a hireable cashier.
+- Customer state machines, a physical animated entrance, an orderly checkout queue, and a hireable cashier.
 - Purchasable car-and-bike drive-through orders with separate runner and cashier automation.
 - Three store expansions and management tabs for Store, Farms, Machines, and Staff.
 - Upgradeable helpers, cashier, marketing director, and accountant; player XP and levels.

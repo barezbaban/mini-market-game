@@ -161,6 +161,27 @@ describe('production and player interaction', () => {
     expect(remainingCustomerNeed(engine.state.customers[0])).toBe(0);
   });
 
+  it('lets a shopper with a partial basket check out when every shelf is empty', () => {
+    const engine = new GameEngine();
+    engine.state.customers = [
+      {
+        id: 3,
+        x: 475,
+        y: 305,
+        state: 'WAITING_FOR_PRODUCT',
+        targetProduct: 'egg',
+        targetQuantity: 1,
+        basket: { ...emptyItems(), tomato: 1 },
+        color: 0x739ebd,
+        waitTime: 5999,
+        path: [],
+      },
+    ];
+    engine.customers.update(2);
+    expect(engine.state.customers[0].state).toBe('MOVING_TO_CHECKOUT');
+    expect(engine.state.customers[0].basket.tomato).toBe(1);
+  });
+
   it('normalizes diagonal movement and blocks walking through shelving', () => {
     const straight = new GameEngine();
     const diagonal = new GameEngine();
@@ -259,6 +280,28 @@ describe('upgrades', () => {
 });
 
 describe('customers and checkout', () => {
+  it('walks shoppers in from outside and sends paid customers back through the entrance', () => {
+    const engine = new GameEngine();
+    advance(engine, 2000);
+    const arriving = engine.state.customers[0];
+    expect(arriving.state).toBe('ENTERING');
+    expect(arriving.y).toBeLessThan(GAME_CONFIG.entranceOutside.y);
+    expect(arriving.path).toContainEqual(GAME_CONFIG.entranceOutside);
+    expect(arriving.path).toContainEqual(GAME_CONFIG.entrance);
+    advance(engine, 10000);
+    expect(arriving.y).toBeGreaterThan(GAME_CONFIG.entranceOutside.y);
+    expect(arriving.state).not.toBe('ENTERING');
+
+    const state = createInitialState();
+    state.customers = [buyer()];
+    state.player = { ...GAME_CONFIG.cashierSpot };
+    new CheckoutSystem(state, new EconomySystem(state)).update(1000);
+    expect(state.customers[0].state).toBe('LEAVING');
+    expect(state.customers[0].path).toContainEqual(GAME_CONFIG.entrance);
+    expect(state.customers[0].path).toContainEqual(GAME_CONFIG.entranceOutside);
+    expect(state.customers[0].path.at(-1)).toEqual(GAME_CONFIG.customerExit);
+  });
+
   it('keeps goods unpaid until a player serves for one second, then pays exactly once', () => {
     const state = createInitialState();
     state.customers = [buyer()];
@@ -284,7 +327,7 @@ describe('customers and checkout', () => {
     engine.state.shelves.tomato = 8;
     engine.state.shelves.egg = 8;
     const availableValue = 8 * 5 + 8 * 7;
-    advance(engine, 150000);
+    advance(engine, 165000);
     expect(engine.state.totalServed).toBeGreaterThan(4);
     expect(engine.state.totalEarned).toBe(availableValue);
     expect(engine.state.money).toBe(availableValue);

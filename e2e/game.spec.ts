@@ -204,6 +204,56 @@ test('customer thought cloud shows the requested item and remaining quantity', a
   await expect.poll(thought).toMatchObject({ bubble: false });
 });
 
+test('store entrance opens for arriving and leaving shoppers', async ({ page }) => {
+  await openGame(page);
+  const opened = await page.evaluate((config) => {
+    const { engine, world } = window.__MARKET__;
+    window.__MARKET__.setPaused(true);
+    engine.state.customers = [
+      {
+        id: 71,
+        ...config.entranceOutside,
+        state: 'ENTERING',
+        targetProduct: 'tomato',
+        targetQuantity: 1,
+        basket: { ...engine.state.inventory },
+        color: 0x739ebd,
+        waitTime: 0,
+        path: [{ ...config.entrance }, { x: config.entrance.x, y: 450 }],
+      },
+    ];
+    world.update(engine.state, engine.state.elapsed, 250);
+    const left = world.scene.getObjectByName('store-door:left')!;
+    const right = world.scene.getObjectByName('store-door:right')!;
+    const sign = world.scene.getObjectByName('label:store:entrance')!;
+    return {
+      entrance: world.scene.getObjectByName('store-entrance')!.visible,
+      sign: sign.userData.worldLabel.text as string,
+      left: left.position.x,
+      right: right.position.x,
+    };
+  }, GAME_CONFIG);
+  expect(opened.entrance).toBe(true);
+  expect(opened.sign).toBe('ENTRANCE');
+  expect(opened.left).toBeLessThan(-0.3);
+  expect(opened.right).toBeGreaterThan(0.3);
+
+  await page.evaluate((config) => {
+    const { engine, world } = window.__MARKET__;
+    const customer = engine.state.customers[0];
+    customer.state = 'LEAVING';
+    customer.x = config.entrance.x;
+    customer.y = config.entrance.y;
+    world.update(engine.state, engine.state.elapsed, 250);
+  }, GAME_CONFIG);
+  const leavingDoor = await page.evaluate(() => ({
+    left: window.__MARKET__.world.scene.getObjectByName('store-door:left')!.position.x,
+    right: window.__MARKET__.world.scene.getObjectByName('store-door:right')!.position.x,
+  }));
+  expect(leavingDoor.left).toBeLessThan(opened.left);
+  expect(leavingDoor.right).toBeGreaterThan(opened.right);
+});
+
 test('drive-through vehicle shows its item list and accepts one item at a time', async ({
   page,
 }) => {

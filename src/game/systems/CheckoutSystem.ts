@@ -48,8 +48,9 @@ export class CheckoutSystem {
     customer.path = [
       { x: 885, y: 302 },
       { x: 1010, y: 320 },
-      { x: 1010, y: 385 },
-      { x: 1260, y: 385 },
+      { ...GAME_CONFIG.entrance },
+      { ...GAME_CONFIG.entranceOutside },
+      { ...GAME_CONFIG.customerExit },
     ];
     this.emit({ type: 'money', text: `+$${amount}`, ...GAME_CONFIG.checkout });
     this.emit({ type: 'checkout', text: 'Thank you!', x: customer.x, y: customer.y });

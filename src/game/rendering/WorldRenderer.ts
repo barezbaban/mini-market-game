@@ -82,6 +82,8 @@ export class WorldRenderer {
   private readonly checkoutProgress: Mesh;
   private readonly checkoutLabel: WorldLabel;
   private readonly trashProgress: Mesh;
+  private readonly storeDoorLeft: Mesh;
+  private readonly storeDoorRight: Mesh;
   private readonly driveArea: Group;
   private readonly driveSpot: Group;
   private readonly driveProgress: Mesh;
@@ -95,6 +97,7 @@ export class WorldRenderer {
   private height = 1;
   private initialized = false;
   private lastState: GameState | null = null;
+  private storeDoorOpen = 0;
 
   constructor(private readonly host: HTMLElement) {
     this.renderer = new WebGLRenderer({
@@ -119,6 +122,9 @@ export class WorldRenderer {
     this.drawMarket();
     this.trashProgress = this.drawTrashBin();
     this.batchStaticWorld();
+    const storeEntrance = this.drawStoreEntrance();
+    this.storeDoorLeft = storeEntrance.left;
+    this.storeDoorRight = storeEntrance.right;
     this.displays = new StoreDisplays(this.scene);
     this.drawOffice();
     this.drawUpgrades();
@@ -286,6 +292,22 @@ export class WorldRenderer {
         visual.quantity.setText(`×${Math.max(1, remainingCustomerNeed(customer))}`);
       }
     });
+    const doorNeeded = state.customers.some(
+      (customer) =>
+        ['ENTERING', 'LEAVING'].includes(customer.state) &&
+        Math.min(
+          Math.hypot(customer.x - GAME_CONFIG.entrance.x, customer.y - GAME_CONFIG.entrance.y),
+          Math.hypot(
+            customer.x - GAME_CONFIG.entranceOutside.x,
+            customer.y - GAME_CONFIG.entranceOutside.y,
+          ),
+        ) < 145,
+    );
+    this.storeDoorOpen +=
+      (Number(doorNeeded) - this.storeDoorOpen) *
+      (1 - Math.exp(-Math.min(100, Math.max(0, deltaMs)) / 120));
+    this.storeDoorLeft.position.x = -0.22 - this.storeDoorOpen * 0.3;
+    this.storeDoorRight.position.x = 0.22 + this.storeDoorOpen * 0.3;
     this.displays.update(state, timeMs);
     this.workers.forEach((visual, index) => {
       const worker = state.workers[index];
@@ -619,8 +641,10 @@ export class WorldRenderer {
       block(this.scene, x, 0.065, -1.3, 0.012, 0.009, 3.2, C.grout, false);
     for (let z = -2.8; z < 0.31; z += 0.58)
       block(this.scene, -0.7, 0.065, z, 9.43, 0.009, 0.012, C.grout, false);
-    block(this.scene, -0.7, 0.42, -3, 9.7, 0.86, 0.2, C.cream);
-    block(this.scene, -0.7, 0.32, -2.888, 9.42, 0.5, 0.055, C.mint);
+    block(this.scene, -1.275, 0.42, -3, 8.55, 0.86, 0.2, C.cream);
+    block(this.scene, 4.025, 0.42, -3, 0.25, 0.86, 0.2, C.cream);
+    block(this.scene, -1.205, 0.32, -2.888, 8.41, 0.5, 0.055, C.mint);
+    block(this.scene, 3.955, 0.32, -2.888, 0.11, 0.5, 0.055, C.mint);
     block(this.scene, -0.7, 0.875, -3, 9.86, 0.1, 0.26, C.green);
     block(this.scene, -5.45, 0.23, -1.39, 0.18, 0.43, 3.15, C.cream);
     block(this.scene, -5.45, 0.47, -1.39, 0.22, 0.075, 3.18, C.peach);
@@ -686,6 +710,32 @@ export class WorldRenderer {
     progress.position.y = 0.052;
     progress.visible = false;
     return progress;
+  }
+
+  private drawStoreEntrance(): { left: Mesh; right: Mesh } {
+    const entrance = new Group();
+    entrance.name = 'store-entrance';
+    entrance.position.copy(toWorld({ x: GAME_CONFIG.entrance.x, y: 100 }));
+    this.scene.add(entrance);
+    block(entrance, 0, 0.035, 0.46, 0.9, 0.025, 1.18, C.green);
+    [-0.53, 0.53].forEach((x) => block(entrance, x, 0.72, 0, 0.16, 1.4, 0.16, C.cream));
+    block(entrance, 0, 1.43, 0, 1.22, 0.18, 0.18, C.green);
+    const sign = label(entrance, 'ENTRANCE', 0.78, 0.21, {
+      id: 'store:entrance',
+      kind: 'area',
+      foreground: '#ffffff',
+      background: '#168a65',
+      mount: 'surface',
+      border: false,
+    });
+    sign.object.position.set(0, 1.73, 0.11);
+    const left = block(entrance, -0.22, 0.72, 0, 0.4, 1.16, 0.075, C.mint);
+    left.name = 'store-door:left';
+    const right = block(entrance, 0.22, 0.72, 0, 0.4, 1.16, 0.075, C.mint);
+    right.name = 'store-door:right';
+    block(left, 0.13, 0, 0.055, 0.035, 0.32, 0.035, C.green);
+    block(right, -0.13, 0, 0.055, 0.035, 0.32, 0.035, C.green);
+    return { left, right };
   }
 
   private drawDriveThrough(): {

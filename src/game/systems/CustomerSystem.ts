@@ -28,7 +28,13 @@ export function queuePosition(index: number): Vec2 {
 }
 
 function move(customer: CustomerData, deltaMs: number): void {
-  let remaining = (GAME_CONFIG.customerSpeed * deltaMs) / 1000;
+  // Arrival and departure routes include a long exterior approach. Moving a
+  // little faster there keeps store throughput unchanged while the shopper is
+  // still visibly walking; all in-store movement stays at the normal speed.
+  const exteriorMultiplier = ['ENTERING', 'LEAVING'].includes(customer.state)
+    ? GAME_CONFIG.customerExteriorSpeedMultiplier
+    : 1;
+  let remaining = (GAME_CONFIG.customerSpeed * exteriorMultiplier * deltaMs) / 1000;
   while (customer.path.length && remaining > 0) {
     const target = customer.path[0];
     const length = distance(customer, target);
@@ -166,14 +172,18 @@ export class CustomerSystem {
     const targets = available.length ? available : choices;
     const customer: CustomerData = {
       id,
-      ...GAME_CONFIG.entrance,
+      ...GAME_CONFIG.customerSpawn,
       state: 'ENTERING',
       targetProduct: targets[(id - 1) % targets.length],
       targetQuantity: id % 2 === 0 ? 2 : 1,
       basket: emptyItems(),
       color: COLORS[(id - 1) % COLORS.length],
       waitTime: 0,
-      path: [{ x: GAME_CONFIG.entrance.x, y: 450 }],
+      path: [
+        { ...GAME_CONFIG.entranceOutside },
+        { ...GAME_CONFIG.entrance },
+        { x: GAME_CONFIG.entrance.x, y: 450 },
+      ],
     };
     this.state.customers.push(customer);
   }
@@ -212,10 +222,7 @@ export class CustomerSystem {
       this.joinCheckout(customer);
       return;
     }
-    const taken = this.inventory.takeFromShelf(
-      customer.targetProduct,
-      requested,
-    );
+    const taken = this.inventory.takeFromShelf(customer.targetProduct, requested);
     if (!taken) {
       const alternative = this.state.unlockedProducts.find(
         (id) =>
@@ -229,7 +236,8 @@ export class CustomerSystem {
         customer.targetQuantity = remaining;
         customer.waitTime = 0;
         this.routeToShelf(customer);
-      }
+      } else if (customer.waitTime > 6000 && itemCount(customer.basket) > 0)
+        this.joinCheckout(customer);
       return;
     }
     customer.basket[customer.targetProduct] += taken;

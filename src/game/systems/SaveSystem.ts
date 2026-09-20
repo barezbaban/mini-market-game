@@ -84,14 +84,22 @@ const integer = (value: unknown, fallback = 0, max = Number.MAX_SAFE_INTEGER): n
 const point = (value: unknown, fallback: Vec2, outside = false): Vec2 => {
   const source = object(value);
   const bounds = GAME_CONFIG.bounds;
+  const coordinate = (entry: unknown, original: number, minimum: number, maximum: number) =>
+    typeof entry === 'number' && Number.isFinite(entry)
+      ? Math.max(minimum, Math.min(maximum, entry))
+      : original;
   return {
-    x: Math.max(
-      outside ? 0 : bounds.left,
-      number(source.x, fallback.x, outside ? GAME_CONFIG.width + 100 : bounds.right),
+    x: coordinate(
+      source.x,
+      fallback.x,
+      outside ? -500 : bounds.left,
+      outside ? GAME_CONFIG.width + 100 : bounds.right,
     ),
-    y: Math.max(
-      outside ? 0 : bounds.top,
-      number(source.y, fallback.y, outside ? GAME_CONFIG.height : bounds.bottom),
+    y: coordinate(
+      source.y,
+      fallback.y,
+      outside ? -500 : bounds.top,
+      outside ? GAME_CONFIG.height : bounds.bottom,
     ),
   };
 };
@@ -162,7 +170,9 @@ export function validateSave(value: unknown): GameState | null {
       input: integer(stored.input, 0, machine.bufferCapacity),
       output,
       processing,
-      elapsed: processing ? number(stored.elapsed, 0, machine.batchMs - 1) : 0,
+      // Frame deltas can leave a legitimate fractional millisecond just below
+      // completion; preserve it exactly so saving never changes a live batch.
+      elapsed: processing ? number(stored.elapsed, 0, machine.batchMs) : 0,
     };
   }
   const rawWorkers = Array.isArray(raw.workers) ? raw.workers : [];
@@ -223,7 +233,11 @@ export function validateSave(value: unknown): GameState | null {
       }
       const restored: CustomerData = {
         id,
-        ...point(customer, GAME_CONFIG.entrance, true),
+        ...point(
+          customer,
+          customer.state === 'ENTERING' ? GAME_CONFIG.customerSpawn : GAME_CONFIG.entrance,
+          true,
+        ),
         state: customer.state as CustomerState,
         targetProduct: product.id,
         targetQuantity: Math.max(1, integer(customer.targetQuantity, id % 2 === 0 ? 2 : 1, 2)),

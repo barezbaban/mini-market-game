@@ -53,9 +53,14 @@ function trackSimulation(engine: GameEngine) {
         const previous = before.get(customer.id);
         if (!previous) continue;
         const moved = Math.hypot(customer.x - previous.x, customer.y - previous.y);
+        const speedMultiplier =
+          ['ENTERING', 'LEAVING'].includes(previous.state) ||
+          ['ENTERING', 'LEAVING'].includes(customer.state)
+            ? GAME_CONFIG.customerExteriorSpeedMultiplier
+            : 1;
         movementExcess = Math.max(
           movementExcess,
-          moved - (GAME_CONFIG.customerSpeed * deltaMs) / 1000,
+          moved - (GAME_CONFIG.customerSpeed * speedMultiplier * deltaMs) / 1000,
         );
         if (previous.state !== 'LEAVING' && customer.state === 'LEAVING') {
           frameSales += 1;
