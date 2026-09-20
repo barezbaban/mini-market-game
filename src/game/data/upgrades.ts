@@ -1,0 +1,9 @@
+import type { UpgradeDefinition } from '../types';
+
+export const UPGRADES: UpgradeDefinition[] = [
+  { id: 'inventory', name: 'Bigger basket', description: 'Carry 12 items', cost: 100, type: 'capacity', maxLevel: 1, position: { x: 1138, y: 230 }, icon: 'basket' },
+  { id: 'shelf', name: 'Room to grow', description: 'Tomato shelf: 12', cost: 120, type: 'shelf', maxLevel: 1, position: { x: 1138, y: 337 }, icon: 'shelf' },
+  { id: 'customers', name: 'Spread the word', description: 'More customers', cost: 90, type: 'spawn', maxLevel: 1, position: { x: 1138, y: 444 }, icon: 'heart' },
+  { id: 'corn', name: 'Golden harvest', description: 'Unlock corn', cost: 150, type: 'product', maxLevel: 1, position: { x: 1138, y: 551 }, icon: 'corn' },
+  { id: 'cashier', name: 'A helping hand', description: 'Hire a cashier', cost: 300, type: 'worker', maxLevel: 1, position: { x: 1138, y: 658 }, icon: 'worker' },
+];
