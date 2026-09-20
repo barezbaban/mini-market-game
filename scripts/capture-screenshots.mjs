@@ -33,6 +33,9 @@ async function demonstrate(page, expanded = true) {
           customers: 3,
           accountant: 2,
           inventory: 3,
+          driveThrough: 1,
+          driveRunner: 1,
+          driveCashier: 1,
         }
       : {
           expansion: 2,
@@ -50,6 +53,7 @@ async function demonstrate(page, expanded = true) {
           customers: 2,
           accountant: 1,
           inventory: 1,
+          driveThrough: 1,
         };
     for (const [id, count] of Object.entries(levels)) {
       for (let level = 0; level < count; level += 1) engine.purchaseUpgrade(id);
@@ -115,6 +119,57 @@ try {
   // Allow the follow camera and product-transfer animations to settle.
   await page.waitForTimeout(900);
   await page.screenshot({ path: 'docs/screenshots/desktop.png' });
+  await demonstrate(page, false);
+  await page.evaluate(() => {
+    const { engine, setPaused } = window.__MARKET__;
+    setPaused(true);
+    engine.state.upgrades.driveRunner = 0;
+    engine.state.upgrades.driveCashier = 0;
+    engine.state.driveThroughOrders = [
+      {
+        id: 41,
+        vehicle: 'car',
+        state: 'WAITING_FOR_ITEMS',
+        x: 1245,
+        y: 875,
+        color: 0xe7775e,
+        requested: {
+          tomato: 2,
+          egg: 1,
+          corn: 0,
+          coffee: 0,
+          carrot: 0,
+          tomatoPaste: 0,
+          groundCoffee: 0,
+        },
+        delivered: {
+          tomato: 0,
+          egg: 0,
+          corn: 0,
+          coffee: 0,
+          carrot: 0,
+          tomatoPaste: 0,
+          groundCoffee: 0,
+        },
+      },
+    ];
+    for (const id of Object.keys(engine.state.inventory)) engine.state.inventory[id] = 0;
+    engine.state.inventory.tomato = 2;
+    engine.state.inventory.egg = 1;
+    engine.state.driveThroughHandoffProgress = 0;
+    engine.state.driveThroughCheckoutProgress = 0;
+    engine.state.player = { x: 1080, y: 875 };
+    document.querySelector('#debug-panel').hidden = true;
+    setPaused(false);
+  });
+  await page.waitForTimeout(900);
+  await page.evaluate(() => {
+    document.querySelector('.floating-labels').style.display = 'none';
+  });
+  await page.screenshot({ path: 'docs/screenshots/drive-through.png' });
+  await page.evaluate(() => {
+    document.querySelector('.floating-labels').style.display = '';
+  });
   await demonstrate(page);
   await page.screenshot({ path: 'docs/screenshots/expanded-store.png' });
   const management = await browser.newContext({ viewport: { width: 1440, height: 1000 } });

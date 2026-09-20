@@ -30,4 +30,12 @@ export const GAME_CONFIG = {
   helperCapacities: [2, 3, 4, 5, 6],
   accountantInterval: 10000,
   accountantXpPerLevel: 5,
+  driveThroughSpawnInterval: 9000,
+  driveThroughMax: 3,
+  driveThroughVehicleSpeed: 105,
+  driveThroughHandoffTime: 650,
+  driveThroughCheckoutTime: 1000,
+  driveThroughWindow: { x: 1130, y: 875 },
+  driveThroughPlayerSpot: { x: 1080, y: 875 },
+  driveThroughVehicleSpot: { x: 1245, y: 875 },
 } as const;

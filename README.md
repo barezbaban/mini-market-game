@@ -28,6 +28,8 @@ Expand eastward in three stages: **production wing ($250)**, **coffee corner ($5
 
 Hire up to **three helpers** to harvest, operate machines, and stock shelves. Their baskets grow **2 → 3 → 4 → 5 → 6** items; ten speed levels multiply walking speed by **1.10** at each upgrade. A cashier has five levels, with checkout time divided by 1.25 at each level after hiring. A marketing director has ten levels, each adding 20% of the base customer arrival rate. An accountant has five levels and earns **5 XP per level every 10 seconds** while the market runs. Sales also award **5 XP**. The compact HUD shows your player level and progress toward the next level.
 
+The **drive-through service** is available to purchase from the beginning. Cars and bikes arrive with visible lists of two to four items. Carry each requested product to the drive window one at a time, then remain there to collect payment. The drive-through runner and drive-through cashier are separate hires: the runner takes requested stock from shelves, while the cashier handles only completed payments.
+
 ## Features
 
 - Original low-poly 3D world, rounded characters, produce models, and shop branding.
@@ -35,6 +37,7 @@ Hire up to **three helpers** to harvest, operate machines, and stock shelves. Th
 - Automatic harvesting, stocking, and checkout; no interaction button needed.
 - Seven products, independently growing farm plots, and two processing machines.
 - Customer state machines, an orderly checkout queue, and a hireable cashier.
+- Purchasable car-and-bike drive-through orders with separate runner and cashier automation.
 - Three store expansions and management tabs for Store, Farms, Machines, and Staff.
 - Upgradeable helpers, cashier, marketing director, and accountant; player XP and levels.
 - Floating feedback, carried products, stock indicators, and a short first-time tutorial.
@@ -44,15 +47,16 @@ Hire up to **three helpers** to harvest, operate machines, and stock shelves. Th
 
 ## Controls
 
-| Action            | Desktop                                     | Touch                              |
-| ----------------- | ------------------------------------------- | ---------------------------------- |
-| Move              | **WASD**, **arrow keys**, or drag the world | Virtual joystick or drag the world |
-| Harvest or stock  | Stand near a farm or matching shelf         | Same                               |
-| Serve checkout    | Stand beside the checkout counter           | Same                               |
-| Buy an upgrade    | Open **Manage**, or hold on a world pad     | Same                               |
-| See all inventory | Open the **Basket** dropdown                | Tap **Basket**                     |
-| Sound             | Use the speaker button in the toolbar       | Tap the speaker button             |
-| Reset progress    | Open **Settings**                           | Tap **Settings**                   |
+| Action              | Desktop                                                | Touch                              |
+| ------------------- | ------------------------------------------------------ | ---------------------------------- |
+| Move                | **WASD**, **arrow keys**, or drag the world            | Virtual joystick or drag the world |
+| Harvest or stock    | Stand near a farm or matching shelf                    | Same                               |
+| Serve checkout      | Stand beside the checkout counter                      | Same                               |
+| Serve drive-through | Bring listed items to its window, then collect payment | Same                               |
+| Buy an upgrade      | Open **Manage**, or hold on a world pad                | Same                               |
+| See all inventory   | Open the **Basket** dropdown                           | Tap **Basket**                     |
+| Sound               | Use the speaker button in the toolbar                  | Tap the speaker button             |
+| Reset progress      | Open **Settings**                                      | Tap **Settings**                   |
 
 The game fills the browser window. The camera and overlays adapt to desktop, tablet, phone landscape, and phone portrait. Touch movement does not scroll the page; drag an open part of the world to position a temporary joystick, or use the fixed touch joystick.
 
@@ -65,6 +69,8 @@ The screenshots are captured from the running application. Scenery, characters, 
 [Mobile landscape screenshot](docs/screenshots/mobile-landscape.png) · [Mobile portrait screenshot](docs/screenshots/mobile-portrait.png)
 
 [Expanded store](docs/screenshots/expanded-store.png) · [Management panel](docs/screenshots/management.png)
+
+[Drive-through order](docs/screenshots/drive-through.png)
 
 The expanded-store, management, and mobile-portrait captures use isolated demonstration fixtures with selected upgrades and currency, so new areas and controls can be shown. These fixtures do not represent progression earned during a play session or modify a player's saved market. The desktop capture advances an isolated gameplay session; mobile landscape shows a fresh market.
 

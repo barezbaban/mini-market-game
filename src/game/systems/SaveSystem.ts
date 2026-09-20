@@ -5,6 +5,8 @@ import { UPGRADES, checkoutDuration, upgradeAvailable } from '../data/upgrades';
 import type {
   CustomerData,
   CustomerState,
+  DriveThroughOrder,
+  DriveThroughState,
   GameState,
   ItemCounts,
   SaveRepository,
@@ -59,6 +61,11 @@ export function createInitialState(): GameState {
     workers: [],
     xp: 0,
     accountantElapsed: 0,
+    driveThroughOrders: [],
+    driveThroughSpawnElapsed: GAME_CONFIG.driveThroughSpawnInterval - 2500,
+    driveThroughHandoffProgress: 0,
+    driveThroughCheckoutProgress: 0,
+    driveThroughServed: 0,
   };
   applyUpgradeEffects(state);
   return state;
@@ -219,10 +226,7 @@ export function validateSave(value: unknown): GameState | null {
         ...point(customer, GAME_CONFIG.entrance, true),
         state: customer.state as CustomerState,
         targetProduct: product.id,
-        targetQuantity: Math.max(
-          1,
-          integer(customer.targetQuantity, id % 2 === 0 ? 2 : 1, 2),
-        ),
+        targetQuantity: Math.max(1, integer(customer.targetQuantity, id % 2 === 0 ? 2 : 1, 2)),
         basket,
         color: integer(customer.color, 0x6296d1, 0xffffff),
         waitTime: number(customer.waitTime, 0, 60000),
@@ -251,6 +255,71 @@ export function validateSave(value: unknown): GameState | null {
   state.checkoutProgress = state.customers.some((customer) => customer.state === 'PAYING')
     ? number(raw.checkoutProgress, 0, checkoutDuration(state) - 1)
     : 0;
+  state.driveThroughServed = integer(raw.driveThroughServed);
+  state.driveThroughSpawnElapsed = number(
+    raw.driveThroughSpawnElapsed,
+    GAME_CONFIG.driveThroughSpawnInterval - 2500,
+    GAME_CONFIG.driveThroughSpawnInterval - 1,
+  );
+  const driveStates: DriveThroughState[] = [
+    'ARRIVING',
+    'WAITING_FOR_ITEMS',
+    'READY_TO_PAY',
+    'PAYING',
+    'LEAVING',
+  ];
+  const driveIds = new Set<number>();
+  if (state.upgrades.driveThrough > 0 && Array.isArray(raw.driveThroughOrders)) {
+    for (const value of raw.driveThroughOrders.slice(0, GAME_CONFIG.driveThroughMax)) {
+      const stored = object(value);
+      const id = integer(stored.id);
+      const driveState = stored.state as DriveThroughState;
+      if (id < 1 || driveIds.has(id) || !driveStates.includes(driveState)) continue;
+      driveIds.add(id);
+      const requested = emptyItems();
+      const delivered = emptyItems();
+      const rawRequested = object(stored.requested);
+      const rawDelivered = object(stored.delivered);
+      let orderRoom = 4;
+      let productSlots = 3;
+      for (const product of PRODUCTS) {
+        if (!state.unlockedProducts.includes(product.id)) continue;
+        const wanted = integer(rawRequested[product.id], 0, orderRoom);
+        requested[product.id] = wanted > 0 && productSlots > 0 ? wanted : 0;
+        if (requested[product.id] > 0) productSlots -= 1;
+        orderRoom -= requested[product.id];
+        delivered[product.id] = integer(rawDelivered[product.id], 0, requested[product.id]);
+      }
+      if (Object.values(requested).reduce((sum, count) => sum + count, 0) === 0) continue;
+      const position = point(stored, GAME_CONFIG.driveThroughVehicleSpot, true);
+      const restored: DriveThroughOrder = {
+        id,
+        vehicle: stored.vehicle === 'bike' ? 'bike' : 'car',
+        state: driveState,
+        ...position,
+        color: integer(stored.color, 0xe7775e, 0xffffff),
+        requested,
+        delivered,
+      };
+      if (
+        ['READY_TO_PAY', 'PAYING', 'LEAVING'].includes(restored.state) &&
+        PRODUCTS.some(({ id: product }) => delivered[product] < requested[product])
+      )
+        restored.state = 'WAITING_FOR_ITEMS';
+      state.driveThroughOrders.push(restored);
+    }
+  }
+  const activeDriveOrder = state.driveThroughOrders.find(
+    (order) => order.state !== 'LEAVING' && order.x === GAME_CONFIG.driveThroughVehicleSpot.x,
+  );
+  state.driveThroughHandoffProgress =
+    activeDriveOrder?.state === 'WAITING_FOR_ITEMS'
+      ? number(raw.driveThroughHandoffProgress, 0, GAME_CONFIG.driveThroughHandoffTime - 1)
+      : 0;
+  state.driveThroughCheckoutProgress =
+    activeDriveOrder && ['READY_TO_PAY', 'PAYING'].includes(activeDriveOrder.state)
+      ? number(raw.driveThroughCheckoutProgress, 0, GAME_CONFIG.driveThroughCheckoutTime - 1)
+      : 0;
   return state;
 }
 

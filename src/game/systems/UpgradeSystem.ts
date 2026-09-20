@@ -69,6 +69,8 @@ export class UpgradeSystem {
       return false;
     }
     this.state.upgrades[id] += 1;
+    if (id === 'driveThrough')
+      this.state.driveThroughSpawnElapsed = GAME_CONFIG.driveThroughSpawnInterval - 2500;
     applyUpgradeEffects(this.state);
     this.state.tutorialStep = Math.max(this.state.tutorialStep, 6);
     this.emit({

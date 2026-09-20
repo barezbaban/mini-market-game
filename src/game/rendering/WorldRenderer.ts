@@ -20,6 +20,7 @@ import { PRODUCTS } from '../data/products';
 import { UPGRADES, checkoutDuration, upgradeAvailable, upgradeCost } from '../data/upgrades';
 import { remainingCustomerNeed } from '../systems/CustomerSystem';
 import type { GameEvent, GameState, ProductId, UpgradeId, Vec2 } from '../types';
+import { driveThroughRemaining } from '../systems/DriveThroughSystem';
 import { createCharacter, createProduce, createTree } from './Models';
 import { StoreDisplays } from './world/StoreDisplays';
 import type { CharacterModel } from './Models';
@@ -48,6 +49,15 @@ interface Transfer {
   elapsed: number;
   duration: number;
 }
+interface DriveVehicleVisual {
+  group: Group;
+  car: Group;
+  bike: Group;
+  board: Group;
+  status: WorldLabel;
+  id: number;
+  slots: Array<{ item: Record<ProductId, Group>; quantity: WorldLabel }>;
+}
 const toWorld = (point: Vec2, elevation = 0): Vector3 =>
   new Vector3((point.x - 640) / 100, elevation, (point.y - 390) / 100);
 const YAW = (20 * Math.PI) / 180;
@@ -72,6 +82,13 @@ export class WorldRenderer {
   private readonly checkoutProgress: Mesh;
   private readonly checkoutLabel: WorldLabel;
   private readonly trashProgress: Mesh;
+  private readonly driveArea: Group;
+  private readonly driveSpot: Group;
+  private readonly driveProgress: Mesh;
+  private readonly driveStatus: WorldLabel;
+  private readonly driveVehicles: DriveVehicleVisual[] = [];
+  private readonly driveRunner: CharacterModel;
+  private readonly driveCashier: CharacterModel;
   private readonly objective = new Group();
   private previousPlayer = { ...GAME_CONFIG.playerStart } as Vec2;
   private width = 1;
@@ -109,6 +126,13 @@ export class WorldRenderer {
     this.checkoutRing = checkout.ring;
     this.checkoutProgress = checkout.progress;
     this.checkoutLabel = checkout.label;
+    const driveThrough = this.drawDriveThrough();
+    this.driveArea = driveThrough.area;
+    this.driveSpot = driveThrough.spot;
+    this.driveProgress = driveThrough.progress;
+    this.driveStatus = driveThrough.status;
+    this.driveRunner = driveThrough.runner;
+    this.driveCashier = driveThrough.cashier;
     const arrow = new Mesh(
       new ConeGeometry(0.12, 0.22, 4),
       new MeshBasicMaterial({ color: C.gold }),
@@ -177,6 +201,8 @@ export class WorldRenderer {
         quantity,
       });
     }
+    for (let index = 0; index < GAME_CONFIG.driveThroughMax; index += 1)
+      this.driveVehicles.push(this.createDriveVehicle(index));
     this.resize();
   }
 
@@ -278,6 +304,62 @@ export class WorldRenderer {
       model.group.visible = state.upgrades[upgrade] > 0;
       model.animate(timeMs, false);
     });
+    const driveOpen = state.upgrades.driveThrough > 0;
+    this.driveArea.visible = driveOpen;
+    this.driveSpot.visible = driveOpen;
+    this.driveRunner.group.visible = driveOpen && state.upgrades.driveRunner > 0;
+    this.driveCashier.group.visible = driveOpen && state.upgrades.driveCashier > 0;
+    this.driveRunner.animate(timeMs, state.driveThroughHandoffProgress > 0);
+    this.driveCashier.animate(timeMs, state.driveThroughCheckoutProgress > 0);
+    this.driveVehicles.forEach((visual, index) => {
+      const order = state.driveThroughOrders[index];
+      visual.group.visible = driveOpen && Boolean(order);
+      visual.board.visible = false;
+      if (!order) return;
+      visual.group.position.copy(toWorld(order));
+      visual.car.visible = order.vehicle === 'car';
+      visual.bike.visible = order.vehicle === 'bike';
+      if (visual.id !== order.id) visual.id = order.id;
+      if (order.state !== 'LEAVING') {
+        visual.board.visible = true;
+        visual.board.position.copy(
+          toWorld({ x: order.x + 52, y: order.y + 24 }, 1.45 + Math.sin(timeMs / 500) * 0.025),
+        );
+        visual.board.quaternion.copy(this.camera.quaternion);
+        const products = PRODUCTS.filter(({ id }) => order.requested[id] > 0).slice(0, 3);
+        visual.slots.forEach((slot, slotIndex) => {
+          const product = products[slotIndex];
+          Object.entries(slot.item).forEach(([id, model]) => {
+            model.visible = Boolean(product) && id === product.id;
+          });
+          slot.quantity.object.visible = Boolean(product);
+          if (product)
+            slot.quantity.setText(
+              `${order.delivered[product.id]}/${order.requested[product.id]}`,
+              driveThroughRemaining(order, product.id) ? '#17694b' : '#ffffff',
+              driveThroughRemaining(order, product.id) ? '#ffffff' : '#168a65',
+            );
+        });
+        visual.status.setText(
+          ['READY_TO_PAY', 'PAYING'].includes(order.state) ? 'PAY' : 'ORDER',
+          '#ffffff',
+          ['READY_TO_PAY', 'PAYING'].includes(order.state) ? '#d58b31' : '#168a65',
+        );
+      }
+    });
+    const activeDrive = state.driveThroughOrders.find((order) => order.state !== 'LEAVING');
+    const drivePaying = activeDrive && ['READY_TO_PAY', 'PAYING'].includes(activeDrive.state);
+    const driveProgress = drivePaying
+      ? state.driveThroughCheckoutProgress / GAME_CONFIG.driveThroughCheckoutTime
+      : state.driveThroughHandoffProgress / GAME_CONFIG.driveThroughHandoffTime;
+    this.driveProgress.visible = driveOpen && driveProgress > 0;
+    this.driveProgress.geometry.setDrawRange(0, Math.floor(Math.min(1, driveProgress) * 64) * 6);
+    (this.driveProgress.material as MeshBasicMaterial).color.set(drivePaying ? C.gold : C.green);
+    this.driveStatus.setText(
+      drivePaying ? 'COLLECT PAYMENT' : 'LOAD ORDER',
+      '#ffffff',
+      drivePaying ? '#c77e26' : '#168a65',
+    );
     UPGRADES.forEach((upgrade) => {
       const visual = this.upgrades.get(upgrade.id);
       if (!visual) return;
@@ -323,10 +405,7 @@ export class WorldRenderer {
     );
     this.checkoutLabel.setText('CHECKOUT', '#ffffff', '#168a65');
     this.trashProgress.visible = trashProgress > 0;
-    this.trashProgress.geometry.setDrawRange(
-      0,
-      Math.floor(Math.min(1, trashProgress) * 64) * 6,
-    );
+    this.trashProgress.geometry.setDrawRange(0, Math.floor(Math.min(1, trashProgress) * 64) * 6);
     this.updateTransfers(deltaMs);
     this.updateObjective(state, timeMs);
     this.updateCamera(deltaMs);
@@ -607,6 +686,133 @@ export class WorldRenderer {
     progress.position.y = 0.052;
     progress.visible = false;
     return progress;
+  }
+
+  private drawDriveThrough(): {
+    area: Group;
+    spot: Group;
+    progress: Mesh;
+    status: WorldLabel;
+    runner: CharacterModel;
+    cashier: CharacterModel;
+  } {
+    const area = new Group();
+    area.position.copy(toWorld(GAME_CONFIG.driveThroughWindow));
+    area.name = 'drive-through';
+    this.scene.add(area);
+    block(area, 0.62, 0.025, 0, 2.25, 0.05, 1.25, 0xbfc5aa);
+    [-0.48, 0.02, 0.52, 1.02, 1.52].forEach((x) =>
+      block(area, x, 0.055, 0, 0.28, 0.018, 0.055, C.cream),
+    );
+    block(area, 0, 0.44, 0, 0.54, 0.82, 0.76, C.green);
+    block(area, 0, 0.88, 0, 0.66, 0.09, 0.86, C.cream);
+    block(area, 0.05, 0.92, -0.17, 0.3, 0.1, 0.26, 0x656e61);
+    block(area, 0, 1.22, -0.25, 1.38, 0.33, 0.07, C.green);
+    const title = label(area, 'DRIVE-THROUGH', 1.23, 0.27, {
+      id: 'drive-through:title',
+      kind: 'area',
+      foreground: '#ffffff',
+      background: '#168a65',
+      mount: 'surface',
+      border: false,
+    });
+    title.object.position.set(0, 1.22, 0.43);
+    const status = label(area, 'LOAD ORDER', 1.1, 0.25, {
+      id: 'drive-through:status',
+      kind: 'action',
+      foreground: '#ffffff',
+      background: '#168a65',
+      mount: 'surface',
+      border: false,
+    });
+    status.object.position.set(-0.02, 0.72, 0.43);
+    const playerSpot = new Group();
+    playerSpot.position.copy(toWorld(GAME_CONFIG.driveThroughPlayerSpot));
+    this.scene.add(playerSpot);
+    const outline = ring(playerSpot, 0.36, C.white, 0.04);
+    outline.name = 'drive-through-player-spot';
+    const progress = ring(playerSpot, 0.43, C.green, 0.065);
+    progress.visible = false;
+    const runner = createCharacter('cashier', 0x659ec0);
+    runner.group.position.copy(toWorld({ x: 1050, y: 830 }));
+    runner.group.visible = false;
+    runner.setFacing(1, 0);
+    runner.group.name = 'drive-through-runner';
+    this.scene.add(runner.group);
+    const cashier = createCharacter('cashier', C.peach);
+    cashier.group.position.copy(toWorld({ x: 1130, y: 830 }));
+    cashier.group.visible = false;
+    cashier.setFacing(1, 0);
+    cashier.group.name = 'drive-through-cashier';
+    this.scene.add(cashier.group);
+    area.visible = false;
+    playerSpot.visible = false;
+    return { area, spot: playerSpot, progress, status, runner, cashier };
+  }
+
+  private createDriveVehicle(index: number): DriveVehicleVisual {
+    const group = new Group();
+    group.name = `drive:${index}:vehicle`;
+    group.visible = false;
+    this.scene.add(group);
+    const car = new Group();
+    car.name = `drive:${index}:car`;
+    group.add(car);
+    block(car, 0, 0.32, 0, 1.05, 0.38, 0.62, 0xe7775e);
+    block(car, -0.05, 0.59, 0, 0.58, 0.25, 0.54, 0xe7775e);
+    block(car, -0.05, 0.61, -0.28, 0.42, 0.16, 0.03, 0xb9e2df);
+    [-0.35, 0.35].forEach((x) => {
+      const wheel = disc(car, x, 0.16, -0.3, 0.14, 0.08, 0x48534c);
+      wheel.rotation.x = Math.PI / 2;
+    });
+    const bike = new Group();
+    bike.name = `drive:${index}:bike`;
+    group.add(bike);
+    [-0.28, 0.28].forEach((x) => {
+      const wheel = disc(bike, x, 0.16, 0, 0.17, 0.045, 0x48534c);
+      wheel.rotation.x = Math.PI / 2;
+    });
+    block(bike, 0, 0.3, 0, 0.62, 0.08, 0.08, 0x5f9fc4);
+    block(bike, 0.12, 0.48, 0, 0.12, 0.34, 0.12, 0x5f9fc4);
+    sphere(bike, 0.08, 0.78, 0, 0.12, C.cream);
+    const board = new Group();
+    board.name = `drive:${index}:order`;
+    block(board, 0, 0, 0, 1.34, 0.67, 0.055, C.white);
+    const status = label(board, 'ORDER', 0.48, 0.17, {
+      id: `drive:${index}:status`,
+      kind: 'status',
+      foreground: '#ffffff',
+      background: '#168a65',
+      mount: 'surface',
+      border: false,
+    });
+    status.object.position.set(0, 0.255, 0.04);
+    const slots = [-0.42, 0, 0.42].map((x, slotIndex) => {
+      const item = Object.fromEntries(PRODUCTS.map(({ id }) => [id, createProduce(id)])) as Record<
+        ProductId,
+        Group
+      >;
+      Object.entries(item).forEach(([id, produce]) => {
+        produce.name = `drive:${index}:item:${slotIndex}:${id}`;
+        produce.scale.setScalar(0.56);
+        produce.position.set(x, 0.03, 0.07);
+        produce.visible = false;
+        board.add(produce);
+      });
+      const quantity = label(board, '0/0', 0.34, 0.16, {
+        id: `drive:${index}:quantity:${slotIndex}`,
+        kind: 'status',
+        foreground: '#17694b',
+        background: '#ffffff',
+        mount: 'surface',
+        border: false,
+      });
+      quantity.object.position.set(x, -0.225, 0.045);
+      return { item, quantity };
+    });
+    board.visible = false;
+    this.scene.add(board);
+    return { group, car, bike, board, status, id: -1, slots };
   }
 
   private drawUpgrades(): void {

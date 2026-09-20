@@ -204,6 +204,92 @@ test('customer thought cloud shows the requested item and remaining quantity', a
   await expect.poll(thought).toMatchObject({ bubble: false });
 });
 
+test('drive-through vehicle shows its item list and accepts one item at a time', async ({
+  page,
+}) => {
+  await openGame(page);
+  await page.evaluate((playerSpot) => {
+    const { engine, world } = window.__MARKET__;
+    window.__MARKET__.setPaused(true);
+    engine.economy.earn(2_000);
+    engine.purchaseUpgrade('driveThrough');
+    engine.state.driveThroughOrders = [
+      {
+        id: 41,
+        vehicle: 'car',
+        state: 'WAITING_FOR_ITEMS',
+        x: 1245,
+        y: 875,
+        color: 0xe7775e,
+        requested: {
+          tomato: 2,
+          egg: 1,
+          corn: 0,
+          coffee: 0,
+          carrot: 0,
+          tomatoPaste: 0,
+          groundCoffee: 0,
+        },
+        delivered: {
+          tomato: 0,
+          egg: 0,
+          corn: 0,
+          coffee: 0,
+          carrot: 0,
+          tomatoPaste: 0,
+          groundCoffee: 0,
+        },
+      },
+    ];
+    engine.state.inventory.tomato = 2;
+    engine.state.inventory.egg = 1;
+    engine.state.player = { ...playerSpot };
+    world.update(engine.state, engine.state.elapsed, 0);
+  }, GAME_CONFIG.driveThroughPlayerSpot);
+
+  const display = () =>
+    page.evaluate(() => {
+      const { world } = window.__MARKET__;
+      const visible = (name: string) => {
+        const object = world.scene.getObjectByName(name)!;
+        let result = object.visible;
+        for (let parent = object.parent; parent; parent = parent.parent) result &&= parent.visible;
+        return result;
+      };
+      return {
+        lane: visible('drive-through'),
+        vehicle: visible('drive:0:vehicle'),
+        car: visible('drive:0:car'),
+        bike: visible('drive:0:bike'),
+        order: visible('drive:0:order'),
+        tomato: visible('drive:0:item:0:tomato'),
+        egg: visible('drive:0:item:1:egg'),
+        tomatoQuantity: world.scene.getObjectByName('label:drive:0:quantity:0')!.userData.worldLabel
+          .text as string,
+        eggQuantity: world.scene.getObjectByName('label:drive:0:quantity:1')!.userData.worldLabel
+          .text as string,
+      };
+    });
+  await expect.poll(display).toEqual({
+    lane: true,
+    vehicle: true,
+    car: true,
+    bike: false,
+    order: true,
+    tomato: true,
+    egg: true,
+    tomatoQuantity: '0/2',
+    eggQuantity: '0/1',
+  });
+  await advance(page, GAME_CONFIG.driveThroughHandoffTime);
+  await expect.poll(display).toMatchObject({ tomatoQuantity: '1/2', eggQuantity: '0/1' });
+  expect((await state(page)).inventory.tomato).toBe(1);
+  await advance(page, GAME_CONFIG.driveThroughHandoffTime * 2);
+  const ready = await state(page);
+  expect(ready.driveThroughOrders[0].state).toBe('READY_TO_PAY');
+  expect(Object.values(ready.inventory).reduce((sum, count) => sum + count, 0)).toBe(0);
+});
+
 test('upgrade hold, corn production, hired cashier, tutorial and settings persistence', async ({
   page,
 }) => {

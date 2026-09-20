@@ -13,6 +13,7 @@ import { UpgradeSystem } from './UpgradeSystem';
 import { MachineSystem } from './MachineSystem';
 import { WorkerSystem } from './WorkerSystem';
 import { ProgressionSystem } from './ProgressionSystem';
+import { DriveThroughSystem } from './DriveThroughSystem';
 
 /** The renderer owns no game rules. This headless simulation runs in browser and tests. */
 export class GameEngine {
@@ -25,6 +26,7 @@ export class GameEngine {
   readonly machines: MachineSystem;
   readonly workers: WorkerSystem;
   readonly progression: ProgressionSystem;
+  readonly driveThrough: DriveThroughSystem;
   private events: GameEvent[] = [];
   private harvestElapsed: number = GAME_CONFIG.harvestInterval;
   private stockElapsed: number = GAME_CONFIG.stockInterval;
@@ -47,6 +49,7 @@ export class GameEngine {
     this.machines = new MachineSystem(state, this.inventory, emit);
     this.workers = new WorkerSystem(state, this.inventory, this.machines, emit);
     this.progression = new ProgressionSystem(state, emit);
+    this.driveThrough = new DriveThroughSystem(state, this.inventory, this.economy, emit);
   }
 
   purchaseUpgrade(id: UpgradeId): boolean {
@@ -272,6 +275,7 @@ export class GameEngine {
       this.machines.update(step);
       this.workers.update(step);
       this.progression.update(step);
+      this.driveThrough.update(step);
       remaining -= step;
     }
   }

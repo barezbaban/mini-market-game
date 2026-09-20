@@ -18,7 +18,10 @@ export type UpgradeId =
   | 'helpers'
   | 'helperCapacity'
   | 'helperSpeed'
-  | 'accountant';
+  | 'accountant'
+  | 'driveThrough'
+  | 'driveRunner'
+  | 'driveCashier';
 export interface Vec2 {
   x: number;
   y: number;
@@ -118,6 +121,18 @@ export interface CustomerData {
   waitTime: number;
   path: Vec2[];
 }
+export type DriveThroughState =
+  'ARRIVING' | 'WAITING_FOR_ITEMS' | 'READY_TO_PAY' | 'PAYING' | 'LEAVING';
+export interface DriveThroughOrder {
+  id: number;
+  vehicle: 'car' | 'bike';
+  state: DriveThroughState;
+  x: number;
+  y: number;
+  color: number;
+  requested: ItemCounts;
+  delivered: ItemCounts;
+}
 export interface GameState {
   version: 2;
   money: number;
@@ -144,6 +159,11 @@ export interface GameState {
   workers: WorkerData[];
   xp: number;
   accountantElapsed: number;
+  driveThroughOrders: DriveThroughOrder[];
+  driveThroughSpawnElapsed: number;
+  driveThroughHandoffProgress: number;
+  driveThroughCheckoutProgress: number;
+  driveThroughServed: number;
 }
 export interface GameEvent {
   type: 'harvest' | 'stock' | 'money' | 'upgrade' | 'notice' | 'checkout' | 'discard';

@@ -21,9 +21,12 @@ All gameplay timings are in milliseconds. Simulation positions use the configure
 - Checkout resolves a customer's basket and credits the economy once payment completes.
 - Upgrades validate prerequisites and cost before applying an effect.
 - Progression awards sale XP and the accountant's timed passive XP.
+- Drive-through owns vehicle arrival, ordered item handoff, dedicated staff automation, payment, and departure.
 - Saves serialize validated progression through a storage interface.
 
 The player and cashier both operate the same checkout rules. A customer's transition through the queue, payment, and departure must remain owned by the simulation; rendering should never credit money or remove stock.
+
+Drive-through orders are a separate queue with explicit arriving, loading, payment, and leaving states. The player transfers one requested basket item per handoff interval. The dedicated runner uses the same shelf-removal rules, and the dedicated cashier can advance only the payment stage. Orders, delivered quantities, progress timers, and service totals are validated when a save is loaded.
 
 ## Customer lifecycle
 

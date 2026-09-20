@@ -97,6 +97,12 @@ export class Hud {
     );
     const nearTrash =
       Math.hypot(state.player.x - GAME_CONFIG.trash.x, state.player.y - GAME_CONFIG.trash.y) < 85;
+    const nearDriveThrough =
+      state.upgrades.driveThrough > 0 &&
+      Math.hypot(
+        state.player.x - GAME_CONFIG.driveThroughPlayerSpot.x,
+        state.player.y - GAME_CONFIG.driveThroughPlayerSpot.y,
+      ) < 85;
     const key = [
       state.money,
       ...Object.values(state.inventory),
@@ -109,6 +115,10 @@ export class Hud {
       state.unlockedProducts.join(':'),
       nearbyUpgrade?.id,
       nearTrash,
+      nearDriveThrough,
+      state.driveThroughOrders
+        .map((order) => `${order.id}:${order.state}:${Object.values(order.delivered).join('.')}`)
+        .join('|'),
     ].join(',');
     if (key === this.cached) return;
     this.cached = key;
@@ -171,6 +181,24 @@ export class Hud {
       this.hint.innerHTML = count
         ? `<strong>Trash bin · ${count} item${count === 1 ? '' : 's'}</strong><span>Stay close for 1 second to discard everything.</span>`
         : '<strong>Trash bin · basket empty</strong><span>Carry unwanted items here to discard them.</span>';
+    if (nearDriveThrough) {
+      const order = state.driveThroughOrders.find((entry) => entry.state !== 'LEAVING');
+      if (!order)
+        this.hint.innerHTML =
+          '<strong>Drive-through is ready</strong><span>The next car or bike is on its way.</span>';
+      else if (['READY_TO_PAY', 'PAYING'].includes(order.state))
+        this.hint.innerHTML = state.upgrades.driveCashier
+          ? '<strong>Drive-through payment</strong><span>Your dedicated cashier is collecting it.</span>'
+          : '<strong>Drive-through payment ready</strong><span>Stay here to collect the money.</span>';
+      else {
+        const remaining = PRODUCTS.filter(({ id }) => order.requested[id] > order.delivered[id])
+          .map(({ id, name }) => `${order.requested[id] - order.delivered[id]} ${name}`)
+          .join(' · ');
+        this.hint.innerHTML = state.upgrades.driveRunner
+          ? `<strong>Drive-through order</strong><span>${remaining || 'Loaded'} · Your runner is working.</span>`
+          : `<strong>Drive-through order</strong><span>Bring ${remaining || 'the last item'} here from your basket.</span>`;
+      }
+    }
     this.soundButton.innerHTML = icon(state.soundEnabled ? 'sound' : 'mute');
     this.soundButton.setAttribute(
       'aria-label',

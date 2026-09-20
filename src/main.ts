@@ -85,7 +85,7 @@ function showDialog(kind: 'settings' | 'help'): void {
   dialog.innerHTML =
     `<div class="dialog-heading"><h2>${kind === 'settings' ? 'Make yourself at home.' : 'Small steps. Fresh starts.'}</h2><button class="icon-button" id="dialog-close" aria-label="Close dialog">${icon('close')}</button></div>` +
     (kind === 'help'
-      ? `<p>Your farm, your shelves, your growing team.</p><ol><li>Move with <strong>WASD, arrow keys, the joystick, or dragging the world.</strong></li><li>Stand near ripe farm plots to collect produce, then carry it to a matching shelf. Every shelf holds 12 items.</li><li>Customers show the item and remaining quantity they want in a small thought cloud while shopping.</li><li>Take unwanted carried items to the <strong>trash bin</strong> beside the team office. Stay close for one second to empty your basket.</li><li>Stand beside checkout to serve customers and earn money plus 5 XP per sale.</li><li>Open <strong>Manage</strong> to expand the store, add farm plots, build machines, and hire staff. Some upgrades also have purchase pads in the world.</li><li>Carry tomatoes to the cannery or coffee beans to the grinder. Stand close to supply raw produce and collect finished cans or coffee bags when your basket has room.</li><li>Helpers harvest, supply machines, collect finished goods, and restock shelves. Upgrade their baskets and speed to keep things moving.</li></ol><p>The production wing opens first, then the coffee corner, then the carrot garden. Your market saves automatically on this device.</p>`
+      ? `<p>Your farm, your shelves, your growing team.</p><ol><li>Move with <strong>WASD, arrow keys, the joystick, or dragging the world.</strong></li><li>Stand near ripe farm plots to collect produce, then carry it to a matching shelf. Every shelf holds 12 items.</li><li>Customers show the item and remaining quantity they want in a small thought cloud while shopping.</li><li>Take unwanted carried items to the <strong>trash bin</strong> beside the team office. Stay close for one second to empty your basket.</li><li>Stand beside checkout to serve customers and earn money plus 5 XP per sale.</li><li>Buy the <strong>drive-through service</strong> in Manage. Cars and bikes show an order list; bring each requested item to the drive window one at a time, then stay to collect payment.</li><li>The drive-through runner loads requested stock from shelves. The separate drive-through cashier collects completed payments. Neither works until hired.</li><li>Open <strong>Manage</strong> to expand the store, add farm plots, build machines, and hire staff. Some upgrades also have purchase pads in the world.</li><li>Carry tomatoes to the cannery or coffee beans to the grinder. Stand close to supply raw produce and collect finished cans or coffee bags when your basket has room.</li><li>Helpers harvest, supply machines, collect finished goods, and restock shelves. Upgrade their baskets and speed to keep things moving.</li></ol><p>The production wing opens first, then the coffee corner, then the carrot garden. Your market saves automatically on this device.</p>`
       : `<div class="setting-row"><span>Market sounds<small>Original melodies & little rewards</small></span><button id="dialog-sound" class="secondary-button">${engine.state.soundEnabled ? 'Sound on' : 'Sound off'}</button></div><div class="setting-row"><span>Your little business<small>${engine.state.totalServed} customers · $${engine.state.totalEarned} lifetime earned</small></span>${icon('leaf')}</div><div class="setting-row"><span>A fresh beginning<small>Erase this device’s market progress</small></span><button id="reset-button" class="danger-button">Reset game</button></div><p>Your market is saved automatically in this browser. Clearing browser data also clears your save.</p>`);
   dialog.querySelector('#dialog-close')!.addEventListener('click', () => dialog.close());
   dialog.querySelector('#dialog-sound')?.addEventListener('click', () => {
@@ -259,6 +259,27 @@ function upgradePresentation(upgrade: UpgradeDefinition): {
       result.detail =
         'Your accountant earns passive player XP while the market is running. Every level adds 5 XP each 10 seconds.';
       break;
+    case 'driveThrough':
+      result.current = level ? 'Lane open' : 'Not built';
+      result.next = 'Cars & bikes enabled';
+      result.level = level ? 'OPEN' : 'NEW SERVICE';
+      result.detail =
+        'Cars and bikes arrive with two to four requested items. Load each item at the drive window, then collect payment.';
+      break;
+    case 'driveRunner':
+      result.current = level ? 'Runner working' : 'Not hired';
+      result.next = 'Automatic order loading';
+      result.level = level ? 'HIRED' : 'DRIVE-THROUGH STAFF';
+      result.detail =
+        'This dedicated runner takes only requested products from stocked shelves and loads them into drive-through orders one at a time.';
+      break;
+    case 'driveCashier':
+      result.current = level ? 'Cashier working' : 'Not hired';
+      result.next = 'Automatic payment';
+      result.level = level ? 'HIRED' : 'DRIVE-THROUGH STAFF';
+      result.detail =
+        'This cashier works only at the drive-through window and automatically collects payment after every order is fully loaded.';
+      break;
   }
   return result;
 }
@@ -275,6 +296,7 @@ function upgradeRequirement(upgrade: UpgradeDefinition): string {
           'the carrot garden',
         ][level!];
       if (id === 'helpers') return 'at least one harvest helper';
+      if (id === 'driveThrough') return 'the drive-through service';
       return `${upgradeById(id as UpgradeId).name} level ${level}`;
     })
     .join(' and ');
@@ -311,7 +333,14 @@ function renderManagement(): void {
             : !affordable
               ? `Need $${(cost - state.money).toLocaleString()} more`
               : state.upgrades[upgrade.id] === 0 &&
-                  ['cashier', 'customers', 'accountant', 'helpers'].includes(upgrade.id)
+                  [
+                    'cashier',
+                    'customers',
+                    'accountant',
+                    'helpers',
+                    'driveRunner',
+                    'driveCashier',
+                  ].includes(upgrade.id)
                 ? `Hire · $${cost.toLocaleString()}`
                 : `Buy · $${cost.toLocaleString()}`;
         return `<article class="upgrade-card ${maxed ? 'maxed' : ''} ${available ? '' : 'unavailable'}" data-upgrade="${upgrade.id}"><div class="upgrade-card-heading"><span class="upgrade-symbol">${product ? productIcon(product.id) : icon(upgrade.icon, 25)}</span><div><small>${presentation.level}</small><h3>${upgrade.name}</h3></div></div><div class="upgrade-effect"><span>${presentation.current}</span>${maxed ? icon('check', 16) : `${icon('arrow', 16)}<strong>${presentation.next}</strong>`}</div><p>${presentation.detail}</p>${!available && !maxed ? `<div class="upgrade-requirement">${icon('lock', 13)} Requires ${upgradeRequirement(upgrade)}</div>` : ''}<div class="upgrade-purchase"><span class="upgrade-cost">${maxed ? 'All set' : `$${cost.toLocaleString()}`}</span><button id="buy-${upgrade.id}" class="upgrade-buy" data-buy-upgrade="${upgrade.id}" ${maxed || !available || !affordable ? 'disabled' : ''} aria-label="${maxed ? `${upgrade.name}: ${included ? 'included' : 'fully upgraded'}` : `Buy ${upgrade.name} for $${cost}`}">${buttonLabel}</button></div></article>`;
