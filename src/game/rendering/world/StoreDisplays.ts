@@ -3,7 +3,7 @@ import type { Scene } from 'three';
 import { GAME_CONFIG } from '../../data/gameConfig';
 import { PRODUCTS, plotCount, plotPosition } from '../../data/products';
 import { MACHINES } from '../../data/machines';
-import { upgradeCost } from '../../data/upgrades';
+import { upgradeById, upgradeCost } from '../../data/upgrades';
 import type {
   GameState,
   MachineDefinition,
@@ -21,6 +21,7 @@ interface PlotVisual {
   group: Group;
   live: Group;
   marker: Group;
+  markerSign: Group;
   markerLabel: WorldLabel;
   products: Group[];
   ready: WorldLabel;
@@ -31,7 +32,7 @@ interface ProductVisual {
   shelf: Group;
   items: Group[];
   count: WorldLabel;
-  farmTitle?: WorldLabel;
+  farmSign?: Group;
   plots: PlotVisual[];
 }
 interface MachineVisual {
@@ -50,7 +51,13 @@ interface MachineVisual {
 export class StoreDisplays {
   private readonly products = new Map<ProductId, ProductVisual>();
   private readonly machines = new Map<MachineId, MachineVisual>();
-  private readonly wings: { floor: Group; gate: Group; price: WorldLabel; area: number }[] = [];
+  private readonly wings: {
+    floor: Group;
+    gate: Group;
+    title: WorldLabel;
+    area: number;
+  }[] = [];
+  private compactLabels = false;
 
   constructor(private readonly scene: Scene) {
     this.createWings();
@@ -58,11 +65,15 @@ export class StoreDisplays {
     MACHINES.forEach((machine) => this.createMachine(machine));
   }
 
+  setCompactLabels(compact: boolean): void {
+    this.compactLabels = compact;
+  }
+
   update(state: GameState, time: number): void {
-    this.wings.forEach(({ floor, gate, price, area }) => {
+    this.wings.forEach(({ floor, gate, title, area }) => {
       floor.visible = state.upgrades.expansion >= area;
       gate.visible = state.upgrades.expansion === area - 1;
-      price.setText(`EXPAND  $${upgradeCost(state, 'expansion')}`, '#1d7255', '#fff9e4');
+      title.object.visible = !this.compactLabels;
     });
     PRODUCTS.forEach((product) => {
       const visual = this.products.get(product.id)!;
@@ -73,32 +84,40 @@ export class StoreDisplays {
         item.visible = unlocked && index < state.shelves[product.id];
       });
       visual.count.setText(
-        unlocked ? `${state.shelves[product.id]} / 12` : 'LOCKED',
-        unlocked ? '#217653' : '#899981',
+        unlocked ? `${state.shelves[product.id]}/12` : 'LOCKED',
+        unlocked ? '#ffffff' : '#59675e',
+        unlocked ? '#168a65' : '#f0f2e6',
       );
-      if (visual.farmTitle) visual.farmTitle.object.visible = areaOpen;
+      if (visual.farmSign) visual.farmSign.visible = areaOpen && !this.compactLabels;
       const owned = plotCount(state, product.id);
       visual.plots.forEach((plot, index) => {
         const active = index < owned;
         plot.group.visible = areaOpen;
         plot.live.visible = active;
         plot.marker.visible = !active;
-        plot.markerLabel.object.visible = index === owned;
+        plot.markerSign.visible = false;
         if (index === owned) {
           const upgrade =
             !unlocked && product.unlockUpgrade ? product.unlockUpgrade : product.plotUpgrade;
-          plot.markerLabel.setText(
-            upgrade ? `+ $${upgradeCost(state, upgrade)}` : 'LOCKED',
-            '#67905d',
-            '#edf6db',
-          );
+          const separatePad = upgrade && upgradeById(upgrade).inWorld;
+          // The dedicated world upgrade pad already carries this action and
+          // price. Keep the empty plot marker, but avoid a second sign that can
+          // collide with the pad in the compact camera.
+          plot.markerSign.visible = !separatePad;
+          if (!separatePad)
+            plot.markerLabel.setText(
+              !unlocked ? 'LOCKED' : upgrade ? `+$${upgradeCost(state, upgrade)}` : 'NEXT',
+              '#67905d',
+              '#edf6db',
+            );
         }
         const data = state.farms[product.id].plots[index];
         const ready = data?.ready ?? 0;
         plot.products.forEach((item, itemIndex) => {
           item.visible = itemIndex < ready;
         });
-        plot.ready.setText(ready ? String(ready) : '…', ready ? '#18754f' : '#8b967e', '#fffbe9');
+        plot.ready.object.visible = active && ready > 0;
+        if (ready) plot.ready.setText(String(ready), '#18754f', '#fffbe9');
         const progress =
           ready >= GAME_CONFIG.farmCapacity ? 1 : (data?.elapsed ?? 0) / product.productionTime;
         plot.progress.scale.x = Math.max(0.003, Math.min(1, progress) * 0.35);
@@ -114,7 +133,7 @@ export class StoreDisplays {
       visual.body.visible = level > 0;
       visual.locked.visible = level === 0;
       visual.level.setText(
-        `LEVEL ${level} · ${level * 2} / BATCH`,
+        `LV${level} · ${level * 2}/BATCH`,
         '#ffffff',
         machine.id === 'paste' ? '#cc765e' : '#8b654b',
       );
@@ -123,7 +142,9 @@ export class StoreDisplays {
           ? `MAKING ${data.processing}`
           : data.output
             ? `${data.output} READY`
-            : 'ADD INGREDIENTS',
+            : machine.id === 'paste'
+              ? 'ADD TOMATOES'
+              : 'ADD BEANS',
         '#1d6e51',
         '#fff9e9',
       );
@@ -164,33 +185,56 @@ export class StoreDisplays {
         items.push(produce);
       }
     }
-    const name = label(shelf, product.plural.toUpperCase(), 1.34, 0.2, {
+    const name = label(shelf, product.plural.toUpperCase(), 1.4, 0.27, {
+      id: `shelf:${product.id}:title`,
+      kind: 'object',
+      mount: 'surface',
       foreground: '#246b50',
       background: '#fff9e7',
     });
-    name.object.position.set(0, 1.13, -0.23);
-    const count = label(shelf, '0 / 12', 0.64, 0.2, {
-      foreground: '#217653',
-      background: '#ffffff',
+    name.object.position.set(0, 0.89, -0.355);
+    const count = label(shelf, '0/12', 0.76, 0.27, {
+      id: `shelf:${product.id}:count`,
+      kind: 'status',
+      mount: 'surface',
+      foreground: '#ffffff',
+      background: '#168a65',
+      border: false,
     });
-    count.object.position.set(0, 0.15, 0.48);
-    let farmTitle: WorldLabel | undefined;
+    count.object.position.set(0, 0.15, 0.38);
+    let farmSign: Group | undefined;
     const plots: PlotVisual[] = [];
     if (product.kind === 'farm') {
-      farmTitle = label(
-        this.scene,
-        product.id === 'egg' ? 'CHICKEN FARM' : `${product.plural.toUpperCase()} FARM`,
-        product.id === 'carrot' ? 1.9 : 1.65,
-        0.22,
-        { foreground: '#438154', background: '#eef6d8' },
+      const farmNames: Record<ProductId, string> = {
+        tomato: 'TOMATO FARM',
+        egg: 'CHICKEN COOP',
+        corn: 'CORN FIELD',
+        coffee: 'COFFEE GROVE',
+        carrot: 'CARROT PATCH',
+        tomatoPaste: '',
+        groundCoffee: '',
+      };
+      farmSign = new Group();
+      farmSign.name = `farm-sign-${product.id}`;
+      farmSign.position.copy(
+        point(product.farm.x + (product.id === 'carrot' ? 30 : 0), product.farm.y - 68),
       );
-      farmTitle.object.position.copy(
-        point(product.farm.x + (product.id === 'carrot' ? 30 : 0), product.farm.y - 62, 0.16),
-      );
+      this.scene.add(farmSign);
+      const signWidth = product.id === 'carrot' ? 1.45 : 1.25;
+      block(farmSign, 0, 0.51, 0, signWidth, 0.24, 0.055, C.green);
+      block(farmSign, 0, 0.25, 0, 0.045, 0.42, 0.045, C.green);
+      const farmTitle = label(farmSign, farmNames[product.id], signWidth - 0.12, 0.16, {
+        id: `farm:${product.id}:title`,
+        kind: 'area',
+        mount: 'surface',
+        foreground: '#ffffff',
+        border: false,
+      });
+      farmTitle.object.position.set(0, 0.51, 0.031);
       for (let index = 0; index < product.maxPlots; index += 1)
         plots.push(this.createPlot(product, index));
     }
-    this.products.set(product.id, { shelf, items, count, plots, farmTitle });
+    this.products.set(product.id, { shelf, items, count, plots, farmSign });
   }
 
   private createPlot(product: ProductDefinition, index: number): PlotVisual {
@@ -256,7 +300,13 @@ export class StoreDisplays {
       live.add(produce);
       products.push(produce);
     }
-    const ready = label(live, '…', 0.29, 0.2, { foreground: '#18754f', background: '#fffbe9' });
+    const ready = label(live, '0', 0.29, 0.2, {
+      id: `plot:${product.id}:${index}:ready`,
+      kind: 'status',
+      mount: 'billboard',
+      foreground: '#18754f',
+      background: '#fffbe9',
+    });
     ready.object.position.set(0.28, 0.53, 0.25);
     block(live, 0, 0.19, 0.41, 0.37, 0.025, 0.036, C.cream);
     const progress = block(live, -0.175, 0.197, 0.411, 0.003, 0.025, 0.038, C.green);
@@ -264,14 +314,21 @@ export class StoreDisplays {
     group.add(marker);
     const outline = ring(marker, product.id === 'carrot' ? 0.23 : 0.32, 0xd4edb3, 0.025);
     outline.position.y = 0.047;
-    const plus = label(marker, '+', 0.25, 0.25, { foreground: '#95b970', flat: true });
-    plus.object.position.y = 0.051;
-    const markerLabel = label(marker, '', 0.71, 0.22, {
+    block(marker, 0, 0.052, 0, 0.2, 0.018, 0.045, 0x95b970, false);
+    block(marker, 0, 0.052, 0, 0.045, 0.018, 0.2, 0x95b970, false);
+    const markerSign = new Group();
+    marker.add(markerSign);
+    block(markerSign, 0, 0.32, 0.22, 0.82, 0.28, 0.045, C.cream);
+    block(markerSign, 0, 0.17, 0.22, 0.035, 0.26, 0.035, C.green);
+    const markerLabel = label(markerSign, '', 0.74, 0.25, {
+      id: `plot:${product.id}:${index}:action`,
+      kind: 'action',
+      mount: 'surface',
       foreground: '#67905d',
-      background: '#edf6db',
+      border: false,
     });
-    markerLabel.object.position.set(0, 0.32, 0);
-    return { group, live, marker, markerLabel, products, ready, progress, chicken };
+    markerLabel.object.position.set(0, 0.32, 0.245);
+    return { group, live, marker, markerSign, markerLabel, products, ready, progress, chicken };
   }
 
   private createMachine(machine: MachineDefinition): void {
@@ -310,29 +367,46 @@ export class StoreDisplays {
     wheel.rotation.x = Math.PI / 2;
     block(rotor, 0, 0, 0.025, 0.22, 0.04, 0.03, C.cream);
     block(rotor, 0, 0, 0.025, 0.04, 0.22, 0.03, C.cream);
-    const title = label(body, machine.name.toUpperCase(), 1.95, 0.25, {
+    block(body, 0, 1.36, -0.18, 1.18, 0.31, 0.065, C.cream);
+    const machineTitle = machine.id === 'paste' ? 'CANNERY' : 'GRINDER';
+    const title = label(body, machineTitle, 1.04, 0.27, {
+      id: `machine:${machine.id}:title`,
+      kind: 'object',
+      mount: 'surface',
       foreground: '#4b704f',
       background: '#fff9e8',
     });
-    title.object.position.set(0, 1.74, -0.1);
-    const level = label(body, '', 1.55, 0.21, { foreground: '#ffffff', background: '#cc765e' });
-    level.object.position.set(0, 1.46, 0.25);
-    const status = label(body, '', 1.3, 0.24, { foreground: '#1d6e51', background: '#fff9e9' });
-    status.object.position.set(0, 0.12, 0.6);
+    title.object.position.set(0, 1.36, -0.143);
+    const level = label(body, '', 1.16, 0.26, {
+      id: `machine:${machine.id}:level`,
+      kind: 'status',
+      mount: 'surface',
+      foreground: '#ffffff',
+      background: '#cc765e',
+      border: false,
+    });
+    level.object.position.set(0, 1.1, 0.22);
+    const status = label(body, '', 1.35, 0.28, {
+      id: `machine:${machine.id}:status`,
+      kind: 'status',
+      mount: 'surface',
+      foreground: '#1d6e51',
+      background: '#fff9e9',
+    });
+    status.object.position.set(0, 0.77, 0.405);
     const progress = ring(body, 0.67, C.gold, 0.065);
     progress.position.y = 0.035;
     const locked = new Group();
     root.add(locked);
     block(locked, 0, 0.025, 0, 1.52, 0.05, 1.1, 0xcae2a5);
-    const lockedTitle = label(locked, machine.name.toUpperCase(), 1.8, 0.25, {
+    const lockedTitle = label(locked, `${machineTitle} · OPEN MANAGE`, 1.42, 0.26, {
+      id: `machine:${machine.id}:locked`,
+      kind: 'action',
+      mount: 'surface',
       foreground: '#4b8057',
-    });
-    lockedTitle.object.position.set(0, 0.36, -0.15);
-    const lockedPrice = label(locked, 'BUILD FROM MANAGE', 1.63, 0.22, {
-      foreground: '#68935e',
       background: '#eff6de',
     });
-    lockedPrice.object.position.set(0, 0.12, 0.28);
+    lockedTitle.object.position.set(0, 0.3, 0.18);
     this.machines.set(machine.id, {
       root,
       body,
@@ -365,10 +439,14 @@ export class StoreDisplays {
       block(floor, center, 0.675, -3, width, 0.09, 0.21, C.green);
       block(floor, center, -0.012, 3.1, width - 0.13, 0.045, 4.55, 0x9acd79);
       const title = label(floor, names[area - 1], Math.min(2.5, width - 0.2), 0.24, {
+        id: `area:${area}:title`,
+        kind: 'area',
+        mount: 'surface',
         foreground: '#ffffff',
         background: '#26976d',
+        border: false,
       });
-      title.object.position.set(center, 0.98, -2.9);
+      title.object.position.set(center, 0.68, -2.885);
       const gate = new Group();
       gate.name = `expansion-gate-${area}`;
       gate.position.x = (left - 640) / 100 + 0.11;
@@ -377,14 +455,12 @@ export class StoreDisplays {
         block(gate, 0, 0.35, z, 0.09, 0.7, 0.09, C.cream);
       }
       block(gate, 0, 0.35, 1.3, 0.045, 0.065, 8.1, 0xcde39d);
-      const gateName = label(gate, names[area - 1], 2.1, 0.25, {
-        foreground: '#4d8357',
-        background: '#eff6de',
+      this.wings.push({
+        floor,
+        gate,
+        title,
+        area,
       });
-      gateName.object.position.set(0.5, 1.0, 0.4);
-      const price = label(gate, '', 1.68, 0.3, { foreground: '#1d7255', background: '#fff9e4' });
-      price.object.position.set(0.5, 0.62, 0.5);
-      this.wings.push({ floor, gate, price, area });
     }
   }
 }

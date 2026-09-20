@@ -121,6 +121,8 @@ export interface WorldLabel {
   setText(text: string, foreground?: string, background?: string): void;
 }
 
+export type WorldLabelKind = 'area' | 'object' | 'status' | 'action' | 'brand';
+
 /** Canvas is only for legible labels: all scenery and characters are real meshes. */
 export function label(
   parent: Object3D,
@@ -128,31 +130,43 @@ export function label(
   width: number,
   height: number,
   options: {
+    id: string;
+    kind: WorldLabelKind;
+    mount: 'surface' | 'billboard';
     foreground?: string;
     background?: string;
-    flat?: boolean;
-    surface?: boolean;
     fontSize?: number;
-  } = {},
+    border?: string | false;
+  },
 ): WorldLabel {
   const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = Math.round((512 * height) / width);
+  // Roughly 160 source pixels of vertical detail is ample for the on-screen
+  // size of these signs, including high-DPI phones, without keeping ~100 MB of
+  // label canvases alive for the full world.
+  canvas.width = Math.min(1024, Math.max(256, Math.round((160 * width) / height)));
+  canvas.height = Math.round((canvas.width * height) / width);
   const context = canvas.getContext('2d')!;
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
   texture.minFilter = LinearFilter;
-  const labelMaterial =
-    options.flat || options.surface
-      ? new MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false })
-      : new SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
-  const object =
-    options.flat || options.surface
-      ? new Mesh(plane, labelMaterial as MeshBasicMaterial)
-      : new Sprite(labelMaterial as SpriteMaterial);
+  const labelMaterial = options.mount === 'surface'
+    ? new MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false })
+    : new SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
+  const object = options.mount === 'surface'
+    ? new Mesh(plane, labelMaterial as MeshBasicMaterial)
+    : new Sprite(labelMaterial as SpriteMaterial);
   object.scale.set(width, height, 1);
-  if (options.flat) object.rotation.x = -Math.PI / 2;
   object.renderOrder = 3;
+  object.name = `label:${options.id}`;
+  object.userData.worldLabel = {
+    id: options.id,
+    text,
+    mount: options.mount,
+    kind: options.kind,
+    width,
+    height,
+    fontRatio: 0,
+  };
   parent.add(object);
   let previous = '';
   const setText = (
@@ -163,18 +177,35 @@ export function label(
     const key = `${next}|${foreground}|${background}`;
     if (previous === key) return;
     previous = key;
+    object.userData.worldLabel.text = next;
     context.clearRect(0, 0, canvas.width, canvas.height);
     if (background) {
       context.fillStyle = background;
       context.beginPath();
-      context.roundRect(0, 0, canvas.width, canvas.height, Math.min(30, canvas.height / 2));
+      const inset = Math.max(2, Math.round(canvas.height * 0.025));
+      const radius = Math.min(Math.round(canvas.height * 0.28), 42);
+      context.roundRect(inset, inset, canvas.width - inset * 2, canvas.height - inset * 2, radius);
       context.fill();
+      if (options.border !== false) {
+        context.strokeStyle = options.border ?? 'rgba(39, 91, 68, 0.18)';
+        context.lineWidth = Math.max(2, Math.round(canvas.height * 0.025));
+        context.stroke();
+      }
     }
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     context.fillStyle = foreground;
-    context.font = `800 ${options.fontSize ?? Math.round(canvas.height * 0.58)}px "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif`;
-    context.fillText(next, canvas.width / 2, canvas.height / 2 + 2, canvas.width - 34);
+    const family = '"Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif';
+    let size = options.fontSize ?? Math.round(canvas.height * 0.62);
+    const maxWidth = canvas.width - canvas.height * 0.32;
+    context.font = `800 ${size}px ${family}`;
+    const measured = context.measureText(next).width;
+    if (measured > maxWidth) {
+      size = Math.max(Math.round(canvas.height * 0.36), Math.floor((size * maxWidth) / measured));
+      context.font = `800 ${size}px ${family}`;
+    }
+    object.userData.worldLabel.fontRatio = size / canvas.height;
+    context.fillText(next, canvas.width / 2, canvas.height / 2 + 1);
     texture.needsUpdate = true;
   };
   setText(text);

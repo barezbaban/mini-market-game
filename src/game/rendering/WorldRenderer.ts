@@ -29,8 +29,8 @@ interface UpgradeVisual {
   group: Group;
   outline: Mesh;
   progress: Mesh;
-  price: WorldLabel;
-  title: WorldLabel;
+  action: WorldLabel;
+  name: string;
 }
 interface CustomerVisual {
   model: CharacterModel;
@@ -158,7 +158,7 @@ export class WorldRenderer {
     this.height = Math.max(1, this.host.clientHeight);
     const aspect = this.width / this.height;
     // A close following view keeps the miniature world tactile on phone and desktop.
-    const span = aspect < 0.8 ? 9.9 : aspect < 1.25 ? 9.5 : 8.4;
+    const span = aspect < 0.8 ? 9.9 : aspect < 1.25 ? 9.5 : this.height < 460 ? 5 : 8.4;
     this.camera.left = (-span * aspect) / 2;
     this.camera.right = (span * aspect) / 2;
     this.camera.top = span / 2;
@@ -169,6 +169,7 @@ export class WorldRenderer {
     this.renderer.setSize(this.width, this.height, false);
     this.renderer.domElement.style.width = '100%';
     this.renderer.domElement.style.height = '100%';
+    this.displays.setCompactLabels(this.width < 620 || this.height < 460);
     this.updateCamera(1000);
   }
 
@@ -256,15 +257,20 @@ export class WorldRenderer {
       const complete = state.upgrades[upgrade.id] >= upgrade.maxLevel;
       const cost = upgradeCost(state, upgrade.id);
       const affordable = state.money >= cost;
+      const actionName =
+        upgrade.id === 'expansion'
+          ? complete
+            ? 'EXPANSION'
+            : ['PRODUCTION', 'COFFEE', 'CARROTS'][state.upgrades.expansion]
+          : visual.name;
       (visual.outline.material as MeshBasicMaterial).color.set(
         complete ? C.green : affordable ? C.gold : C.white,
       );
-      visual.price.setText(
-        complete ? 'MAX' : `$${cost}`,
+      visual.action.setText(
+        `${actionName} ${complete ? 'MAX' : `$${cost}`}`,
         complete ? '#128560' : '#17694b',
         complete ? '#def5d9' : '#ffffff',
       );
-      visual.title.object.visible = !complete;
       const active = state.activeUpgrade === upgrade.id && !complete;
       visual.progress.visible = active;
       if (active)
@@ -287,11 +293,7 @@ export class WorldRenderer {
       0,
       Math.floor(Math.min(1, state.checkoutProgress / checkoutDuration(state)) * 64) * 6,
     );
-    this.checkoutLabel.setText(
-      state.cashier ? 'CASHIER' : queue.length ? 'CHECK OUT' : 'CHECKOUT',
-      '#ffffff',
-      '#168a65',
-    );
+    this.checkoutLabel.setText('CHECKOUT', '#ffffff', '#168a65');
     this.updateTransfers(deltaMs);
     this.updateObjective(state, timeMs);
     this.updateCamera(deltaMs);
@@ -520,41 +522,48 @@ export class WorldRenderer {
     sign.position.set(-1.6, 1.28, -2.96);
     this.scene.add(sign);
     block(sign, 0, 0, 0, 3.1, 0.56, 0.16, C.green);
-    const brand = label(sign, 'MINI MARKET', 2.75, 0.39, { foreground: '#ffffff', surface: true });
+    const brand = label(sign, 'MINI MARKET', 2.75, 0.39, {
+      id: 'store:brand',
+      kind: 'brand',
+      foreground: '#ffffff',
+      mount: 'surface',
+    });
     brand.object.position.set(0, 0.02, 0.1);
     const tag = label(this.scene, 'FRESH FROM YOUR FARM', 2, 0.18, {
+      id: 'store:tagline',
+      kind: 'brand',
       foreground: '#1a835d',
-      surface: true,
+      mount: 'surface',
     });
     tag.object.position.set(-1.6, 0.77, -2.79);
     [-4.65, 2.65].forEach((x) => {
       block(this.scene, x, 0.99, -2.82, 0.6, 0.45, 0.08, C.wood);
       block(this.scene, x, 0.99, -2.76, 0.47, 0.32, 0.03, C.cream);
       const stamp = label(this.scene, x < 0 ? 'LOCAL' : 'OPEN', 0.46, 0.2, {
+        id: `store:${x < 0 ? 'local' : 'open'}`,
+        kind: 'brand',
         foreground: '#248564',
-        surface: true,
+        mount: 'surface',
       });
       stamp.object.position.set(x, 1, -2.7);
     });
     block(this.scene, 3.6, 0.047, 0.06, 0.85, 0.02, 0.5, C.green);
-    const welcome = label(this.scene, 'WELCOME', 0.69, 0.15, { flat: true, foreground: '#ffffff' });
-    welcome.object.position.set(3.6, 0.061, 0.06);
   }
 
   private drawUpgrades(): void {
     const names: Partial<Record<UpgradeId, string>> = {
-      inventory: 'CARRY MORE',
+      inventory: 'BASKET',
       shelf: 'BIGGER SHELF',
-      customers: 'MORE SHOPPERS',
-      corn: 'GROW CORN',
-      cashier: 'HIRE CASHIER',
-      expansion: 'EXPAND STORE',
-      tomatoPlots: 'ADD TOMATO PLANT',
-      eggPlots: 'ADD CHICKEN NEST',
-      cornPlots: 'ADD CORN PLOT',
-      carrotPlots: 'ADD CARROT BED',
-      pasteMachine: 'UPGRADE CANNERY',
-      coffeeMachine: 'UPGRADE GRINDER',
+      customers: 'PROMOTE',
+      corn: 'CORN',
+      cashier: 'CASHIER',
+      expansion: 'EXPAND',
+      tomatoPlots: 'TOMATO',
+      eggPlots: 'CHICKEN',
+      cornPlots: 'CORN PLOT',
+      carrotPlots: 'CARROTS',
+      pasteMachine: 'CANNERY',
+      coffeeMachine: 'GRINDER',
     };
     UPGRADES.filter((upgrade) => upgrade.inWorld).forEach((upgrade) => {
       const group = new Group();
@@ -570,16 +579,21 @@ export class WorldRenderer {
       const progress = ring(group, 0.37, C.gold, 0.063);
       progress.position.y = 0.055;
       progress.visible = false;
-      const title = label(group, names[upgrade.id] ?? upgrade.name.toUpperCase(), 1.18, 0.16, {
-        flat: true,
-        foreground: '#397e4f',
-      });
-      title.object.position.set(0, 0.063, -0.26);
-      const price = label(group, `$${upgrade.cost}`, 0.7, 0.26, {
+      // One concise physical placard prevents a title and price from drifting
+      // apart or covering the pad icon at narrow aspect ratios.
+      const actionWidth = upgrade.id === 'expansion' ? 1.72 : 1.5;
+      block(group, 0, 0.58, -0.38, actionWidth + 0.08, 0.35, 0.055, C.green);
+      block(group, 0, 0.3, -0.38, 0.045, 0.42, 0.045, C.green);
+      const name = names[upgrade.id] ?? upgrade.name.toUpperCase();
+      const action = label(group, `${name} $${upgrade.cost}`, actionWidth, 0.3, {
+        id: `upgrade:${upgrade.id}:action`,
+        kind: 'action',
+        mount: 'surface',
         foreground: '#17694b',
         background: '#ffffff',
+        border: false,
       });
-      price.object.position.set(0, 0.22, 0.14);
+      action.object.position.set(0, 0.58, -0.348);
       const icon = new Group();
       icon.position.set(0, 0.4, -0.14);
       icon.scale.setScalar(0.55);
@@ -603,7 +617,7 @@ export class WorldRenderer {
           sphere(icon, 0.2, 0.07, 0.05, 0.075, C.cream);
         }
       }
-      this.upgrades.set(upgrade.id, { group, outline, progress, price, title });
+      this.upgrades.set(upgrade.id, { group, outline, progress, action, name });
     });
   }
 
@@ -612,11 +626,16 @@ export class WorldRenderer {
     office.position.copy(toWorld({ x: 990, y: 780 }));
     this.scene.add(office);
     block(office, 0, 0.015, 0, 2.35, 0.06, 1.5, C.cream);
-    const sign = label(office, 'TEAM OFFICE', 1.85, 0.24, {
-      foreground: '#347655',
-      background: '#f5efda',
+    block(office, 0, 1.08, -0.59, 1.66, 0.32, 0.06, C.green);
+    block(office, 0, 0.72, -0.59, 0.055, 0.58, 0.055, C.green);
+    const sign = label(office, 'TEAM OFFICE', 1.48, 0.28, {
+      id: 'office:team:title',
+      kind: 'area',
+      foreground: '#ffffff',
+      mount: 'surface',
+      border: false,
     });
-    sign.object.position.set(0, 0.85, -0.55);
+    sign.object.position.set(0, 1.08, -0.555);
     const roles = [
       { upgrade: 'customers' as const, title: 'MARKETING', color: 0xa788be },
       { upgrade: 'accountant' as const, title: 'ACCOUNTANT', color: 0x6a9db4 },
@@ -627,8 +646,15 @@ export class WorldRenderer {
       [-0.31, 0.31].forEach((side) => block(office, x + side, 0.2, 0, 0.07, 0.38, 0.4, C.cream));
       block(office, x, 0.6, -0.11, 0.33, 0.29, 0.045, role.color);
       block(office, x, 0.6, -0.082, 0.25, 0.19, 0.015, 0xdbefd4);
-      const title = label(office, role.title, 0.94, 0.14, { foreground: '#49765e' });
-      title.object.position.set(x, 0.15, 0.48);
+      const title = label(office, role.title, role.upgrade === 'accountant' ? 1.24 : 1.14, 0.26, {
+        id: `office:${role.upgrade}:title`,
+        kind: 'object',
+        mount: 'surface',
+        foreground: '#ffffff',
+        background: role.upgrade === 'customers' ? '#80639a' : '#477f94',
+        border: false,
+      });
+      title.object.position.set(index ? 0.61 : -0.61, 0.82, -0.2);
       const worker = createCharacter('cashier', role.color);
       worker.group.position.copy(toWorld({ x: 990 + x * 100, y: 817 }));
       worker.setFacing(0, -1);
@@ -648,11 +674,16 @@ export class WorldRenderer {
     const screen = block(counter, 0.13, 0.985, -0.33, 0.09, 0.25, 0.27, 0x286856);
     screen.rotation.z = -0.2;
     block(counter, 0.185, 0.99, -0.33, 0.015, 0.16, 0.2, 0xb0f0bd);
-    const checkoutLabel = label(counter, 'CHECKOUT', 1.16, 0.25, {
+    block(counter, 0, 1.22, -0.2, 1.14, 0.32, 0.07, C.green);
+    const checkoutLabel = label(counter, 'CHECKOUT', 1, 0.27, {
+      id: 'checkout:title',
+      kind: 'object',
       foreground: '#ffffff',
       background: '#168a65',
+      mount: 'surface',
+      border: false,
     });
-    checkoutLabel.object.position.set(0, 1.27, -0.2);
+    checkoutLabel.object.position.set(0, 1.22, -0.16);
     const spot = new Group();
     spot.position.copy(toWorld(GAME_CONFIG.cashierSpot));
     this.scene.add(spot);
