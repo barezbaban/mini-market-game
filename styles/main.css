@@ -1,0 +1,848 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;650;700&family=Outfit:wght@400;500;600;650;700;800&display=swap');
+
+:root {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  color: #2d5143;
+  background: #f8f8f0;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+button,
+a,
+input {
+  -webkit-tap-highlight-color: transparent;
+}
+button {
+  font: inherit;
+  cursor: pointer;
+}
+button:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid #dd9f46;
+  outline-offset: 4px;
+}
+button {
+  color: inherit;
+}
+#app {
+  height: 100svh;
+  display: flex;
+  flex-direction: column;
+  padding: 0 max(20px, env(safe-area-inset-right)) 0 max(20px, env(safe-area-inset-left));
+}
+.app-header {
+  height: 82px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1440px;
+  width: 100%;
+  margin: 0 auto;
+  gap: 20px;
+}
+.brand {
+  display: flex;
+  gap: 11px;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+}
+.brand-mark {
+  width: 42px;
+  height: 44px;
+  border-radius: 15px 15px 15px 5px;
+  display: grid;
+  place-items: center;
+  color: #f5f1d7;
+  background: #345d47;
+  transform: rotate(-4deg);
+}
+.brand strong {
+  display: block;
+  font:
+    650 21px/1.25 'Outfit',
+    sans-serif;
+  letter-spacing: -0.6px;
+}
+.brand small {
+  display: block;
+  font-size: 11px;
+  color: #7d8778;
+  margin-top: 3px;
+  letter-spacing: 0.3px;
+}
+.header-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: #8d977f;
+  margin-right: 100px;
+}
+.header-tag span {
+  height: 5px;
+  width: 5px;
+  border-radius: 50%;
+  background: #b4bc9b;
+}
+.toolbar {
+  display: flex;
+  gap: 7px;
+}
+.icon-button {
+  background: #fffef8;
+  border: 1px solid #e4e7db;
+  height: 36px;
+  width: 37px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  transition:
+    background 0.15s,
+    transform 0.15s;
+}
+.icon-button:hover {
+  background: #e9eddb;
+  transform: translateY(-1px);
+}
+.play-area {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.game-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: 1440px;
+  border-radius: 25px;
+  overflow: hidden;
+  background: #b8ce94;
+  border: 1px solid #c1d0aa;
+  box-shadow:
+    0 6px 0 #dce2cd,
+    0 15px 36px #4a633412;
+  isolation: isolate;
+}
+#game-canvas {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+  outline: none;
+}
+#game-canvas canvas {
+  display: block;
+}
+.game-hud {
+  position: absolute;
+  left: 2.5%;
+  right: 2.5%;
+  top: 2.5%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  pointer-events: none;
+  gap: 12px;
+}
+.money-card,
+.basket-card {
+  display: flex;
+  align-items: center;
+  background: #fffef3;
+  box-shadow:
+    0 4px 0 #52683916,
+    0 5px 14px #3f582d0b;
+  border: 1px solid #ffffffb3;
+  border-radius: 17px;
+  min-height: 60px;
+  padding: 10px 16px;
+  gap: 12px;
+}
+.coin {
+  width: 35px;
+  height: 35px;
+  background: #f3cd66;
+  border: 3px solid #ffde86;
+  border-radius: 50%;
+  color: #927236;
+  display: grid;
+  place-items: center;
+  font:
+    600 22px 'Outfit',
+    sans-serif;
+  box-shadow: 0 2px 0 #dbb857;
+}
+.money-card small {
+  display: block;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #8a9077;
+}
+.money-card strong {
+  display: block;
+  font:
+    650 27px/1.1 'Outfit',
+    sans-serif;
+  letter-spacing: -0.7px;
+  min-width: 76px;
+}
+.day-card {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: #476c43;
+  font:
+    600 10px 'Outfit',
+    sans-serif;
+  letter-spacing: 1.5px;
+  margin-top: 12px;
+  text-align: center;
+}
+.day-card small {
+  font:
+    400 10px 'DM Sans',
+    sans-serif;
+  letter-spacing: 0;
+  display: block;
+  margin-top: 4px;
+  color: #61824f;
+}
+.basket-card {
+  padding: 8px 15px;
+  gap: 11px;
+}
+.basket-symbol {
+  color: #8c9c62;
+}
+.basket-heading {
+  color: #8a9077;
+  font-weight: 700;
+  font-size: 8px;
+  letter-spacing: 1px;
+  display: flex;
+  justify-content: space-between;
+  gap: 28px;
+}
+.basket-heading span {
+  color: #476846;
+  letter-spacing: 0;
+}
+.basket-heading span.full {
+  color: #c9773e;
+}
+.inventory-items {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 6px;
+}
+.inventory-product {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.inventory-product b {
+  font:
+    600 14px 'Outfit',
+    sans-serif;
+}
+.inventory-product.empty {
+  opacity: 0.35;
+}
+.produce-icon {
+  width: 20px;
+  height: 20px;
+}
+.objective {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 2.6%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 17px;
+  background: #fffef0f5;
+  border: 1px solid #ffffffe0;
+  box-shadow: 0 4px 0 #59754315;
+  border-radius: 17px;
+  min-width: 490px;
+  pointer-events: none;
+}
+.objective-spark {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  background: #e9edd9;
+  border-radius: 11px;
+  flex-shrink: 0;
+}
+.objective strong {
+  font:
+    600 13px 'Outfit',
+    sans-serif;
+  display: block;
+}
+.objective div > span {
+  font-size: 10px;
+  color: #859078;
+  display: block;
+  margin-top: 4px;
+}
+.auto-badge {
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.9px;
+  margin-left: 18px;
+  border-radius: 5px;
+  padding: 6px;
+  background: #edf0de;
+  white-space: nowrap;
+  color: #929b74;
+}
+.app-footer {
+  height: 52px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  color: #919b88;
+  font-size: 10px;
+}
+.desktop-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+kbd {
+  width: 18px;
+  height: 19px;
+  text-align: center;
+  background: #fefef6;
+  border: 1px solid #dce2d1;
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  font:
+    500 9px/17px 'DM Sans',
+    sans-serif;
+  color: #667858;
+}
+.desktop-controls span {
+  margin-left: 5px;
+}
+.desktop-controls i {
+  width: 3px;
+  height: 3px;
+  margin: 0 8px;
+  background: #b7bea7;
+  border-radius: 50%;
+}
+.save-label {
+  font-size: 9px;
+  color: #879574;
+}
+.save-error {
+  color: #b16a36;
+}
+.touch-controls,
+.rotate-hint {
+  display: none;
+}
+.joystick {
+  display: none;
+  position: absolute;
+  left: 24px;
+  bottom: 24px;
+  width: 106px;
+  height: 106px;
+  border-radius: 50%;
+  background: #fffdef50;
+  border: 2px solid #fffdef9c;
+  box-shadow: 0 3px 10px #364c2b12;
+  touch-action: none;
+  z-index: 10;
+  align-items: center;
+  justify-content: center;
+}
+.joystick-knob {
+  height: 49px;
+  width: 49px;
+  display: grid;
+  place-items: center;
+  color: #7e9868;
+  border: 2px solid #fffef1;
+  border-radius: 50%;
+  background: #fffdebdd;
+  box-shadow: 0 3px 0 #74915b44;
+}
+.joystick-knob svg {
+  transform: rotate(45deg);
+}
+.joystick.active {
+  background: #fffdef70;
+}
+.pause-overlay,
+.loading {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  background: #e6edcfa8;
+  backdrop-filter: blur(7px);
+}
+.pause-overlay[hidden],
+[hidden] {
+  display: none !important;
+}
+.pause-overlay > div {
+  text-align: center;
+  padding: 28px;
+}
+.pause-overlay h2 {
+  font:
+    600 32px 'Outfit',
+    sans-serif;
+  letter-spacing: -0.9px;
+  margin-bottom: 8px;
+}
+.pause-overlay p {
+  color: #6d805e;
+  font-size: 14px;
+}
+.loading {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 16px;
+  font-family: 'Outfit', sans-serif;
+}
+.loading-leaf {
+  animation: sway 2s ease-in-out infinite;
+}
+@keyframes sway {
+  0%,
+  100% {
+    transform: rotate(-12deg);
+  }
+  50% {
+    transform: rotate(12deg);
+  }
+}
+.primary-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  border: none;
+  border-radius: 12px;
+  background: #355e47;
+  color: #fffbea;
+  padding: 12px 18px;
+  font-weight: 600;
+  font-size: 13px;
+  box-shadow: 0 3px 0 #244a34;
+}
+.primary-button:hover {
+  background: #436f51;
+}
+.secondary-button {
+  border: 1px solid #dfe4d2;
+  background: #f6f7ec;
+  padding: 11px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+.danger-button {
+  border: 1px solid #e6b9a7;
+  background: #f9eae0;
+  color: #a34938;
+  padding: 11px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+.game-dialog {
+  border: 1px solid #fff;
+  border-radius: 23px;
+  padding: 28px;
+  max-width: 410px;
+  width: calc(100% - 32px);
+  color: #345541;
+  background: #fffdf1;
+  box-shadow: 0 22px 90px #243b3640;
+}
+.game-dialog::backdrop {
+  background: #263e365c;
+  backdrop-filter: blur(5px);
+}
+.dialog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+.dialog-heading h2 {
+  font:
+    600 26px 'Outfit',
+    sans-serif;
+  margin: 0;
+  letter-spacing: -0.6px;
+}
+.game-dialog p {
+  font-size: 13px;
+  line-height: 1.65;
+  color: #7c8a6a;
+}
+.game-dialog .setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid #e9ecde;
+  padding: 16px 0;
+  font-size: 13px;
+}
+.game-dialog small {
+  display: block;
+  font-size: 11px;
+  color: #8e9880;
+  margin-top: 4px;
+}
+.dialog-actions {
+  display: flex;
+  gap: 9px;
+  margin-top: 24px;
+}
+.game-dialog ol {
+  padding-left: 23px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: #6e7e5e;
+}
+.game-dialog li {
+  padding-left: 5px;
+  margin-bottom: 8px;
+}
+.debug-panel {
+  position: absolute;
+  left: 12px;
+  top: 100px;
+  max-width: 340px;
+  background: #fffef1e6;
+  border-radius: 8px;
+  padding: 10px;
+  z-index: 11;
+  font-size: 10px;
+  pointer-events: none;
+  white-space: pre-wrap;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+@media (pointer: coarse) {
+  .joystick {
+    display: flex;
+  }
+  .desktop-controls {
+    display: none;
+  }
+  .touch-controls {
+    display: inline;
+  }
+  .objective {
+    min-width: 0;
+    width: 52%;
+    bottom: 2%;
+  }
+  .auto-badge {
+    display: none;
+  }
+}
+@media (max-width: 1000px) {
+  .header-tag {
+    display: none;
+  }
+  .app-header {
+    height: 66px;
+  }
+  .app-footer {
+    height: 38px;
+  }
+  .money-card,
+  .basket-card {
+    min-height: 49px;
+    padding: 8px 11px;
+    border-radius: 13px;
+    gap: 8px;
+  }
+  .money-card strong {
+    font-size: 22px;
+  }
+  .money-card small,
+  .basket-heading {
+    font-size: 7px;
+  }
+  .coin {
+    width: 30px;
+    height: 30px;
+    font-size: 18px;
+  }
+  .day-card {
+    font-size: 8px;
+  }
+  .inventory-items {
+    gap: 11px;
+    margin-top: 3px;
+  }
+  .objective {
+    padding: 9px 12px;
+  }
+}
+@media (max-height: 600px) and (orientation: landscape) {
+  #app {
+    padding: 0 max(12px, env(safe-area-inset-left));
+  }
+  .app-header {
+    height: 43px;
+  }
+  .brand-mark {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+  }
+  .brand-mark svg {
+    width: 19px;
+  }
+  .brand strong {
+    font-size: 15px;
+  }
+  .brand small {
+    display: none;
+  }
+  .toolbar {
+    gap: 5px;
+  }
+  .icon-button {
+    height: 28px;
+    width: 29px;
+    border-radius: 9px;
+  }
+  .icon-button svg {
+    width: 16px;
+  }
+  .app-footer {
+    height: 26px;
+    font-size: 8px;
+  }
+  .game-frame {
+    border-radius: 17px;
+  }
+  .game-hud {
+    top: 2%;
+  }
+  .money-card,
+  .basket-card {
+    min-height: 38px;
+    padding: 5px 9px;
+    border-radius: 10px;
+    gap: 6px;
+  }
+  .money-card strong {
+    font-size: 18px;
+    min-width: 48px;
+  }
+  .coin {
+    height: 25px;
+    width: 25px;
+    border-width: 2px;
+    font-size: 16px;
+  }
+  .money-card small,
+  .basket-heading {
+    font-size: 6px;
+    letter-spacing: 0.6px;
+  }
+  .basket-symbol svg {
+    height: 19px;
+    width: 19px;
+  }
+  .inventory-items {
+    gap: 8px;
+    margin-top: 1px;
+  }
+  .produce-icon {
+    width: 14px;
+    height: 14px;
+  }
+  .inventory-product b {
+    font-size: 11px;
+  }
+  .day-card {
+    margin-top: 6px;
+    font-size: 7px;
+  }
+  .day-card small {
+    font-size: 8px;
+  }
+  .day-card svg {
+    width: 15px;
+  }
+  .objective {
+    gap: 7px;
+    padding: 7px 10px;
+    border-radius: 11px;
+    min-width: 0;
+    max-width: 430px;
+  }
+  .objective strong {
+    font-size: 10px;
+  }
+  .objective div > span {
+    font-size: 8px;
+    margin-top: 2px;
+  }
+  .objective-spark {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+  }
+  .auto-badge {
+    display: none;
+  }
+  .joystick {
+    width: 84px;
+    height: 84px;
+    bottom: 15px;
+    left: 16px;
+  }
+  .joystick-knob {
+    width: 39px;
+    height: 39px;
+  }
+  .save-label {
+    font-size: 8px;
+  }
+}
+@media (max-width: 600px) and (orientation: portrait) {
+  #app {
+    padding: 0 10px;
+  }
+  .app-header {
+    height: 74px;
+    gap: 10px;
+  }
+  .brand strong {
+    font-size: 16px;
+  }
+  .brand small {
+    font-size: 9px;
+  }
+  .brand {
+    gap: 7px;
+  }
+  .brand-mark {
+    width: 32px;
+    height: 36px;
+    border-radius: 11px;
+  }
+  .toolbar {
+    gap: 3px;
+  }
+  .icon-button {
+    width: 29px;
+    height: 32px;
+    border-radius: 10px;
+  }
+  .icon-button svg {
+    width: 16px;
+  }
+  #help-button {
+    display: none;
+  }
+  .game-frame {
+    border-radius: 19px;
+  }
+  .day-card {
+    display: none;
+  }
+  .game-hud {
+    left: 4%;
+    right: 4%;
+    top: 3%;
+  }
+  .basket-symbol {
+    display: none;
+  }
+  .money-card,
+  .basket-card {
+    min-height: 50px;
+  }
+  .objective {
+    width: 91%;
+    left: 50%;
+    bottom: 150px;
+  }
+  .objective strong {
+    font-size: 12px;
+  }
+  .objective div > span {
+    font-size: 10px;
+  }
+  .joystick {
+    bottom: 23px;
+    left: calc(50% - 53px);
+  }
+  .app-footer {
+    padding: 10px 2px 0;
+    height: 32px;
+    justify-content: center;
+  }
+  .touch-controls {
+    display: none;
+  }
+  .rotate-hint {
+    height: 37px;
+    flex-shrink: 0;
+    display: flex;
+    gap: 7px;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: #8b967b;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -4,8 +4,14 @@
   "private": true,
   "type": "module",
   "description": "An original, cozy farm-to-market management game.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/barezbaban/mini-market-game.git"
+  },
+  "homepage": "https://barezbaban.github.io/mini-market-game/",
   "engines": {
-    "node": ">=20.19.0"
+    "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
