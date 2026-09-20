@@ -1,681 +1,782 @@
-import Phaser from 'phaser';
+import {
+  AmbientLight,
+  Color,
+  ConeGeometry,
+  DirectionalLight,
+  Group,
+  HemisphereLight,
+  Mesh,
+  MeshBasicMaterial,
+  OrthographicCamera,
+  PCFSoftShadowMap,
+  Scene,
+  SRGBColorSpace,
+  Vector3,
+  WebGLRenderer,
+} from 'three';
+import type { BufferGeometry, Material, Texture } from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GAME_CONFIG } from '../data/gameConfig';
 import { PRODUCTS } from '../data/products';
 import { UPGRADES } from '../data/upgrades';
-import { CharacterVisual } from '../entities/CharacterVisual';
-import type { CustomerData, GameState, ProductDefinition, UpgradeDefinition } from '../types';
-import { ART, createArt } from './ArtFactory';
-
-const COLOR = {
-  ink: '#3f5545',
-  secondary: '#7f8b70',
-  sage: 0xd8e3c5,
-  cream: 0xfff9e8,
-  green: 0x5f8c70,
-  paleGreen: 0xe5edd6,
-  coral: 0xe38569,
-  ochre: 0xe8b64f,
-};
+import type { GameEvent, GameState, ProductDefinition, ProductId, UpgradeId, Vec2 } from '../types';
+import { createCharacter, createChicken, createProduce, createTree } from './Models';
+import type { CharacterModel } from './Models';
+import { block, crate, disc, label, PALETTE as C, ring, sphere } from './world/WorldKit';
+import type { WorldLabel } from './world/WorldKit';
 
 interface ProductVisual {
-  shelfItems: Phaser.GameObjects.Image[];
-  shelfCount: Phaser.GameObjects.Text;
-  shelfLabel: Phaser.GameObjects.Text;
-  farmLabel: Phaser.GameObjects.Text;
-  farmStatus: Phaser.GameObjects.Text;
-  farmProgress: Phaser.GameObjects.Graphics;
-  fieldArt: Phaser.GameObjects.Image[];
-  lock: Phaser.GameObjects.Container;
-  highlight: Phaser.GameObjects.Graphics;
-  previousCount: string;
-  previousFarm: string;
+  shelf: Group;
+  shelfItems: Group[];
+  count: WorldLabel;
+  farm: Group;
+  farmItems: Group[];
+  crops: Group;
+  lock: Group;
+  farmCount: WorldLabel;
+  growFill: Mesh;
+  readyRing: Mesh;
 }
-
 interface UpgradeVisual {
-  background: Phaser.GameObjects.Graphics;
-  label: Phaser.GameObjects.Text;
-  price: Phaser.GameObjects.Text;
-  icon: Phaser.GameObjects.Image;
-  progress: Phaser.GameObjects.Graphics;
-  previousState: string;
+  group: Group;
+  outline: Mesh;
+  progress: Mesh;
+  price: WorldLabel;
+  title: WorldLabel;
 }
+interface CustomerVisual {
+  model: CharacterModel;
+  id: number;
+  previous: Vec2;
+  bubble: Group;
+  item: Record<ProductId, Group>;
+}
+interface Transfer {
+  group: Group;
+  from: Vector3;
+  to: Vector3;
+  elapsed: number;
+  duration: number;
+}
+const toWorld = (point: Vec2, elevation = 0): Vector3 =>
+  new Vector3((point.x - 640) / 100, elevation, (point.y - 390) / 100);
+const YAW = (20 * Math.PI) / 180;
 
-/** Render-only presentation. All economy and interaction rules live in the simulation. */
+/** Render-only presentation: game rules and existing saves stay in GameEngine. */
 export class WorldRenderer {
-  private readonly player: CharacterVisual;
-  private readonly cashier: CharacterVisual;
-  private readonly customers: CharacterVisual[] = [];
-  private readonly productVisuals = new Map<string, ProductVisual>();
-  private readonly upgradeVisuals = new Map<string, UpgradeVisual>();
-  private readonly checkoutStatus: Phaser.GameObjects.Text;
-  private readonly checkoutProgress: Phaser.GameObjects.Graphics;
-  private readonly checkoutHighlight: Phaser.GameObjects.Graphics;
-  private readonly chickens: Phaser.GameObjects.Image[] = [];
-  private lastCheckout = '';
+  readonly renderer: WebGLRenderer;
+  readonly scene = new Scene();
+  readonly camera = new OrthographicCamera();
+  private readonly player: CharacterModel;
+  private readonly cashier: CharacterModel;
+  private readonly customers: CustomerVisual[] = [];
+  private readonly products = new Map<ProductId, ProductVisual>();
+  private readonly upgrades = new Map<UpgradeId, UpgradeVisual>();
+  private readonly chickens: Group[] = [];
+  private readonly transfers: Transfer[] = [];
+  private readonly cameraTarget = new Vector3(-0.85, 0, 0.2);
+  private readonly cameraOffset = new Vector3(Math.sin(YAW) * 18, 25.7, Math.cos(YAW) * 18);
+  private readonly checkoutRing: Mesh;
+  private readonly checkoutProgress: Mesh;
+  private readonly checkoutLabel: WorldLabel;
+  private readonly objective = new Group();
+  private previousPlayer = { ...GAME_CONFIG.playerStart } as Vec2;
+  private width = 1;
+  private height = 1;
+  private initialized = false;
+  private lastState: GameState | null = null;
 
-  constructor(private readonly scene: Phaser.Scene) {
-    createArt(scene);
-    this.drawLandscape();
+  constructor(private readonly host: HTMLElement) {
+    this.renderer = new WebGLRenderer({
+      antialias: true,
+      alpha: false,
+      powerPreference: 'high-performance',
+    });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    this.renderer.outputColorSpace = SRGBColorSpace;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = PCFSoftShadowMap;
+    this.renderer.domElement.setAttribute('aria-label', 'Three dimensional mini market game');
+    this.renderer.domElement.style.display = 'block';
+    host.appendChild(this.renderer.domElement);
+    this.scene.background = new Color(C.grass);
+    this.scene.add(new HemisphereLight(0xffffff, 0x91a377, 1.6));
+    this.scene.add(new AmbientLight(0xffffff, 0.18));
+    const sun = new DirectionalLight(0xfff6df, 2.3);
+    sun.position.set(-6, 14, 7);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.left = -13;
+    sun.shadow.camera.right = 13;
+    sun.shadow.camera.top = 11;
+    sun.shadow.camera.bottom = -11;
+    sun.shadow.camera.near = 0.5;
+    sun.shadow.camera.far = 40;
+    sun.shadow.normalBias = 0.035;
+    sun.shadow.bias = -0.00015;
+    sun.shadow.radius = 3;
+    this.scene.add(sun);
+    this.drawEnvironment();
     this.drawMarket();
-    this.drawGarden();
+    this.batchStaticWorld();
     PRODUCTS.forEach((product) => this.createProduct(product));
-    UPGRADES.forEach((upgrade) => this.createUpgrade(upgrade));
-    this.drawCheckout();
-    this.checkoutStatus = this.text(900, 331, 'OPEN FOR BUSINESS', 10, COLOR.secondary, '700');
-    this.checkoutProgress = scene.add.graphics().setDepth(20);
-    this.checkoutHighlight = scene.add.graphics().setDepth(9);
-    this.player = new CharacterVisual(scene, 'player');
-    this.cashier = new CharacterVisual(scene, 'cashier');
-    this.cashier.hide();
+    this.drawUpgrades();
+    const checkout = this.drawCheckout();
+    this.checkoutRing = checkout.ring;
+    this.checkoutProgress = checkout.progress;
+    this.checkoutLabel = checkout.label;
+    const arrow = new Mesh(
+      new ConeGeometry(0.12, 0.22, 4),
+      new MeshBasicMaterial({ color: C.gold }),
+    );
+    arrow.rotation.z = Math.PI;
+    this.objective.add(arrow);
+    block(this.objective, 0, 0.16, 0, 0.075, 0.2, 0.075, C.gold);
+    this.scene.add(this.objective);
+    this.player = createCharacter('player', C.green);
+    this.player.group.scale.setScalar(1.2);
+    this.player.group.position.copy(toWorld(GAME_CONFIG.playerStart));
+    this.scene.add(this.player.group);
+    const playerMarker = ring(this.scene, 0.28, C.white, 0.03);
+    playerMarker.name = 'player-marker';
+    this.cashier = createCharacter('cashier', C.peach);
+    this.cashier.group.position.copy(toWorld(GAME_CONFIG.cashierSpot));
+    this.cashier.setFacing(-1, 0);
+    this.cashier.group.visible = false;
+    this.scene.add(this.cashier.group);
     for (let index = 0; index < GAME_CONFIG.customerMax; index += 1) {
-      const customer = new CharacterVisual(scene, 'customer');
-      customer.hide();
-      this.customers.push(customer);
+      const model = createCharacter('customer');
+      model.group.visible = false;
+      this.scene.add(model.group);
+      const bubble = new Group();
+      const background = sphere(bubble, 0, 0, 0, 0.15, C.white);
+      background.scale.z *= 0.55;
+      const item = {
+        tomato: createProduce('tomato'),
+        egg: createProduce('egg'),
+        corn: createProduce('corn'),
+      };
+      Object.values(item).forEach((produce) => {
+        produce.scale.setScalar(0.7);
+        produce.position.z = 0.08;
+        bubble.add(produce);
+      });
+      bubble.visible = false;
+      this.scene.add(bubble);
+      this.customers.push({ model, id: -1, previous: { x: 0, y: 0 }, bubble, item });
     }
+    this.resize();
   }
 
-  update(state: GameState, time: number, delta: number): void {
-    // Phaser supplies elapsed milliseconds; animation remains independent of game speed.
-    void delta;
-    this.player.updatePlayer(state.player.x, state.player.y, state.inventory, time);
-    this.cashier.container.setVisible(state.cashier);
-    if (state.cashier) this.cashier.setPosition(950, 225, time, false);
+  resize(): void {
+    this.width = Math.max(1, this.host.clientWidth);
+    this.height = Math.max(1, this.host.clientHeight);
+    const aspect = this.width / this.height;
+    // A close following view keeps the miniature world tactile on phone and desktop.
+    const span = aspect < 0.8 ? 9.9 : aspect < 1.25 ? 9.5 : 8.4;
+    this.camera.left = (-span * aspect) / 2;
+    this.camera.right = (span * aspect) / 2;
+    this.camera.top = span / 2;
+    this.camera.bottom = -span / 2;
+    this.camera.near = 0.1;
+    this.camera.far = 100;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(this.width, this.height, false);
+    this.renderer.domElement.style.width = '100%';
+    this.renderer.domElement.style.height = '100%';
+    this.updateCamera(1000);
+  }
+
+  screenPosition(x: number, y: number, elevation = 0): { x: number; y: number; visible: boolean } {
+    const projected = toWorld({ x, y }, elevation).project(this.camera);
+    return {
+      x: ((projected.x + 1) / 2) * this.width,
+      y: ((1 - projected.y) / 2) * this.height,
+      visible: Math.abs(projected.x) < 1 && Math.abs(projected.y) < 1 && Math.abs(projected.z) < 1,
+    };
+  }
+
+  screenToWorldInput(input: Vec2): Vec2 {
+    return {
+      x: input.x * Math.cos(YAW) + input.y * Math.sin(YAW),
+      y: -input.x * Math.sin(YAW) + input.y * Math.cos(YAW),
+    };
+  }
+
+  update(state: GameState, timeMs: number, deltaMs: number): void {
+    this.lastState = state;
+    const dx = state.player.x - this.previousPlayer.x;
+    const dy = state.player.y - this.previousPlayer.y;
+    const moving = Math.hypot(dx, dy) > 0.03;
+    this.player.group.position.copy(toWorld(state.player));
+    if (moving) this.player.setFacing(dx, dy);
+    this.player.setInventory(state.inventory);
+    this.player.animate(timeMs, moving);
+    this.previousPlayer = { ...state.player };
+    const marker = this.scene.getObjectByName('player-marker')!;
+    marker.position.set(this.player.group.position.x, 0.079, this.player.group.position.z);
+    this.cashier.group.visible = state.cashier;
+    this.cashier.animate(timeMs, false);
     this.customers.forEach((visual, index) => {
       const customer = state.customers[index];
-      if (customer) visual.updateCustomer(customer, time);
-      else visual.hide();
+      visual.model.group.visible = Boolean(customer);
+      visual.bubble.visible = false;
+      if (!customer) return;
+      if (visual.id !== customer.id) {
+        visual.id = customer.id;
+        visual.previous = { x: customer.x, y: customer.y };
+        visual.model.setColor(customer.color);
+      }
+      const customerDx = customer.x - visual.previous.x;
+      const customerDy = customer.y - visual.previous.y;
+      const customerMoving = Math.hypot(customerDx, customerDy) > 0.01;
+      visual.model.group.position.copy(toWorld(customer));
+      if (customerMoving) visual.model.setFacing(customerDx, customerDy);
+      else if (customer.state === 'WAITING_FOR_PRODUCT') visual.model.setFacing(0, -1);
+      else if (customer.state === 'PAYING') visual.model.setFacing(1, 0);
+      visual.model.setInventory(customer.basket);
+      visual.model.animate(timeMs + customer.id * 131, customerMoving);
+      visual.previous = { x: customer.x, y: customer.y };
+      if (customer.state === 'WAITING_FOR_PRODUCT') {
+        visual.bubble.visible = true;
+        visual.bubble.position.copy(toWorld(customer, 1.07 + Math.sin(timeMs / 500) * 0.025));
+        visual.bubble.quaternion.copy(this.camera.quaternion);
+        PRODUCTS.forEach(({ id }) => {
+          visual.item[id].visible = id === customer.targetProduct;
+        });
+      }
     });
-    PRODUCTS.forEach((product) => this.updateProduct(product, state, time));
-    UPGRADES.forEach((upgrade) => this.updateUpgrade(upgrade, state));
-    const paying = state.customers.find((customer) => customer.state === 'PAYING');
+    PRODUCTS.forEach((product) => this.updateProduct(product, state, timeMs));
+    UPGRADES.forEach((upgrade) => {
+      const visual = this.upgrades.get(upgrade.id)!;
+      const complete = state.upgrades[upgrade.id] >= upgrade.maxLevel;
+      const affordable = state.money >= upgrade.cost;
+      (visual.outline.material as MeshBasicMaterial).color.set(
+        complete ? C.green : affordable ? C.gold : C.white,
+      );
+      visual.price.setText(
+        complete ? 'DONE' : `$${upgrade.cost}`,
+        complete ? '#128560' : '#17694b',
+        complete ? '#def5d9' : '#ffffff',
+      );
+      visual.title.object.visible = !complete;
+      const active = state.activeUpgrade === upgrade.id && !complete;
+      visual.progress.visible = active;
+      if (active)
+        visual.progress.geometry.setDrawRange(
+          0,
+          Math.max(
+            0,
+            Math.floor(Math.min(1, state.upgradeProgress / GAME_CONFIG.upgradeHoldTime) * 64) * 6,
+          ),
+        );
+    });
     const queue = state.customers.filter(
       (customer) => customer.state === 'QUEUEING' || customer.state === 'PAYING',
     );
-    const nextCustomer =
-      paying ??
-      queue.reduce<CustomerData | undefined>(
-        (first, customer) => (!first || customer.id < first.id ? customer : first),
-        undefined,
-      );
-    const amount = nextCustomer
-      ? PRODUCTS.reduce(
-          (sum, product) => sum + nextCustomer.basket[product.id] * product.sellingPrice,
-          0,
-        )
-      : 0;
-    const checkoutText = paying
-      ? `CHECKOUT · $${amount}`
-      : queue.length
-        ? `$${amount} READY · ${queue.length} IN LINE`
-        : state.cashier
-          ? 'IN GOOD HANDS'
-          : 'OPEN FOR BUSINESS';
-    if (checkoutText !== this.lastCheckout) {
-      this.checkoutStatus
-        .setText(checkoutText)
-        .setColor(paying || queue.length ? '#598467' : COLOR.secondary);
-      this.lastCheckout = checkoutText;
-    }
-    this.checkoutProgress.clear();
-    if (paying) {
-      this.checkoutProgress.fillStyle(0xe4e7d3).fillRoundedRect(854, 347, 92, 5, 3);
-      this.checkoutProgress
-        .fillStyle(COLOR.green)
-        .fillRoundedRect(
-          854,
-          347,
-          Math.max(5, 92 * Math.min(1, state.checkoutProgress / GAME_CONFIG.checkoutTime)),
-          5,
-          3,
-        );
-    }
-    this.checkoutHighlight.clear();
-    if (queue.length && !state.cashier) {
-      this.checkoutHighlight
-        .lineStyle(2, 0x79a083, 0.35 + Math.sin(time / 420) * 0.1)
-        .strokeEllipse(GAME_CONFIG.cashierSpot.x, GAME_CONFIG.cashierSpot.y, 57, 31);
-    }
+    const paying = state.customers.some((customer) => customer.state === 'PAYING');
+    this.checkoutRing.visible = queue.length > 0 && !state.cashier;
+    this.checkoutRing.scale.setScalar(1 + Math.sin(timeMs / 250) * 0.04);
+    this.checkoutProgress.visible = paying;
+    this.checkoutProgress.geometry.setDrawRange(
+      0,
+      Math.floor(Math.min(1, state.checkoutProgress / GAME_CONFIG.checkoutTime) * 64) * 6,
+    );
+    this.checkoutLabel.setText(
+      state.cashier ? 'CASHIER' : queue.length ? 'CHECK OUT' : 'CHECKOUT',
+      '#ffffff',
+      '#168a65',
+    );
     this.chickens.forEach((chicken, index) => {
-      chicken.rotation = Math.sin(time / 1200 + index * 2) * 0.06;
+      chicken.rotation.y = Math.sin(timeMs / 1800 + index * 2.2) * 0.65 + index * 1.7;
+      chicken.position.y = Math.max(0, Math.sin(timeMs / 380 + index * 2)) * 0.025 + 0.14;
     });
+    this.updateTransfers(deltaMs);
+    this.updateObjective(state, timeMs);
+    this.updateCamera(deltaMs);
+    this.renderer.render(this.scene, this.camera);
+  }
+
+  showEvent(event: GameEvent): void {
+    if (!this.lastState) return;
+    const product = PRODUCTS.find((entry) => event.text.toLowerCase().includes(entry.id));
+    if ((event.type === 'harvest' || event.type === 'stock') && product) {
+      const group = createProduce(product.id);
+      group.scale.setScalar(1.3);
+      const from =
+        event.type === 'harvest' ? toWorld(event, 0.4) : toWorld(this.lastState.player, 1.15);
+      const to =
+        event.type === 'harvest' ? toWorld(this.lastState.player, 1.2) : toWorld(event, 0.72);
+      group.position.copy(from);
+      this.scene.add(group);
+      this.transfers.push({ group, from, to, elapsed: 0, duration: 350 });
+    } else if (event.type === 'money' || event.type === 'upgrade') {
+      for (let index = 0; index < 8; index += 1) {
+        const group = new Group();
+        const coin = disc(group, 0, 0, 0, 0.055, 0.035, event.type === 'money' ? C.gold : C.peach);
+        coin.rotation.x = Math.PI / 2;
+        const from = toWorld(event, 0.5);
+        const angle = (index * Math.PI * 2) / 8;
+        const to = from
+          .clone()
+          .add(new Vector3(Math.cos(angle) * 0.65, -0.4, Math.sin(angle) * 0.65));
+        group.position.copy(from);
+        this.scene.add(group);
+        this.transfers.push({ group, from, to, elapsed: 0, duration: 600 });
+      }
+    }
   }
 
   dispose(): void {
-    this.player.destroy();
-    this.cashier.destroy();
-    this.customers.forEach((customer) => customer.destroy());
+    const geometries = new Set<BufferGeometry>();
+    const materials = new Set<Material>();
+    const textures = new Set<Texture>();
+    this.scene.traverse((object) => {
+      if (!('material' in object)) return;
+      const mesh = object as Mesh;
+      if (mesh.geometry) geometries.add(mesh.geometry);
+      const meshMaterials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      meshMaterials.forEach((entry) => {
+        materials.add(entry);
+        if ('map' in entry && entry.map) textures.add(entry.map as Texture);
+      });
+    });
+    geometries.forEach((entry) => entry.dispose());
+    materials.forEach((entry) => entry.dispose());
+    textures.forEach((entry) => entry.dispose());
+    this.renderer.dispose();
+    this.renderer.domElement.remove();
   }
 
-  private text(
-    x: number,
-    y: number,
-    value: string,
-    size: number,
-    color = COLOR.ink,
-    weight = '600',
-  ): Phaser.GameObjects.Text {
-    return this.scene.add
-      .text(x, y, value, {
-        fontFamily: '"Trebuchet MS", Arial, sans-serif',
-        fontSize: `${size}px`,
-        fontStyle: weight,
-        color,
-        resolution: 2,
-        align: 'center',
-      })
-      .setOrigin(0.5)
-      .setDepth(30);
+  private updateCamera(deltaMs: number): void {
+    const player = this.lastState
+      ? toWorld(this.lastState.player)
+      : toWorld(GAME_CONFIG.playerStart);
+    const portrait = this.width / this.height < 1.15;
+    const target = portrait
+      ? new Vector3(player.x, 0, player.z - 0.3)
+      : new Vector3(player.x * 0.42 - 0.25, 0, player.z * 0.42 - 0.1);
+    if (!this.initialized) {
+      this.cameraTarget.copy(target);
+      this.initialized = true;
+    } else this.cameraTarget.lerp(target, 1 - Math.exp(-Math.min(100, deltaMs) / 260));
+    this.camera.position.copy(this.cameraTarget).add(this.cameraOffset);
+    this.camera.lookAt(this.cameraTarget);
+    this.camera.updateMatrixWorld();
   }
 
-  private drawLandscape(): void {
-    const g = this.scene.add.graphics().setDepth(0);
-    g.fillStyle(COLOR.sage).fillRect(0, 0, 1280, 780);
-    g.fillStyle(0xc9d9b3).fillEllipse(42, 360, 310, 630).fillEllipse(1234, 412, 278, 830);
-    g.fillStyle(0xe0e8cc).fillRoundedRect(124, 473, 884, 249, 50);
-    g.fillStyle(0xcbdab7).fillEllipse(617, 746, 1180, 178);
-    // A stable pattern keeps scenery pleasant without visual noise or frame-time work.
-    let seed = 76;
-    const random = () => {
-      seed = (seed * 16807) % 2147483647;
-      return seed / 2147483647;
-    };
-    for (let index = 0; index < 260; index += 1) {
-      const x = random() * 1280;
-      const y = random() * 780;
-      if (x > 97 && x < 1054 && y > 96 && y < 460) continue;
-      g.lineStyle(1.5, 0x94b181, 0.27)
-        .lineBetween(x, y, x - 2, y - 4)
-        .lineBetween(x + 2, y, x + 3, y - 3);
-    }
-    // Garden path and little inset paving stones.
-    g.fillStyle(0xc4cbb0).fillRoundedRect(112, 410, 920, 60, 24);
-    g.fillStyle(0xe9e8d3).fillRoundedRect(110, 403, 922, 57, 22);
-    for (let x = 124; x < 1013; x += 56) {
-      g.fillStyle(x % 3 ? 0xf5f0dc : 0xfaf4e2).fillRoundedRect(x, 411, 48, 35, 8);
-      g.lineStyle(1, 0xdbdcc4).lineBetween(x + 6, 443, x + 37, 443);
-    }
-    g.fillStyle(0xe3e1c9).fillRoundedRect(1060, 141, 158, 565, 35);
-    for (let y = 160; y < 692; y += 22) {
-      g.fillStyle(0xf5efda, 0.55).fillRoundedRect(1084 + (y % 3) * 5, y, 103, 16, 6);
-    }
-    [265, 475, 685].forEach((x) => {
-      for (let y = 481; y < 547; y += 24) {
-        g.fillStyle(0xefebd1).fillRoundedRect(x - 25 + (y % 2) * 3, y, 49, 16, 7);
+  private updateTransfers(deltaMs: number): void {
+    for (let index = this.transfers.length - 1; index >= 0; index -= 1) {
+      const transfer = this.transfers[index];
+      transfer.elapsed += deltaMs;
+      const progress = Math.min(1, transfer.elapsed / transfer.duration);
+      transfer.group.position.lerpVectors(transfer.from, transfer.to, progress);
+      transfer.group.position.y += Math.sin(progress * Math.PI) * 0.7;
+      transfer.group.rotation.y += deltaMs / 150;
+      if (progress === 1) {
+        this.scene.remove(transfer.group);
+        this.transfers.splice(index, 1);
       }
-    });
-    // Trees frame the scene, leaving the playable routes open.
+    }
+  }
+
+  private updateObjective(state: GameState, timeMs: number): void {
+    let destination: Vec2 | undefined;
+    if (state.tutorialStep <= 1) destination = PRODUCTS[0].farm;
+    else if (state.tutorialStep === 2)
+      destination = { x: PRODUCTS[0].shelf.x, y: PRODUCTS[0].shelf.y + 61 };
+    else if (state.tutorialStep <= 4) destination = GAME_CONFIG.cashierSpot;
+    else if (state.tutorialStep === 5)
+      destination = UPGRADES.find(
+        (upgrade) => state.upgrades[upgrade.id] < upgrade.maxLevel && state.money >= upgrade.cost,
+      )?.position;
+    this.objective.visible = Boolean(destination);
+    if (destination) {
+      this.objective.position.copy(toWorld(destination, 1.25 + Math.sin(timeMs / 300) * 0.07));
+      this.objective.rotation.y = timeMs / 1000;
+    }
+  }
+
+  private drawEnvironment(): void {
+    block(this.scene, 0, -0.14, 0, 80, 0.2, 80, C.grass, false);
+    block(this.scene, 7.55, -0.02, 0, 2.5, 0.05, 50, 0xbfc5aa, false);
+    block(this.scene, 6.17, -0.005, 0, 0.25, 0.08, 50, C.cream, false);
+    for (let z = -18; z < 20; z += 1.3)
+      block(this.scene, 7.55, 0.012, z, 0.08, 0.018, 0.65, C.cream);
+    block(this.scene, 0, -0.005, 0.46, 12.4, 0.055, 0.66, 0xe7dcc1);
+    for (let x = -6; x < 6; x += 0.55)
+      block(this.scene, x, 0.026, 0.46, 0.5, 0.016, 0.53, 0xf4eacf);
+    block(this.scene, 4.96, -0.008, 0.45, 1.58, 0.065, 6.35, 0xadd789);
+    block(this.scene, -1.62, -0.009, 2.08, 7.45, 0.065, 2.25, 0xa1d67d);
+    for (let x = -5.6; x < 1.3; x += 0.46)
+      block(this.scene, x, 0.3, 3.55, 0.075, 0.63, 0.075, C.cream);
+    [0.22, 0.46].forEach((y) => block(this.scene, -2.3, y, 3.55, 6.7, 0.075, 0.07, C.cream));
     [
-      { x: 46, y: 205, scale: 0.9 },
-      { x: 55, y: 397, scale: 0.72 },
-      { x: 1218, y: 119, scale: 0.84 },
-      { x: 1029, y: 757, scale: 0.78 },
-      { x: 83, y: 727, scale: 0.87 },
-    ].forEach(({ x, y, scale }) =>
-      this.scene.add
-        .image(x, y, ART.tree)
-        .setOrigin(0.5, 1)
-        .setScale(scale)
-        .setDepth(y + 90),
-    );
-    [
-      [84, 462],
-      [88, 485],
-      [107, 477],
-      [1018, 514],
-      [1006, 535],
-      [1019, 700],
-      [1240, 384],
-      [1229, 411],
-    ].forEach(([x, y], index) => {
-      this.scene.add
-        .image(x, y, ART.flower)
-        .setScale(0.55 + (index % 3) * 0.1)
-        .setDepth(y);
+      [-6.1, -3.6, 1.2],
+      [-7, -1, 0.95],
+      [-6.5, 2, 0.95],
+      [-5.8, 4.2, 1.1],
+      [-3, 5, 1.15],
+      [0.4, 4.8, 1],
+      [3.2, 4.7, 1.15],
+      [5.6, -3.7, 1.1],
+      [1.8, -4.6, 1.05],
+      [-2.2, -4.5, 1.2],
+      [10.1, -0.9, 1.5],
+      [10.5, 3.4, 1.15],
+    ].forEach(([x, z, scale]) => {
+      const tree = createTree();
+      tree.position.set(x, 0, z);
+      tree.scale.setScalar(scale);
+      this.scene.add(tree);
     });
-    this.text(1138, 153, 'LITTLE UPGRADES', 10, '#748264', '700').setLetterSpacing(1.5);
-    this.drawBicycle(958, 695);
-    // A small welcome mat and chalkboard by the open market entrance.
-    g.fillStyle(0xb2bd9b).fillRoundedRect(954, 377, 63, 24, 8);
-    g.lineStyle(1, 0xd6e0bf).lineBetween(963, 385, 1008, 385).lineBetween(963, 390, 1008, 390);
-    const sign = this.scene.add.graphics().setDepth(461);
-    sign.lineStyle(4, 0xaa865a).lineBetween(990, 370, 983, 405).lineBetween(1007, 369, 1018, 405);
-    sign.fillStyle(0xba976b).fillRoundedRect(980, 349, 33, 42, 4);
-    sign.fillStyle(0x637e66).fillRoundedRect(984, 353, 25, 33, 2);
-    this.text(997, 365, 'hello', 8, '#fff5d5', '700').setDepth(462).setAngle(-5);
-    this.text(997, 378, '♡', 12, '#e9c184').setDepth(462);
+    for (let index = 0; index < 55; index += 1) {
+      const x = Math.sin(index * 29.7) * 9.5;
+      const z = Math.cos(index * 17.4) * 7;
+      if ((x > -5.8 && x < 6.3 && z > -3.1 && z < 3.8) || x > 6.1) continue;
+      const grass = block(this.scene, x, 0.05, z, 0.07, 0.15, 0.035, C.darkGrass);
+      grass.rotation.z = index % 2 ? -0.3 : 0.3;
+      if (index % 3 === 0)
+        sphere(this.scene, x + 0.04, 0.13, z, 0.055, index % 2 ? C.white : C.gold);
+    }
+    crate(this.scene, 3.45, 0, 2.7, 0.9);
+    crate(this.scene, 3.95, 0, 2.93, 0.75);
+    crate(this.scene, 3.45, 0.27, 2.7, 0.82);
+    disc(this.scene, 2.84, 0.2, 3.1, 0.21, 0.4, 0xf1dfad);
+    disc(this.scene, 2.52, 0.16, 3.12, 0.18, 0.32, 0xf6e7c7);
+  }
+
+  /** Static scenery shares one draw call per material, instead of one per fence, tile, or leaf. */
+  private batchStaticWorld(): void {
+    this.scene.updateMatrixWorld(true);
+    const batches = new Map<
+      string,
+      { geometry: BufferGeometry[]; material: Material; castShadow: boolean }
+    >();
+    const original: Mesh[] = [];
+    this.scene.traverse((object) => {
+      if (
+        !(object instanceof Mesh) ||
+        Array.isArray(object.material) ||
+        object.material.transparent
+      )
+        return;
+      const key = `${object.material.uuid}:${object.castShadow}`;
+      let batch = batches.get(key);
+      if (!batch) {
+        batch = { geometry: [], material: object.material, castShadow: object.castShadow };
+        batches.set(key, batch);
+      }
+      const geometry = object.geometry.index
+        ? object.geometry.toNonIndexed()
+        : object.geometry.clone();
+      geometry.applyMatrix4(object.matrixWorld);
+      batch.geometry.push(geometry);
+      original.push(object);
+    });
+    original.forEach((mesh) => mesh.removeFromParent());
+    batches.forEach((batch) => {
+      const geometry = mergeGeometries(batch.geometry, false);
+      batch.geometry.forEach((part) => part.dispose());
+      if (!geometry) return;
+      const merged = new Mesh(geometry, batch.material);
+      merged.name = 'static-scenery';
+      merged.castShadow = batch.castShadow;
+      merged.receiveShadow = true;
+      this.scene.add(merged);
+    });
   }
 
   private drawMarket(): void {
-    const g = this.scene.add.graphics().setDepth(1);
-    // Raised foundation and softly tiled shop floor.
-    g.fillStyle(0x879d77, 0.2).fillRoundedRect(101, 121, 940, 284, 25);
-    g.fillStyle(0xb7baa0).fillRoundedRect(99, 127, 932, 275, 20);
-    g.fillStyle(0xfaf3dd).fillRoundedRect(99, 116, 932, 277, 20);
-    g.fillStyle(0xefe6cc).fillRoundedRect(107, 135, 916, 44, 10);
-    g.lineStyle(1, 0xe9e3ce, 0.9);
-    for (let x = 121; x < 1013; x += 55) g.lineBetween(x, 178, x, 380);
-    for (let y = 182; y < 390; y += 46) g.lineBetween(112, y, 1017, y);
-    g.fillStyle(0xfff9e7).fillRoundedRect(99, 374, 932, 18, 8);
-    g.fillStyle(0xe6dcc1)
-      .fillRoundedRect(95, 167, 15, 214, 6)
-      .fillRoundedRect(1019, 167, 15, 214, 6);
-    g.fillStyle(0xfef8e7)
-      .fillRoundedRect(97, 164, 10, 213, 4)
-      .fillRoundedRect(1020, 164, 10, 213, 4);
-    const awning = this.scene.add.graphics().setDepth(170);
-    awning.fillStyle(0x947962, 0.13).fillRoundedRect(101, 101, 931, 85, 10);
-    awning.fillStyle(0xb36a52).fillRoundedRect(96, 90, 939, 69, 11);
-    awning.fillStyle(0xf1c891).fillRoundedRect(96, 87, 939, 55, 11);
-    for (let index = 0; index < 22; index += 1) {
-      const x = 98 + index * 42.5;
-      awning.fillStyle(index % 2 === 0 ? 0xe18e70 : 0xffe6b5).fillRect(x, 96, 42, 43);
-      awning.fillRoundedRect(x, 131, 42, 29, { tl: 0, tr: 0, bl: 11, br: 11 });
-      awning.fillStyle(0xffffff, 0.08).fillRect(x + 2, 97, 12, 35);
-    }
-    awning.fillStyle(0xc1785c).fillRoundedRect(94, 85, 943, 12, 5);
-    // Boutique sign anchored to the awning.
-    awning.fillStyle(0x896f55, 0.15).fillRoundedRect(432, 95, 270, 59, 15);
-    awning.fillStyle(0xfff7df).fillRoundedRect(430, 90, 270, 59, 15);
-    awning.lineStyle(1, 0xdfd7b9).strokeRoundedRect(436, 96, 258, 47, 11);
-    this.text(565, 113, 'MINI MARKET', 24, '#52745c', '800').setLetterSpacing(2).setDepth(171);
-    this.text(565, 135, 'FRESH FROM OUR LITTLE FARM', 7, '#9c9877', '700')
-      .setLetterSpacing(1.6)
-      .setDepth(171);
-    this.drawPlanter(128, 190);
-    this.drawPlanter(1000, 190);
-    this.text(563, 364, 'a little care goes a long way', 11, '#a5a58a', '400');
-  }
-
-  private drawGarden(): void {
-    this.text(199, 496, 'THE KITCHEN GARDEN', 11, '#768966', '700')
-      .setOrigin(0, 0.5)
-      .setLetterSpacing(1.5);
-    const g = this.scene.add.graphics().setDepth(2);
-    // Field borders and gently furrowed soil.
-    [265, 475, 685].forEach((x, index) => {
-      g.fillStyle(0x708d56, 0.14).fillRoundedRect(x - 80, 556, 160, 94, 18);
-      g.fillStyle(index === 1 ? 0xb8a37c : 0xac8b63).fillRoundedRect(x - 80, 546, 160, 95, 16);
-      g.fillStyle(index === 1 ? 0xe2d1a2 : 0xc3a17a).fillRoundedRect(x - 75, 549, 150, 84, 12);
-      g.fillStyle(index === 1 ? 0xeadbb6 : 0xb58e65);
-      for (let row = 0; row < 3; row += 1) g.fillRoundedRect(x - 65, 560 + row * 23, 130, 12, 5);
-      g.fillStyle(0xe3c995).fillRoundedRect(x - 84, 625, 168, 10, 4);
-      g.fillStyle(0xf0dba9).fillRoundedRect(x - 83, 622, 166, 6, 3);
-      g.fillStyle(0x9c815a)
-        .fillCircle(x - 73, 628, 2)
-        .fillCircle(x + 73, 628, 2);
+    block(this.scene, -0.7, -0.01, -1.3, 9.7, 0.13, 3.45, C.cream);
+    block(this.scene, -0.7, 0.056, -1.3, 9.47, 0.012, 3.22, C.tile);
+    for (let x = -5.3; x < 4; x += 0.58)
+      block(this.scene, x, 0.065, -1.3, 0.012, 0.009, 3.2, C.grout, false);
+    for (let z = -2.8; z < 0.31; z += 0.58)
+      block(this.scene, -0.7, 0.065, z, 9.43, 0.009, 0.012, C.grout, false);
+    block(this.scene, -0.7, 0.42, -3, 9.7, 0.86, 0.2, C.cream);
+    block(this.scene, -0.7, 0.32, -2.888, 9.42, 0.5, 0.055, C.mint);
+    block(this.scene, -0.7, 0.875, -3, 9.86, 0.1, 0.26, C.green);
+    block(this.scene, -5.45, 0.23, -1.39, 0.18, 0.43, 3.15, C.cream);
+    block(this.scene, -5.45, 0.47, -1.39, 0.22, 0.075, 3.18, C.peach);
+    block(this.scene, 4.02, 0.21, -2.15, 0.16, 0.4, 1.54, C.cream);
+    block(this.scene, 4.02, 0.44, -2.15, 0.2, 0.075, 1.6, C.peach);
+    [-5.38, 3.98].forEach((x) => {
+      block(this.scene, x, 0.71, -2.92, 0.23, 1.4, 0.24, C.cream);
+      block(this.scene, x, 1.41, -2.92, 0.3, 0.11, 0.3, C.peach);
     });
-    // Chicken house, straw, and a tiny picket fence.
-    g.fillStyle(0xb68a5f).fillRoundedRect(423, 537, 52, 41, 5);
-    g.fillStyle(0xf5dfb2).fillRoundedRect(428, 539, 42, 33, 2);
-    g.fillStyle(0x8f7b51).fillRoundedRect(443, 548, 17, 25, { tl: 8, tr: 8, bl: 0, br: 0 });
-    g.fillStyle(0xc38462).fillTriangle(417, 542, 450, 518, 480, 542);
-    g.fillStyle(0xdda07b).fillTriangle(421, 539, 450, 519, 450, 539);
-    g.lineStyle(3, 0xf7e6bc)
-      .lineBetween(410, 573, 410, 603)
-      .lineBetween(532, 573, 532, 607)
-      .lineBetween(407, 581, 427, 581)
-      .lineBetween(516, 581, 536, 581);
-    [
-      [460, 609],
-      [505, 588],
-    ].forEach(([x, y], index) => {
-      const chicken = this.scene.add
-        .image(x, y, ART.chicken)
-        .setScale(index ? 0.64 : 0.8)
-        .setDepth(y + 100);
-      if (index) chicken.setFlipX(true);
-      this.chickens.push(chicken);
+    const sign = new Group();
+    sign.position.set(-1.6, 1.28, -2.96);
+    this.scene.add(sign);
+    block(sign, 0, 0, 0, 3.1, 0.56, 0.16, C.green);
+    const brand = label(sign, 'MINI MARKET', 2.75, 0.39, { foreground: '#ffffff', surface: true });
+    brand.object.position.set(0, 0.02, 0.1);
+    const tag = label(this.scene, 'FRESH FROM YOUR FARM', 2, 0.18, {
+      foreground: '#1a835d',
+      surface: true,
     });
-    // Friendly garden shed fills the non-interactive corner.
-    this.drawGardenCorner();
+    tag.object.position.set(-1.6, 0.77, -2.79);
+    [-4.65, 2.65].forEach((x) => {
+      block(this.scene, x, 0.99, -2.82, 0.6, 0.45, 0.08, C.wood);
+      block(this.scene, x, 0.99, -2.76, 0.47, 0.32, 0.03, C.cream);
+      const stamp = label(this.scene, x < 0 ? 'LOCAL' : 'OPEN', 0.46, 0.2, {
+        foreground: '#248564',
+        surface: true,
+      });
+      stamp.object.position.set(x, 1, -2.7);
+    });
+    block(this.scene, 3.6, 0.047, 0.06, 0.85, 0.02, 0.5, C.green);
+    const welcome = label(this.scene, 'WELCOME', 0.69, 0.15, { flat: true, foreground: '#ffffff' });
+    welcome.object.position.set(3.6, 0.061, 0.06);
   }
 
   private createProduct(product: ProductDefinition): void {
-    const { x, y } = product.shelf;
-    const shelf = this.scene.add.graphics().setDepth(y + 60);
-    shelf.fillStyle(0x6d7150, 0.13).fillEllipse(x, y + 37, 162, 31);
-    shelf.fillStyle(0xa9855c).fillRoundedRect(x - 75, y - 35, 150, 79, 6);
-    shelf.fillStyle(0xd9b17b).fillRoundedRect(x - 75, y - 43, 150, 74, 7);
-    shelf
-      .fillStyle(0xc69c66)
-      .fillRoundedRect(x - 65, y - 35, 130, 26, 4)
-      .fillRoundedRect(x - 65, y + 1, 130, 23, 4);
-    shelf
-      .fillStyle(0xf0d19a)
-      .fillRoundedRect(x - 79, y - 11, 158, 8, 3)
-      .fillRoundedRect(x - 79, y + 25, 158, 9, 3);
-    shelf
-      .fillStyle(0xf2d39e)
-      .fillRect(x - 75, y - 39, 7, 70)
-      .fillRect(x + 68, y - 39, 7, 70);
-    shelf
-      .fillStyle(0xb18b5e)
-      .fillRect(x - 66, y + 34, 10, 11)
-      .fillRect(x + 57, y + 34, 10, 11);
-    shelf.fillStyle(0xfff9e8).fillRoundedRect(x - 17, y + 24, 35, 14, 3);
-    this.text(x, y + 31, `$${product.sellingPrice}`, 9, '#8a785b', '700').setDepth(y + 62);
-    const shelfItems = Array.from({ length: 12 }, (_, index) => {
-      const slot = index % 6;
-      const row = Math.floor(index / 6);
-      return this.scene.add
-        .image(x - 50 + slot * 20, y - 27 + row * 35, ART[product.id])
-        .setScale(0.69)
-        .setDepth(y + 61)
-        .setVisible(false);
+    const shelf = new Group();
+    shelf.position.copy(toWorld(product.shelf));
+    this.scene.add(shelf);
+    const accent = product.id === 'tomato' ? 0xf68b6e : product.id === 'egg' ? 0xefc45e : 0x80b968;
+    block(shelf, 0, 0.13, 0, 1.45, 0.22, 0.75, C.green);
+    block(shelf, 0, 0.32, 0, 1.46, 0.15, 0.76, C.cream);
+    block(shelf, 0, 0.64, -0.26, 1.46, 0.08, 0.3, C.wood);
+    [-0.67, 0.67].forEach((x) => block(shelf, x, 0.5, -0.24, 0.07, 0.61, 0.38, C.cream));
+    block(shelf, 0, 0.51, -0.4, 1.45, 0.65, 0.055, C.cream);
+    block(shelf, 0, 0.33, 0.39, 1.42, 0.18, 0.065, accent);
+    const shelfName = label(shelf, product.plural.toUpperCase(), 1.15, 0.18, {
+      foreground: '#ffffff',
+      surface: true,
     });
-    const shelfLabel = this.text(x, y + 68, product.plural, 16, COLOR.ink, '700');
-    const shelfCount = this.text(x, y + 90, '0 / 8 · needs stocking', 10, '#b58a61', '600');
-    const fieldArt: Phaser.GameObjects.Image[] = [];
-    if (product.id !== 'egg') {
-      [-45, 0, 45].forEach((offset, index) => {
-        const crop = this.scene.add
-          .image(
-            product.farm.x + offset,
-            product.farm.y + (index % 2 ? 7 : -4),
-            product.id === 'tomato' ? ART.plant : ART.stalk,
-          )
-          .setScale(product.id === 'tomato' ? 0.86 : 0.91)
-          .setOrigin(0.5, 0.85)
-          .setDepth(product.farm.y + 70 + index);
-        fieldArt.push(crop);
-      });
-    } else {
-      [0, 1, 2].forEach((index) => {
-        fieldArt.push(
-          this.scene.add
-            .image(product.farm.x - 35 + index * 27, product.farm.y + 30, ART.egg)
-            .setScale(0.45)
-            .setDepth(product.farm.y + 106),
-        );
+    shelfName.object.position.set(0, 0.33, 0.433);
+    const count = label(shelf, '0 / 8', 0.69, 0.25, {
+      foreground: '#247759',
+      background: '#ffffff',
+    });
+    count.object.position.set(0, 1.05, -0.05);
+    const shelfItems: Group[] = [];
+    for (let index = 0; index < 12; index += 1) {
+      const produce = createProduce(product.id);
+      const row = Math.floor(index / 4);
+      produce.position.set(
+        -0.47 + (index % 4) * 0.31,
+        row === 2 ? 0.77 : 0.46,
+        row === 2 ? -0.26 : 0.17 - row * 0.22,
+      );
+      produce.scale.setScalar(0.9);
+      shelf.add(produce);
+      shelfItems.push(produce);
+    }
+    const farm = new Group();
+    farm.position.copy(toWorld(product.farm));
+    this.scene.add(farm);
+    block(farm, 0, 0.065, 0, 1.64, 0.14, 1.24, C.wood);
+    block(farm, 0, 0.145, 0, 1.5, 0.04, 1.1, product.id === 'egg' ? 0xefcc75 : C.soil);
+    [-1, 1].forEach((side) => {
+      block(farm, side * 0.8, 0.16, 0, 0.075, 0.23, 1.26, 0xe8b983);
+      block(farm, 0, 0.16, side * 0.6, 1.67, 0.23, 0.075, 0xe8b983);
+    });
+    const crops = new Group();
+    farm.add(crops);
+    const farmItems: Group[] = [];
+    for (let index = 0; index < 8; index += 1) {
+      const x = -0.51 + (index % 4) * 0.34;
+      const z = -0.25 + Math.floor(index / 4) * 0.49;
+      if (product.id !== 'egg') {
+        disc(crops, x, 0.3, z, 0.024, product.id === 'corn' ? 0.46 : 0.23, 0x42913c);
+        [-1, 1].forEach((side) => {
+          const leaf = sphere(
+            crops,
+            x + side * 0.07,
+            0.32,
+            z,
+            0.09,
+            product.id === 'corn' ? 0x74ae43 : 0x399847,
+          );
+          leaf.scale.set(0.1125, 0.0225, 0.0585);
+          leaf.rotation.z = side * 0.48;
+        });
+      } else {
+        disc(crops, x, 0.185, z, 0.13, 0.03, 0xc39851);
+        disc(crops, x, 0.204, z, 0.1, 0.02, 0xe2b95d);
+      }
+      const produce = createProduce(product.id);
+      produce.position.set(x, product.id === 'egg' ? 0.25 : product.id === 'corn' ? 0.51 : 0.39, z);
+      if (product.id === 'corn') produce.rotation.z = -0.35;
+      crops.add(produce);
+      farmItems.push(produce);
+    }
+    if (product.id === 'egg') {
+      const coop = new Group();
+      coop.position.set(0, 0, 0.92);
+      farm.add(coop);
+      block(coop, 0, 0.4, 0, 0.66, 0.65, 0.47, C.cream);
+      block(coop, 0, 0.26, -0.245, 0.25, 0.33, 0.035, 0x6e704a);
+      const roof = block(coop, -0.18, 0.78, 0, 0.48, 0.085, 0.65, C.peach);
+      roof.rotation.z = 0.46;
+      const roof2 = block(coop, 0.18, 0.78, 0, 0.48, 0.085, 0.65, C.peach);
+      roof2.rotation.z = -0.46;
+      [-0.53, 0.53].forEach((x, index) => {
+        const chicken = createChicken();
+        chicken.position.set(x, 0.14, 0.4 + index * -0.7);
+        chicken.scale.setScalar(0.85);
+        farm.add(chicken);
+        this.chickens.push(chicken);
       });
     }
-    const farmLabel = this.text(
-      product.farm.x,
-      662,
-      product.id === 'tomato' ? 'Tomato patch' : product.id === 'egg' ? 'Happy hens' : 'Corn field',
-      15,
-      COLOR.ink,
-      '700',
-    );
-    const farmStatus = this.text(product.farm.x, 686, 'GROWING', 11, '#648268', '600');
-    const farmProgress = this.scene.add.graphics().setDepth(20);
-    const lockGraphic = this.scene.add
-      .graphics()
-      .fillStyle(0xf1eed7, 0.96)
-      .fillRoundedRect(-58, -34, 116, 64, 14);
-    const lockIcon = this.scene.add.image(0, -10, ART.lock).setScale(0.64);
-    const lockText = this.scene.add
-      .text(0, 17, 'A FUTURE HARVEST', {
-        fontFamily: 'Arial, sans-serif',
-        fontSize: '8px',
-        fontStyle: '700',
-        color: '#839173',
-      })
-      .setOrigin(0.5);
-    const lock = this.scene.add
-      .container(product.farm.x, product.farm.y - 8, [lockGraphic, lockIcon, lockText])
-      .setDepth(710)
-      .setVisible(false);
-    const highlight = this.scene.add.graphics().setDepth(8);
-    this.productVisuals.set(product.id, {
+    const lock = new Group();
+    farm.add(lock);
+    block(lock, 0, 0.29, 0, 0.58, 0.5, 0.075, C.wood);
+    const lockLabel = label(lock, 'CORN', 0.53, 0.21, { foreground: '#ffffff', surface: true });
+    lockLabel.object.position.set(0, 0.38, 0.075);
+    const unlockLabel = label(lock, 'UNLOCK $150', 1.22, 0.25, {
+      foreground: '#5d7650',
+      background: '#eff7d6',
+    });
+    unlockLabel.object.position.set(0, 0.8, 0);
+    const farmCount = label(farm, '', 0.87, 0.25, { foreground: '#217c52', background: '#ffffff' });
+    farmCount.object.position.set(0, 0.93, -0.26);
+    const progressGroup = new Group();
+    progressGroup.position.set(0, 0.59, -0.68);
+    farm.add(progressGroup);
+    block(progressGroup, 0, 0, 0, 0.65, 0.043, 0.055, 0xf6f7dc);
+    const growFill = block(progressGroup, -0.31, 0.007, 0.001, 0.001, 0.031, 0.058, C.green);
+    const readyRing = ring(farm, 0.69, C.white, 0.024);
+    readyRing.position.y = 0.023;
+    this.products.set(product.id, {
+      shelf,
       shelfItems,
-      shelfCount,
-      shelfLabel,
-      farmLabel,
-      farmStatus,
-      farmProgress,
-      fieldArt,
+      count,
+      farm,
+      farmItems,
+      crops,
       lock,
-      highlight,
-      previousCount: '',
-      previousFarm: '',
+      farmCount,
+      growFill,
+      readyRing,
     });
   }
 
-  private updateProduct(product: ProductDefinition, state: GameState, time: number): void {
-    const visual = this.productVisuals.get(product.id)!;
+  private updateProduct(product: ProductDefinition, state: GameState, timeMs: number): void {
+    const visual = this.products.get(product.id)!;
     const unlocked = state.unlockedProducts.includes(product.id);
-    const amount = state.shelves[product.id];
-    const shelfText = !unlocked
-      ? 'COMING SOON'
-      : amount === 0
-        ? `0 / ${state.shelfCapacities[product.id]} · needs stocking`
-        : `${amount} / ${state.shelfCapacities[product.id]} ${amount >= state.shelfCapacities[product.id] ? '· FULL' : 'in stock'}`;
-    if (visual.previousCount !== shelfText) {
-      visual.shelfCount
-        .setText(shelfText)
-        .setColor(!unlocked ? '#a3aa8e' : amount ? '#78906d' : '#bd805f');
-      visual.shelfLabel.setAlpha(unlocked ? 1 : 0.45);
-      visual.shelfItems.forEach((item, index) => item.setVisible(unlocked && index < amount));
-      visual.previousCount = shelfText;
-    }
-    const farm = state.farms[product.id];
-    const farmText = !unlocked
-      ? 'Unlock for $150 →'
-      : farm.ready > 0
-        ? `${farm.ready} ready to collect`
-        : 'A little more sunshine…';
-    if (visual.previousFarm !== farmText) {
-      visual.farmStatus.setText(farmText).setColor(unlocked ? '#648268' : '#9a9f7e');
-      visual.farmLabel.setAlpha(unlocked ? 1 : 0.6);
-      visual.lock.setVisible(!unlocked);
-      visual.fieldArt.forEach((image, index) =>
-        image
-          .setAlpha(unlocked ? (farm.ready ? 1 : 0.65) : 0.26)
-          .setVisible(product.id !== 'egg' || index < farm.ready),
-      );
-      visual.previousFarm = farmText;
-    }
-    visual.farmProgress.clear();
-    if (unlocked) {
-      visual.farmProgress.fillStyle(0xc5d5ad).fillRoundedRect(product.farm.x - 40, 704, 80, 5, 3);
-      const progress =
-        farm.ready >= GAME_CONFIG.farmCapacity ? 1 : farm.elapsed / product.productionTime;
-      visual.farmProgress
-        .fillStyle(farm.ready ? 0x77985f : 0xa9b989)
-        .fillRoundedRect(product.farm.x - 40, 704, Math.max(4, Math.min(1, progress) * 80), 5, 3);
-    }
-    visual.highlight.clear();
-    if (
+    visual.shelfItems.forEach((item, index) => {
+      item.visible = unlocked && index < state.shelves[product.id];
+    });
+    visual.count.setText(
+      unlocked ? `${state.shelves[product.id]} / ${state.shelfCapacities[product.id]}` : 'LOCKED',
+      unlocked ? '#247759' : '#97a490',
+    );
+    visual.crops.visible = unlocked;
+    visual.lock.visible = !unlocked;
+    visual.farmCount.object.visible = unlocked;
+    visual.growFill.parent!.visible = unlocked;
+    visual.readyRing.visible =
       unlocked &&
-      Math.hypot(state.player.x - product.farm.x, state.player.y - product.farm.y) <
-        GAME_CONFIG.interactionRadius
-    ) {
-      visual.highlight
-        .lineStyle(2, 0x73945b, 0.55)
-        .strokeRoundedRect(product.farm.x - 86, 542, 172, 99, 18);
-    }
-    if (unlocked && state.inventory[product.id] > 0) {
-      const near =
-        Math.hypot(state.player.x - product.shelf.x, state.player.y - product.shelf.y) <
+      Math.hypot(state.player.x - product.farm.x, state.player.y - product.farm.y) <=
         GAME_CONFIG.interactionRadius;
-      visual.highlight
-        .lineStyle(2, COLOR.green, near ? 0.7 : 0.2 + Math.sin(time / 600) * 0.08)
-        .strokeEllipse(product.shelf.x, product.shelf.y + 37, 167, 40);
-    }
+    const ready = state.farms[product.id].ready;
+    visual.farmCount.setText(
+      ready > 0 ? `${ready} READY` : 'GROWING',
+      ready > 0 ? '#208459' : '#7e8668',
+      ready > 0 ? '#ffffff' : '#f0f2dc',
+    );
+    visual.farmItems.forEach((item, index) => {
+      item.visible = index < ready;
+      if (product.id !== 'egg') item.rotation.y = Math.sin(timeMs / 1900 + index) * 0.12;
+    });
+    const progress =
+      ready >= GAME_CONFIG.farmCapacity
+        ? 1
+        : state.farms[product.id].elapsed / product.productionTime;
+    visual.growFill.scale.x = Math.max(0.002, 0.61 * progress);
+    visual.growFill.position.x = -0.305 + 0.305 * progress;
   }
 
-  private createUpgrade(upgrade: UpgradeDefinition): void {
-    const { x, y } = upgrade.position;
-    const background = this.scene.add.graphics().setDepth(12);
-    const iconKey =
-      upgrade.icon === 'corn'
-        ? ART.corn
-        : upgrade.icon === 'basket'
-          ? ART.basket
-          : upgrade.icon === 'shelf'
-            ? ART.shelf
-            : upgrade.icon === 'heart'
-              ? ART.heart
-              : ART.worker;
-    const icon = this.scene.add
-      .image(x, y - 23, iconKey)
-      .setScale(0.61)
-      .setDepth(13);
-    const label = this.text(x, y + 1, upgrade.name, 11, '#68785b', '700');
-    const price = this.text(x, y + 22, `$${upgrade.cost}`, 14, '#7a805e', '700');
-    const progress = this.scene.add.graphics().setDepth(15);
-    this.upgradeVisuals.set(upgrade.id, {
-      background,
-      label,
-      price,
-      icon,
-      progress,
-      previousState: '',
+  private drawUpgrades(): void {
+    const names: Record<UpgradeId, string> = {
+      inventory: 'CARRY MORE',
+      shelf: 'BIGGER SHELF',
+      customers: 'MORE SHOPPERS',
+      corn: 'GROW CORN',
+      cashier: 'HIRE CASHIER',
+    };
+    UPGRADES.forEach((upgrade) => {
+      const group = new Group();
+      group.position.copy(toWorld(upgrade.position));
+      this.scene.add(group);
+      block(group, 0, 0.013, 0, 1.17, 0.038, 0.85, 0xa6d388);
+      [-1, 1].forEach((side) => {
+        block(group, side * 0.56, 0.043, 0, 0.034, 0.013, 0.78, C.white);
+        block(group, 0, 0.043, side * 0.385, 1.11, 0.013, 0.034, C.white);
+      });
+      const outline = ring(group, 0.31, C.white, 0.028);
+      outline.position.y = 0.052;
+      const progress = ring(group, 0.37, C.gold, 0.063);
+      progress.position.y = 0.055;
+      progress.visible = false;
+      const title = label(group, names[upgrade.id], 1.18, 0.16, {
+        flat: true,
+        foreground: '#397e4f',
+      });
+      title.object.position.set(0, 0.063, -0.26);
+      const price = label(group, `$${upgrade.cost}`, 0.7, 0.26, {
+        foreground: '#17694b',
+        background: '#ffffff',
+      });
+      price.object.position.set(0, 0.22, 0.14);
+      const icon = new Group();
+      icon.position.set(0, 0.4, -0.14);
+      icon.scale.setScalar(0.55);
+      group.add(icon);
+      if (upgrade.id === 'corn') {
+        const corn = createProduce('corn');
+        corn.scale.setScalar(1.5);
+        icon.add(corn);
+      } else if (upgrade.id === 'inventory') {
+        crate(icon, 0, -0.12, 0, 0.66);
+        block(icon, 0, 0.15, 0, 0.3, 0.045, 0.05, C.cream);
+      } else if (upgrade.id === 'shelf') {
+        block(icon, 0, 0.07, 0, 0.5, 0.045, 0.21, C.cream);
+        block(icon, 0, -0.1, 0, 0.5, 0.045, 0.21, C.cream);
+        [-0.21, 0.21].forEach((x) => block(icon, x, -0.02, 0, 0.045, 0.3, 0.21, C.green));
+      } else {
+        disc(icon, 0, -0.06, 0, 0.12, 0.22, upgrade.id === 'cashier' ? C.peach : C.green);
+        sphere(icon, 0, 0.15, 0, 0.11, C.cream);
+        if (upgrade.id === 'customers') {
+          sphere(icon, -0.2, 0.07, 0.05, 0.075, C.cream);
+          sphere(icon, 0.2, 0.07, 0.05, 0.075, C.cream);
+        }
+      }
+      this.upgrades.set(upgrade.id, { group, outline, progress, price, title });
     });
   }
 
-  private updateUpgrade(upgrade: UpgradeDefinition, state: GameState): void {
-    const visual = this.upgradeVisuals.get(upgrade.id)!;
-    const { x, y } = upgrade.position;
-    const owned = state.upgrades[upgrade.id] >= upgrade.maxLevel;
-    const affordable = state.money >= upgrade.cost;
-    const active = state.activeUpgrade === upgrade.id;
-    const key = `${owned}-${affordable}-${active}`;
-    if (key !== visual.previousState) {
-      visual.background.clear();
-      visual.background.fillStyle(0x778860, 0.1).fillRoundedRect(x - 67, y - 42, 134, 90, 16);
-      visual.background
-        .fillStyle(owned ? 0xdce8cd : 0xfffae9)
-        .fillRoundedRect(x - 67, y - 45, 134, 89, 16);
-      visual.background
-        .lineStyle(active ? 2 : 1, owned ? 0xb4c79f : affordable ? 0x95b084 : 0xe0e2c9)
-        .strokeRoundedRect(x - 67, y - 45, 134, 89, 16);
-      visual.price
-        .setText(owned ? '✓ ALL YOURS' : active && affordable ? 'HOLD TO GROW' : `$${upgrade.cost}`)
-        .setFontSize(owned || (active && affordable) ? 10 : 14)
-        .setColor(owned || affordable ? '#55795b' : '#9d9e82');
-      visual.icon.setAlpha(owned || affordable ? 1 : 0.65);
-      visual.label.setColor(owned ? '#68805c' : '#68785b');
-      visual.previousState = key;
+  private drawCheckout(): { ring: Mesh; progress: Mesh; label: WorldLabel } {
+    const counter = new Group();
+    counter.position.copy(toWorld(GAME_CONFIG.checkout));
+    this.scene.add(counter);
+    block(counter, 0, 0.35, -0.08, 0.68, 0.69, 0.84, C.green);
+    block(counter, 0, 0.74, -0.08, 0.81, 0.12, 0.95, C.cream);
+    block(counter, 0, 0.812, 0.11, 0.56, 0.035, 0.43, 0x656e61);
+    block(counter, 0.1, 0.84, -0.29, 0.37, 0.09, 0.27, C.peach);
+    const screen = block(counter, 0.13, 0.985, -0.33, 0.09, 0.25, 0.27, 0x286856);
+    screen.rotation.z = -0.2;
+    block(counter, 0.185, 0.99, -0.33, 0.015, 0.16, 0.2, 0xb0f0bd);
+    const checkoutLabel = label(counter, 'CHECKOUT', 1.16, 0.25, {
+      foreground: '#ffffff',
+      background: '#168a65',
+    });
+    checkoutLabel.object.position.set(0, 1.27, -0.2);
+    const spot = new Group();
+    spot.position.copy(toWorld(GAME_CONFIG.cashierSpot));
+    this.scene.add(spot);
+    const highlight = ring(spot, 0.34, C.gold, 0.045);
+    const progress = ring(spot, 0.4, C.green, 0.064);
+    for (let index = 0; index < 5; index += 1) {
+      const point = toWorld({
+        x: GAME_CONFIG.queueStart.x,
+        y: GAME_CONFIG.queueStart.y + index * GAME_CONFIG.queueSpacing,
+      });
+      block(this.scene, point.x, 0.077, point.z, 0.27, 0.012, 0.055, 0xd1c8ad);
     }
-    visual.progress.clear();
-    if (active && !owned && affordable) {
-      visual.progress.fillStyle(0xd9e5c9).fillRoundedRect(x - 45, y + 33, 90, 4, 2);
-      visual.progress
-        .fillStyle(COLOR.green)
-        .fillRoundedRect(
-          x - 45,
-          y + 33,
-          Math.max(4, Math.min(1, state.upgradeProgress / GAME_CONFIG.upgradeHoldTime) * 90),
-          4,
-          2,
-        );
-    }
-  }
-
-  private drawCheckout(): void {
-    const g = this.scene.add.graphics().setDepth(340);
-    g.fillStyle(0x686a51, 0.13).fillEllipse(896, 277, 112, 26);
-    g.fillStyle(0xc39e6d).fillRoundedRect(846, 229, 85, 44, 9);
-    g.fillStyle(0xead4a1).fillRoundedRect(846, 219, 85, 43, 8);
-    g.fillStyle(0xb8c6a4).fillRoundedRect(841, 211, 98, 32, 9);
-    g.fillStyle(0xd8e0c1).fillRoundedRect(841, 207, 98, 29, 8);
-    g.fillStyle(0xf9f2da).fillRoundedRect(851, 215, 43, 11, 4);
-    g.fillStyle(0x608274).fillRoundedRect(903, 194, 30, 26, 5);
-    g.fillStyle(0x94b6a0).fillRoundedRect(907, 198, 22, 13, 2);
-    g.fillStyle(0xcde0b4).fillRect(911, 202, 14, 4);
-    g.fillStyle(0x547564).fillRoundedRect(899, 216, 38, 9, 3);
-    g.fillStyle(0xf4edd5).fillRoundedRect(881, 203, 12, 14, 2);
-    g.lineStyle(1, 0xc2c9a5).lineBetween(884, 207, 890, 207).lineBetween(884, 210, 890, 210);
-    this.text(900, 308, 'Checkout', 16, COLOR.ink, '700');
-    const marks = this.scene.add.graphics().setDepth(3);
-    marks.lineStyle(2, 0xd3d7be, 0.9);
-    for (let index = 0; index < 4; index += 1)
-      marks.strokeEllipse(
-        GAME_CONFIG.queueStart.x,
-        GAME_CONFIG.queueStart.y + index * GAME_CONFIG.queueSpacing,
-        18,
-        8,
-      );
-    const { x, y } = GAME_CONFIG.cashierSpot;
-    marks.fillStyle(0xc9debc).fillEllipse(x, y, 49, 25);
-    marks.lineStyle(1.5, 0x84a67b).strokeEllipse(x, y, 49, 25);
-    marks
-      .fillStyle(0x7d9f76)
-      .fillRoundedRect(x - 10, y - 6, 7, 13, 3)
-      .fillRoundedRect(x + 3, y - 6, 7, 13, 3);
-    this.text(x + 20, y + 25, 'SERVE HERE', 8, '#85a078', '700');
-  }
-
-  private drawPlanter(x: number, y: number): void {
-    const g = this.scene.add.graphics().setDepth(y + 100);
-    g.fillStyle(0xb4a680, 0.22).fillEllipse(x, y + 9, 40, 12);
-    g.fillStyle(0xc28c66).fillRoundedRect(x - 14, y - 14, 28, 22, 5);
-    g.fillStyle(0xd9a980).fillRoundedRect(x - 17, y - 17, 34, 8, 3);
-    g.fillStyle(0x7b9d65)
-      .fillCircle(x - 7, y - 24, 13)
-      .fillCircle(x + 7, y - 29, 13)
-      .fillCircle(x, y - 35, 12);
-    g.fillStyle(0x9eb785)
-      .fillCircle(x - 6, y - 34, 8)
-      .fillCircle(x + 9, y - 34, 7);
-  }
-
-  private drawGardenCorner(): void {
-    const g = this.scene.add.graphics().setDepth(4);
-    // Three wooden produce crates, a watering can and a small garden notice.
-    g.fillStyle(0xa5b489, 0.14).fillEllipse(913, 608, 166, 58);
-    for (const [x, y] of [
-      [857, 587],
-      [918, 607],
-      [893, 575],
-    ]) {
-      g.fillStyle(0xbe9865).fillRoundedRect(x - 22, y - 14, 44, 29, 4);
-      g.fillStyle(0xe0bc85)
-        .fillRoundedRect(x - 24, y - 18, 48, 8, 3)
-        .fillRoundedRect(x - 24, y + 7, 48, 7, 2);
-      g.lineStyle(2, 0xeacf9d)
-        .lineBetween(x - 15, y - 8, x - 15, y + 6)
-        .lineBetween(x, y - 8, x, y + 6)
-        .lineBetween(x + 15, y - 8, x + 15, y + 6);
-    }
-    [
-      [845, 565],
-      [863, 570],
-      [882, 554],
-      [901, 556],
-    ].forEach(([x, y], index) =>
-      this.scene.add
-        .image(x, y, index < 2 ? ART.tomato : ART.egg)
-        .setScale(0.58)
-        .setDepth(6),
-    );
-    g.fillStyle(0x88aaa0)
-      .fillRoundedRect(951, 583, 24, 24, 5)
-      .fillTriangle(974, 590, 989, 579, 980, 601);
-    g.lineStyle(4, 0x709389).strokeEllipse(951, 592, 18, 21);
-    g.fillStyle(0x9fc0ac).fillEllipse(963, 583, 24, 7);
-    this.text(901, 646, 'Good things take a little tending.', 11, '#83916f', '400');
-    const sign = this.scene.add.graphics().setDepth(10);
-    sign.fillStyle(0xbba070).fillRoundedRect(878, 486, 6, 38, 2);
-    sign.fillStyle(0xf4e9c8).fillRoundedRect(832, 470, 104, 33, 7);
-    this.text(884, 486, 'FARM → FRESH', 10, '#88916c', '700').setLetterSpacing(1);
-  }
-
-  private drawBicycle(x: number, y: number): void {
-    const g = this.scene.add.graphics().setDepth(y);
-    g.fillStyle(0x728764, 0.13).fillEllipse(x, y + 10, 95, 17);
-    g.lineStyle(3, 0x768577)
-      .strokeCircle(x - 28, y - 8, 19)
-      .strokeCircle(x + 31, y - 8, 19);
-    g.lineStyle(1, 0xb2c1a0)
-      .strokeCircle(x - 28, y - 8, 15)
-      .strokeCircle(x + 31, y - 8, 15);
-    g.lineStyle(4, 0xe0aa78).strokeTriangle(x - 28, y - 8, x - 13, y - 35, x + 3, y - 8);
-    g.lineBetween(x - 13, y - 35, x + 23, y - 35)
-      .lineBetween(x + 23, y - 35, x + 3, y - 8)
-      .lineBetween(x + 21, y - 42, x + 31, y - 8);
-    g.lineStyle(4, 0x7c8170)
-      .lineBetween(x - 21, y - 39, x - 6, y - 39)
-      .lineBetween(x + 21, y - 42, x + 29, y - 46);
-    this.scene.add
-      .image(x + 37, y - 41, ART.basket)
-      .setScale(0.46)
-      .setDepth(y + 1);
-    this.scene.add
-      .image(x + 40, y - 60, ART.flower)
-      .setScale(0.6)
-      .setDepth(y + 2);
+    return { ring: highlight, progress, label: checkoutLabel };
   }
 }

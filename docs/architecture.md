@@ -1,6 +1,6 @@
 # Architecture and extension guide
 
-The game separates three responsibilities: configuration describes the content, gameplay systems own the rules, and Phaser scenes display the resulting state. This keeps economy and progression testable without starting a canvas.
+The game separates three responsibilities: configuration describes the content, pure TypeScript gameplay systems own the rules, and a Three.js renderer displays the resulting state. `GameRuntime` coordinates the frame loop, input, presentation events, HUD, audio, and saving. Economy and progression can be tested without creating a WebGL context.
 
 ## Configuration and state
 
@@ -8,7 +8,7 @@ The game separates three responsibilities: configuration describes the content, 
 
 `src/game/types.ts` defines the shared product, inventory, customer, upgrade, and save contracts. `GameState` contains durable progression as well as the live state consumed by the renderer. Avoid duplicating these values in UI components.
 
-All gameplay timings are in milliseconds; world positions are canvas coordinates. Product prices and balances use whole-number game currency.
+All gameplay timings are in milliseconds. Simulation positions use the configured two-dimensional map coordinates; the renderer converts them to the ground plane of the 3D world. Camera projection and screen-relative input conversion belong to the renderer. Product prices and balances use whole-number game currency.
 
 ## Core systems
 
@@ -32,7 +32,7 @@ Keep the active-customer cap in configuration. A larger map or extra counters sh
 
 1. Add its identifier to `ProductId` and its definition to `PRODUCTS` in `products.ts`. Set its display names, production time, selling price, shelf capacity, unlock cost, sprite key, color, and farm/shelf positions.
 2. Extend the zero-count item factory and initial farm state for the new identifier. These typed records make missing initialization visible during compilation.
-3. Supply an original icon or texture under the configured sprite key. Keep the production, inventory, shelf, and checkout code generic.
+3. Extend the original produce model factory and HTML product icon for the new identifier. Keep the production, inventory, shelf, and checkout code generic.
 4. Decide whether it is available initially or unlocked by an upgrade, and add the matching content definition.
 5. Extend save validation and migration when the persisted schema changes. Test production, stocking, purchasing, and loading an older save.
 
@@ -42,7 +42,7 @@ The content definition is the main extension point; adding a product should not 
 
 Create upgrade content in `upgrades.ts`, including its cost, maximum level, display text, and world position. Add its identifier to the type contract and implement the effect in the upgrade system. Keep purchasing atomic: validate availability and affordability, spend once, apply the effect once, and save the new progression.
 
-The cashier is the first worker. Additional worker types should consume the same simulation operations used by the player: a stocker transfers inventory, a farmer harvests production, and another cashier processes a separate queue. Give each worker a small state machine instead of placing worker logic inside the main scene.
+The cashier is the first worker. Additional worker types should consume the same simulation operations used by the player: a stocker transfers inventory, a farmer harvests production, and another cashier processes a separate queue. Give each worker a small state machine inside the simulation.
 
 ## Persistence and a future API
 
@@ -54,8 +54,14 @@ Local saves belong to the browser profile and site origin. Development and GitHu
 
 ## Presentation and assets
 
-Scenes should coordinate bootstrapping, input, rendering, and the HUD. Reuse game objects and update their state instead of rebuilding the world every frame. Procedural art and texture keys make the first version self-contained; a future sprite sheet can replace a texture without changing sales or farming rules.
+`src/game/GameRuntime.ts` advances the engine, consumes its events, schedules saves, and presents the state through `WorldRenderer`. It normalizes keyboard and pointer input, observes viewport changes, pauses gameplay when requested, and clears input when focus is lost. Rendering can continue during pause so the scene responds to resizing. A lost WebGL context pauses updates and triggers a save attempt.
 
-Use Vite's configured base URL for new static assets. Root-relative paths such as `/sprites/tomato.png` bypass `/mini-market-game/` and break project Pages deployments.
+`src/game/rendering/WorldRenderer.ts` owns the Three.js scene, camera, WebGL renderer, and state-to-visual updates. `Models.ts` creates original characters, produce, foliage, and hens from meshes. Shared geometry and materials reduce allocations. World construction helpers live in `rendering/world/`; canvas textures are used for labels, while scenery and characters are volumetric meshes. Character animation, camera easing, shadows, and presentation effects never change progression.
+
+The HTML HUD floats above the full-screen renderer. It updates currency, carried products, sound state, and contextual guidance. `FloatingText` pools short-lived DOM labels and projects each event's world position through the active camera. `MobileControls` supplies a movement vector for both the fixed joystick and dragging the game surface.
+
+Reuse visual objects and cached resources across frames. Replace procedural mesh factories with original model assets later without changing sales, production, or saves. Dispose renderer resources when the runtime is torn down, and keep ownership of shared geometry and materials explicit.
+
+Use Vite's configured base URL for new static assets. Root-relative paths such as `/models/tomato.glb` bypass `/mini-market-game/` and break project Pages deployments.
 
 The title is centralized in `GAME_CONFIG.title`. When rebranding, also update the document title and metadata, package description, README, and favicon. Preserve the existing save key if progress should survive the rename.

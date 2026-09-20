@@ -23,36 +23,31 @@ export class Hud {
 
   constructor(root: HTMLElement, actions: HudActions) {
     root.innerHTML = `
-      <header class="app-header">
-        <a class="brand" href="./" aria-label="Mini Market Manager home">
-          <span class="brand-mark">${icon('leaf', 25)}</span>
-          <span><strong>${GAME_CONFIG.title}</strong><small>${GAME_CONFIG.subtitle}</small></span>
-        </a>
-        <span class="header-tag"><span></span> GOOD THINGS GROW HERE</span>
-        <div class="toolbar">
-          <button class="icon-button" id="help-button" aria-label="How to play" title="How to play">${icon('help')}</button>
-          <button class="icon-button" id="sound-button" aria-label="Turn sound off" title="Sound on">${icon('sound')}</button>
-          <button class="icon-button" id="pause-button" aria-label="Pause game" title="Pause">${icon('pause')}</button>
-          <button class="icon-button" id="settings-button" aria-label="Open settings" title="Settings">${icon('settings')}</button>
-        </div>
-      </header>
-      <main class="play-area">
-        <div id="game-frame" class="game-frame">
+      <main id="game-frame" class="game-frame">
           <div id="game-canvas" aria-label="Market and farm game world. Move with WASD, arrow keys, or the touch joystick." role="application" tabindex="0"></div>
           <div class="game-hud">
-            <div class="money-card"><span class="coin">$</span><span><small>YOUR EARNINGS</small><strong id="money-value">$0</strong></span></div>
-            <div class="day-card">${icon('sun', 18)}<span>A FRESH START<small>Your neighborhood market</small></span></div>
-            <div class="basket-card"><span class="basket-symbol">${icon('basket', 24)}</span><div><div class="basket-heading">YOUR BASKET <span id="basket-count">0 / 8</span></div><div id="inventory-items" class="inventory-items"></div></div></div>
+            <div class="hud-left">
+              <div class="money-card" aria-label="Market earnings"><span class="coin" aria-hidden="true">$</span><strong id="money-value">$0</strong></div>
+              <span class="game-name">${GAME_CONFIG.title}</span>
+            </div>
+            <div class="hud-right">
+              <div class="basket-card"><div class="basket-heading"><span>${icon('basket', 17)} Basket</span><span id="basket-count">0 / 8</span></div><div id="inventory-items" class="inventory-items"></div></div>
+              <nav class="toolbar" aria-label="Game controls">
+                <button class="icon-button" id="help-button" aria-label="How to play" title="How to play">${icon('help')}</button>
+                <button class="icon-button" id="sound-button" aria-label="Turn sound off" title="Sound on">${icon('sound')}</button>
+                <button class="icon-button" id="pause-button" aria-label="Pause game" title="Pause">${icon('pause')}</button>
+                <button class="icon-button" id="settings-button" aria-label="Open settings" title="Settings">${icon('settings')}</button>
+              </nav>
+            </div>
           </div>
-          <div class="objective"><span class="objective-spark">${icon('leaf', 19)}</span><div id="objective-text"></div><span class="auto-badge">AUTO INTERACT</span></div>
+          <div class="objective"><span class="objective-spark">${icon('leaf', 21)}</span><div id="objective-text"></div></div>
           <div id="joystick" class="joystick" aria-label="Touch movement joystick"><div class="joystick-knob">${icon('close', 22)}</div></div>
           <div id="pause-overlay" class="pause-overlay" hidden><div><span>${icon('pause', 32)}</span><h2>A little breather.</h2><p>Your market will be right here.</p><button id="resume-button" class="primary-button">Back to the market ${icon('play', 16)}</button></div></div>
           <div id="loading" class="loading"><span class="loading-leaf">${icon('leaf', 36)}</span><strong>Opening the market…</strong></div>
           <pre id="debug-panel" class="debug-panel" hidden></pre>
-        </div>
+          <div class="desktop-controls"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move</span><small>Walk close to harvest, stock & serve</small></div>
+          <span id="save-label" class="save-label">● Saved on this device</span>
       </main>
-      <footer class="app-footer"><div class="desktop-controls"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>or arrow keys to move</span><i></i><span>Walk close to harvest, stock & serve</span></div><span class="touch-controls">Use the joystick to move · Walk close to interact</span><span id="save-label" class="save-label">● Saved on this device</span></footer>
-      <div class="rotate-hint">${icon('sun', 17)} For the best experience, rotate your phone.</div>
       <dialog id="settings-dialog" class="game-dialog"></dialog>
       <div class="sr-only" id="announcements" aria-live="polite" role="status"></div>
     `;
@@ -96,23 +91,23 @@ export class Hud {
         `<span class="inventory-product ${state.inventory[product.id] ? '' : 'empty'}" title="${product.plural}">${productIcon(product.id)}<b>${state.inventory[product.id]}</b></span>`,
     ).join('');
     const hints = [
-      ['Let’s grow something good.', 'Walk down to the tomato patch.'],
-      ['Fresh from your farm.', 'Stand near the ripe plants to gather tomatoes.'],
-      ['From patch to shelf.', 'Carry your harvest up to the tomato shelf.'],
-      ['Open for good things.', 'Customers will pick up stocked produce.'],
-      ['Your first happy customer.', 'Stand on the green checkout spot to serve.'],
-      ['A little market. Big possibilities.', 'Walk onto a garden upgrade and stay to buy.'],
+      ['Your first harvest', 'Head to the tomato patch.'],
+      ['Pick something fresh', 'Stand near ripe plants to collect tomatoes.'],
+      ['Fill your first shelf', 'Carry tomatoes to the matching shelf.'],
+      ['The market is open!', 'Customers collect produce from your shelves.'],
+      ['Time to check out', 'Stand on the green spot to serve customers.'],
+      ['A little room to grow', 'Stand on an upgrade pad to buy it.'],
     ];
     const hint = hints[Math.min(state.tutorialStep, hints.length - 1)];
     this.hint.innerHTML =
       state.tutorialStep >= 6
-        ? `<strong>Look at your market grow.</strong><span>${state.totalServed} happy customers · Keep the shelves full and dream a little bigger.</span>`
+        ? `<strong>${state.totalServed} happy customers</strong><span>Keep your shelves full and your market growing.</span>`
         : `<strong>${hint[0]}</strong><span>${hint[1]}</span>`;
     if (nearbyUpgrade) {
       const instruction =
         state.money < nearbyUpgrade.cost
           ? `Need $${nearbyUpgrade.cost - state.money} more`
-          : 'Stand on the pad and hold to buy';
+          : 'Stay on the pad to buy';
       this.hint.innerHTML = `<strong>${nearbyUpgrade.name} · $${nearbyUpgrade.cost}</strong><span>${nearbyUpgrade.description} · ${instruction}</span>`;
     }
     this.soundButton.innerHTML = icon(state.soundEnabled ? 'sound' : 'mute');

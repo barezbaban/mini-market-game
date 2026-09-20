@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import type { WorldRenderer } from '../src/game/rendering/WorldRenderer';
 import type { GameEngine } from '../src/game/systems/GameEngine';
 import type { SaveSystem } from '../src/game/systems/SaveSystem';
 import type { GameState } from '../src/game/types';
@@ -8,6 +9,7 @@ declare global {
     __MARKET__: {
       engine: GameEngine;
       save: SaveSystem;
+      world: WorldRenderer;
       setPaused(paused: boolean): void;
       ready: boolean;
     };
@@ -17,6 +19,9 @@ declare global {
 async function openGame(page: Page): Promise<void> {
   await page.goto('./?debug=true');
   await page.waitForFunction(() => window.__MARKET__?.ready);
+  await expect
+    .poll(() => page.evaluate(() => window.__MARKET__.world.renderer.info.render.calls))
+    .toBeGreaterThan(0);
 }
 
 async function state(page: Page): Promise<GameState> {
@@ -32,6 +37,53 @@ async function advance(page: Page, milliseconds: number): Promise<void> {
   }, milliseconds);
 }
 
+/** Navigate with actual screen-relative keys while the angled camera follows. */
+async function walkTo(page: Page, target: { x: number; y: number }): Promise<void> {
+  let held: string[] = [];
+  const deadline = Date.now() + 12_000;
+  try {
+    while (Date.now() < deadline) {
+      const offset = await page.evaluate((destination) => {
+        const { engine, world } = window.__MARKET__;
+        const { player } = engine.state;
+        const from = world.screenPosition(player.x, player.y);
+        const to = world.screenPosition(destination.x, destination.y);
+        return {
+          x: to.x - from.x,
+          y: to.y - from.y,
+          distance: Math.hypot(destination.x - player.x, destination.y - player.y),
+        };
+      }, target);
+      if (offset.distance < 12) return;
+      const desired: string[] = [];
+      if (Math.abs(offset.x) > Math.abs(offset.y) * 0.42)
+        desired.push(offset.x > 0 ? 'ArrowRight' : 'ArrowLeft');
+      if (Math.abs(offset.y) > Math.abs(offset.x) * 0.42)
+        desired.push(offset.y > 0 ? 'ArrowDown' : 'ArrowUp');
+      for (const key of held.filter((entry) => !desired.includes(entry)))
+        await page.keyboard.up(key);
+      for (const key of desired.filter((entry) => !held.includes(entry)))
+        await page.keyboard.down(key);
+      held = desired;
+      await page.waitForTimeout(65);
+    }
+    const current = (await state(page)).player;
+    expect(
+      Math.hypot(target.x - current.x, target.y - current.y),
+      'keyboard target distance',
+    ).toBeLessThan(12);
+  } finally {
+    for (const key of held) await page.keyboard.up(key);
+  }
+}
+
+async function expectStopped(page: Page): Promise<void> {
+  const stopped = (await state(page)).player;
+  await page.waitForTimeout(250);
+  const after = (await state(page)).player;
+  expect(Math.hypot(after.x - stopped.x, after.y - stopped.y)).toBeLessThan(0.5);
+}
+
 test('keyboard harvest, shelf stocking, customer payment, and reload persistence', async ({
   page,
 }) => {
@@ -39,24 +91,10 @@ test('keyboard harvest, shelf stocking, customer payment, and reload persistence
   page.on('pageerror', (error) => errors.push(error.message));
   await openGame(page);
   const initial = await state(page);
-  await page.keyboard.down('a');
-  await expect
-    .poll(async () => (await state(page)).player.x, { intervals: [50] })
-    .toBeLessThan(285);
-  await page.keyboard.up('a');
-  await page.keyboard.down('s');
-  await expect
-    .poll(async () => (await state(page)).player.y, { intervals: [50] })
-    .toBeGreaterThan(555);
-  await page.keyboard.up('s');
+  await walkTo(page, { x: 265, y: 590 });
   await expect.poll(async () => (await state(page)).inventory.tomato).toBeGreaterThan(0);
   expect((await state(page)).player.x).toBeLessThan(initial.player.x - 120);
-
-  await page.keyboard.down('ArrowUp');
-  await expect
-    .poll(async () => (await state(page)).player.y, { intervals: [50] })
-    .toBeLessThan(305);
-  await page.keyboard.up('ArrowUp');
+  await walkTo(page, { x: 265, y: 295 });
   await expect.poll(async () => (await state(page)).shelves.tomato).toBeGreaterThan(0);
   await advance(page, 35_000);
   let current = await state(page);
@@ -120,6 +158,10 @@ test('upgrade hold, corn production, hired cashier, tutorial and settings persis
   expect((await state(page)).cashier).toBe(true);
   expect((await state(page)).tutorialStep).toBe(6);
   await page.getByRole('button', { name: 'Turn sound off' }).click();
+  await page.reload();
+  await page.waitForFunction(() => window.__MARKET__?.ready);
+  await expect(page.getByRole('button', { name: 'Turn sound on' })).toBeVisible();
+  expect((await state(page)).soundEnabled).toBe(false);
   await page.getByRole('button', { name: 'Open settings' }).click();
   await page.getByRole('button', { name: 'Reset game', exact: true }).click();
   await page.getByRole('button', { name: 'Keep my market' }).click();
@@ -159,6 +201,62 @@ for (const [width, height] of [
   });
 }
 
+test('following camera keeps the whole avatar visible at world edges and after rotation', async ({
+  page,
+}) => {
+  await openGame(page);
+  await page.evaluate(() => window.__MARKET__.setPaused(true));
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 844, height: 390 },
+    { width: 1440, height: 900 },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const player of [
+      { x: 105, y: 160 },
+      { x: 1210, y: 160 },
+      { x: 1210, y: 703 },
+      { x: 105, y: 703 },
+    ]) {
+      const before = await page.evaluate((position) => {
+        const camera = window.__MARKET__.world.camera.position;
+        window.__MARKET__.engine.state.player = position;
+        return { x: camera.x, z: camera.z };
+      }, player);
+      await expect
+        .poll(
+          () =>
+            page.evaluate((previous) => {
+              const camera = window.__MARKET__.world.camera.position;
+              return Math.hypot(camera.x - previous.x, camera.z - previous.z);
+            }, before),
+          { intervals: [100], timeout: 5000 },
+        )
+        .toBeGreaterThan(0.1);
+      await expect
+        .poll(
+          () =>
+            page.evaluate(() => {
+              const { world, engine } = window.__MARKET__;
+              const player = engine.state.player;
+              const canvas = world.renderer.domElement.getBoundingClientRect();
+              const feet = world.screenPosition(player.x, player.y, 0);
+              const head = world.screenPosition(player.x, player.y, 0.9);
+              return [feet, head].every(
+                (point) =>
+                  point.x >= 14 &&
+                  point.x <= canvas.width - 14 &&
+                  point.y >= 14 &&
+                  point.y <= canvas.height - 14,
+              );
+            }),
+          { intervals: [100], timeout: 5000 },
+        )
+        .toBe(true);
+    }
+  }
+});
+
 test('touch joystick moves the player and releases cleanly', async ({ browser, browserName }) => {
   test.skip(
     browserName !== 'chromium',
@@ -185,11 +283,108 @@ test('touch joystick moves the player and releases cleanly', async ({ browser, b
     type: 'touchMove',
     touchPoints: [{ x: center.x + 27, y: center.y, id: 1 }],
   });
-  await page.waitForTimeout(700);
+  await expect
+    .poll(async () => {
+      const player = (await state(page)).player;
+      return Math.hypot(player.x - initial.player.x, player.y - initial.player.y);
+    })
+    .toBeGreaterThan(60);
   await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  expect((await state(page)).player.x).toBeGreaterThan(initial.player.x + 80);
-  const stopped = (await state(page)).player.x;
-  await page.waitForTimeout(250);
-  expect((await state(page)).player.x).toBeCloseTo(stopped, 0);
+  await expectStopped(page);
+  await expect(page.locator('#joystick')).not.toHaveClass(/active/);
+  // Browser interruptions cancel a gesture too; the next frame must receive no input.
+  await client.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ ...center, id: 2 }],
+  });
+  await client.send('Input.dispatchTouchEvent', {
+    type: 'touchMove',
+    touchPoints: [{ x: center.x - 27, y: center.y, id: 2 }],
+  });
+  await expect(page.locator('#joystick')).toHaveClass(/active/);
+  await client.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+  await expectStopped(page);
+  await expect(page.locator('#joystick')).not.toHaveClass(/active/);
   await context.close();
+});
+
+test('dragging anywhere moves the player and pause clears held keyboard and pointer input', async ({
+  page,
+}) => {
+  await openGame(page);
+  const canvas = (await page.locator('canvas').boundingBox())!;
+  const start = { x: canvas.x + canvas.width * 0.58, y: canvas.y + canvas.height * 0.6 };
+  const initial = (await state(page)).player;
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(start.x + 45, start.y);
+  await expect(page.locator('#joystick')).toHaveClass(/dragging-surface/);
+  await expect
+    .poll(async () => {
+      const player = (await state(page)).player;
+      return Math.hypot(player.x - initial.x, player.y - initial.y);
+    })
+    .toBeGreaterThan(45);
+  await page.mouse.up();
+  await expectStopped(page);
+  await expect(page.locator('#joystick')).not.toHaveClass(/dragging-surface/);
+
+  await page.keyboard.down('s');
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(start.x + 40, start.y);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: 'Back to the market' })).toBeVisible();
+  await page.mouse.up();
+  await expectStopped(page);
+  await page.getByRole('button', { name: 'Back to the market' }).click();
+  await expectStopped(page);
+  await page.keyboard.up('s');
+  await expect(page.locator('#joystick')).not.toHaveClass(/active|dragging-surface/);
+});
+
+test('keyboard movement resumes after toolbar use and world clicks while dialogs retain focus', async ({
+  page,
+}) => {
+  await openGame(page);
+  await page.getByRole('button', { name: 'Turn sound off' }).click();
+  await expect(page.getByRole('button', { name: 'Turn sound on' })).toBeVisible();
+  const afterSound = (await state(page)).player;
+  await page.keyboard.down('d');
+  try {
+    await expect.poll(async () => (await state(page)).player.x).toBeGreaterThan(afterSound.x + 35);
+  } finally {
+    await page.keyboard.up('d');
+  }
+  await expectStopped(page);
+
+  // A prior toolbar focus must also be recoverable by an ordinary world click.
+  await page.locator('#sound-button').focus();
+  await expect(page.locator('#sound-button')).toBeFocused();
+  const canvas = (await page.locator('canvas').boundingBox())!;
+  await page.mouse.click(canvas.x + canvas.width * 0.58, canvas.y + canvas.height * 0.6);
+  await expect(page.locator('#game-canvas')).toBeFocused();
+  const afterCanvas = (await state(page)).player;
+  await page.keyboard.down('a');
+  try {
+    await expect.poll(async () => (await state(page)).player.x).toBeLessThan(afterCanvas.x - 35);
+  } finally {
+    await page.keyboard.up('a');
+  }
+  await expectStopped(page);
+
+  await page.getByRole('button', { name: 'Open settings' }).click();
+  await page.locator('#dialog-sound').click();
+  await expect(page.locator('#settings-dialog')).toBeVisible();
+  expect(
+    await page.evaluate(() =>
+      document.querySelector('#settings-dialog')!.contains(document.activeElement),
+    ),
+  ).toBe(true);
+  await page.keyboard.down('d');
+  try {
+    await expectStopped(page);
+  } finally {
+    await page.keyboard.up('d');
+  }
 });

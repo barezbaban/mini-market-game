@@ -34,7 +34,8 @@ try {
     document.querySelector('#debug-panel').hidden = true;
     setPaused(false);
   });
-  await page.waitForTimeout(300);
+  // Allow the follow camera and product-transfer animations to settle.
+  await page.waitForTimeout(900);
   await page.screenshot({ path: 'docs/screenshots/desktop.png' });
   const mobile = await browser.newContext({
     viewport: { width: 844, height: 390 },
@@ -45,6 +46,9 @@ try {
   await mobilePage.goto(url);
   await mobilePage.locator('#loading').waitFor({ state: 'detached' });
   await mobilePage.screenshot({ path: 'docs/screenshots/mobile-landscape.png' });
+  await mobilePage.setViewportSize({ width: 390, height: 844 });
+  await mobilePage.waitForTimeout(500);
+  await mobilePage.screenshot({ path: 'docs/screenshots/mobile-portrait.png' });
   await mobile.close();
 } finally {
   await browser.close();

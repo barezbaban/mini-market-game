@@ -18,9 +18,27 @@ Use Node.js 22.17.1 or newer in the Node 22 release line to match the developmen
 
 Open the URL printed by Vite. The repository base path is `/mini-market-game/`, including during local previews.
 
+## npm cache permissions
+
+The development Mac had an npm cache containing files created by an earlier root-owned operation. If `npm install` or `npm ci` reports `EACCES`, `EPERM`, or a root-owned cache file, choose a writable cache for this command:
+
+```sh
+npm install --cache /tmp/mini-market-game-npm-cache
+# Or, for the committed dependency versions:
+npm ci --cache /tmp/mini-market-game-npm-cache
+```
+
+The flag only changes where npm stores downloaded package data. It does not alter the global npm configuration, the application, or existing saves. Use a different writable cache path if that temporary directory already belongs to another account. Avoid running the package installation with `sudo`; a cache ownership repair is an optional machine-maintenance task, not a prerequisite for working on this repository.
+
+## 3D renderer
+
+The browser needs WebGL2. Use a current browser with graphics acceleration enabled; a clear startup message appears if the renderer cannot initialize. The production site remains entirely static and needs no backend or graphics server.
+
+The market uses Three.js meshes, shared materials, an angled camera, and lighting with shadows. Simulation positions remain independent of camera projection. `GameRuntime` maps screen-relative keyboard or joystick movement to the world, advances the game engine, and redraws the scene. The HUD occupies the edges of the full browser window. Check actual devices when tuning render resolution, shadows, camera framing, or touch controls.
+
 ## Debug mode
 
-Append `?debug=true` to the game URL to show FPS, player position, inventory, customer states, and tutorial progress. This opt-in mode also exposes `window.__MARKET__` for developer inspection and controlled browser-test fixtures. The hook is absent during normal play.
+Append `?debug=true` to the game URL to show FPS, draw calls, player position, inventory, customer states, and tutorial progress. This opt-in mode also exposes `window.__MARKET__` for developer inspection and controlled browser-test fixtures. The hook is absent during normal play.
 
 To inspect a detached copy without changing the live market, use the browser console:
 
@@ -87,7 +105,8 @@ Start a new game in a separate browser profile or confirm Reset Game in Settings
 9. Hire the cashier and leave checkout. Confirm customers continue to pay without the player present.
 10. Reload and verify balance, purchased upgrades, capacities, unlocks, and tutorial progress persist.
 11. Toggle sound and test a confirmed reset. Canceling reset must preserve progress.
-12. Use the virtual joystick on a touch viewport; test orientation changes and confirm touch movement does not scroll the page.
+12. Use the fixed joystick and drag an open part of the world; test pointer release, orientation changes, and confirm touch movement does not scroll the page.
+13. Check the original 3D characters and carried stacks, crop readiness, shelf counts, checkout spot, upgrade progress, and floating rewards. Ensure important labels and the player remain readable in desktop, tablet, and phone layouts.
 
 Target desktop viewports include 1920×1080, 1440×900, and 1366×768. Also check an iPad-sized viewport, phone landscape, and phone portrait. Target current Chrome, Safari, Edge, and Firefox; device emulation is useful but does not replace testing a physical touch device.
 

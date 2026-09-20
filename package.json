@@ -1,6 +1,6 @@
 {
   "name": "mini-market-game",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "description": "An original, cozy farm-to-market management game.",
@@ -25,11 +25,12 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "phaser": "^3.90.0"
+    "three": "^0.186.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
     "@types/node": "^22.19.0",
+    "@types/three": "^0.186.0",
     "eslint": "^9.39.0",
     "globals": "^16.5.0",
     "prettier": "^3.6.2",

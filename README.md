@@ -1,6 +1,6 @@
 # Mini Market Manager
 
-A small farm, a friendly market, and room to grow. Mini Market Manager is an original browser management game: harvest fresh produce, fill your shelves, serve customers, and turn your first sales into a thriving little business.
+A small farm, a friendly market, and room to grow. Mini Market Manager is an original 3D browser management game: harvest fresh produce, fill your shelves, serve customers, and turn your first sales into a thriving little business.
 
 [Play on GitHub Pages](https://barezbaban.github.io/mini-market-game/) · [Architecture](docs/architecture.md) · [Development and deployment](docs/development.md)
 
@@ -22,7 +22,8 @@ Spend earnings on a bigger basket ($100), a larger tomato shelf ($120), more fre
 
 ## Features
 
-- Original illustrated world, characters, product icons, and shop branding.
+- Original low-poly 3D world, rounded characters, produce models, and shop branding.
+- Full-screen game presentation with soft lighting, shadows, and a compact HUD.
 - Automatic harvesting, stocking, and checkout; no interaction button needed.
 - Three products with configurable production, prices, capacities, and unlocks.
 - Customer state machines, an orderly checkout queue, and a hireable cashier.
@@ -34,30 +35,30 @@ Spend earnings on a bigger basket ($100), a larger tomato shelf ($120), more fre
 
 ## Controls
 
-| Action           | Desktop                               | Touch                  |
-| ---------------- | ------------------------------------- | ---------------------- |
-| Move             | **WASD** or **arrow keys**            | Virtual joystick       |
-| Harvest or stock | Stand near a farm or matching shelf   | Same                   |
-| Serve checkout   | Stand beside the checkout counter     | Same                   |
-| Buy an upgrade   | Hold position on its upgrade pad      | Same                   |
-| Sound            | Use the speaker button in the toolbar | Tap the speaker button |
-| Reset progress   | Open **Settings**                     | Tap **Settings**       |
+| Action           | Desktop                                     | Touch                              |
+| ---------------- | ------------------------------------------- | ---------------------------------- |
+| Move             | **WASD**, **arrow keys**, or drag the world | Virtual joystick or drag the world |
+| Harvest or stock | Stand near a farm or matching shelf         | Same                               |
+| Serve checkout   | Stand beside the checkout counter           | Same                               |
+| Buy an upgrade   | Hold position on its upgrade pad            | Same                               |
+| Sound            | Use the speaker button in the toolbar       | Tap the speaker button             |
+| Reset progress   | Open **Settings**                           | Tap **Settings**                   |
 
-Landscape is recommended on phones. The canvas scales to fit its container and supports portrait layouts with a rotation hint. Touch movement does not scroll the game page.
+The game fills the browser window. The camera and overlays adapt to desktop, tablet, phone landscape, and phone portrait. Touch movement does not scroll the page; drag an open part of the world to position a temporary joystick, or use the fixed touch joystick.
 
 ## Screenshots
 
-![Mini Market Manager desktop gameplay: market above, farm below, and upgrades alongside the world](docs/screenshots/desktop.png)
+![Mini Market Manager 3D gameplay with its original market, farm, characters, and compact floating HUD](docs/screenshots/desktop.png)
 
-The screenshot is captured from the running application. All scenery and character art are created for this project.
+The screenshots are captured from the running application. Scenery, characters, and produce are original 3D meshes created for this project.
 
-[Mobile landscape screenshot](docs/screenshots/mobile-landscape.png)
+[Mobile landscape screenshot](docs/screenshots/mobile-landscape.png) · [Mobile portrait screenshot](docs/screenshots/mobile-portrait.png)
 
 ## Technology
 
-TypeScript in strict mode, Vite, Phaser 3, HTML5 Canvas, CSS, and npm. ESLint and Prettier handle code quality; Vitest tests the core systems and Playwright exercises the browser experience. The first version runs entirely in the browser and stores progress in `localStorage`.
+TypeScript in strict mode, Vite, Three.js, WebGL2, HTML, CSS, and npm. ESLint and Prettier handle code quality; Vitest tests the core systems and Playwright exercises the browser experience. The game runs entirely in the browser and stores progress in `localStorage`.
 
-The target browsers are current Chrome, Safari, Edge, and Firefox. Production targets 60 FPS with a maximum of 10 active customers; actual performance depends on the device and browser.
+The target browsers are current Chrome, Safari, Edge, and Firefox with WebGL2 available. Enable browser graphics acceleration if the game reports that 3D graphics are unavailable. Rendering targets 60 FPS with a maximum of 10 active customers; actual performance depends on the device and browser. The renderer and interface can change while the pure TypeScript game engine and versioned saves remain independent.
 
 ## Local development
 
@@ -72,6 +73,14 @@ npm install
 ```
 
 For a reproducible install from the committed lockfile, use `npm ci`.
+
+If installation reports `EACCES` or root-owned files in your npm cache, use a writable cache without changing system permissions:
+
+```sh
+npm install --cache /tmp/mini-market-game-npm-cache
+```
+
+The same `--cache` option works with `npm ci`. This handles the cache permission issue encountered on the development Mac; `sudo npm install` is unnecessary. See [installation troubleshooting](docs/development.md#npm-cache-permissions) for details.
 
 ### Development
 
@@ -128,12 +137,11 @@ src/
   main.ts                     # Application startup
   game/
     data/                     # Product, upgrade, and game configuration
-    entities/                 # Reusable character visuals
     managers/                 # Audio and other shared presentation services
-    rendering/                # Original procedural art and world visuals
-    scenes/                   # Phaser lifecycle and rendering orchestration
+    rendering/                # Three.js renderer, original models, and world meshes
     systems/                  # Inventory, economy, farming, checkout, saves
     ui/                       # HUD, feedback, and touch input
+    GameRuntime.ts            # Frame loop, input, lifecycle, and presentation events
     types.ts                  # Shared contracts
 styles/                       # Responsive layout and interface styling
 tests/                        # Core gameplay system tests
@@ -150,7 +158,7 @@ Game rules live outside rendering. A storage interface separates game state from
 - Tune upgrade descriptions, costs, and positions in `src/game/data/upgrades.ts`.
 - Keep new content in these definitions and reuse the shared systems. The [extension guide](docs/architecture.md) explains how to add products, workers, and persistent storage.
 
-The game artwork is made from original code-drawn shapes and project-authored SVGs. Audio uses original procedural sounds, so no external sound pack is needed. The interface uses optional Google Fonts with system-font fallbacks. Third-party fonts and libraries retain their respective licenses. See [asset credits](docs/credits.md).
+The world and characters are built from original procedural 3D meshes with shared geometry and materials. SVG icons support the HTML interface; small canvas textures provide readable world labels. Audio uses original procedural sounds, so no external model or sound pack is needed. The interface uses optional Google Fonts with system-font fallbacks. Third-party fonts and libraries retain their respective licenses. See [asset credits](docs/credits.md).
 
 ## Roadmap
 

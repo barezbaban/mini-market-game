@@ -1,11 +1,7 @@
-import Phaser from 'phaser';
 import '../styles/main.css';
-import { gameConfig } from './game/config';
 import { GAME_CONFIG } from './game/data/gameConfig';
+import { GameRuntime } from './game/GameRuntime';
 import { AudioManager } from './game/managers/AudioManager';
-import { BootScene } from './game/scenes/BootScene';
-import { PreloadScene } from './game/scenes/PreloadScene';
-import { GameScene } from './game/scenes/GameScene';
 import { GameEngine } from './game/systems/GameEngine';
 import { SaveSystem } from './game/systems/SaveSystem';
 import { Hud } from './game/ui/Hud';
@@ -28,44 +24,42 @@ const hud = new Hud(document.querySelector('#app')!, {
   settings: () => showDialog('settings'),
   help: () => showDialog('help'),
 });
-const gameScene = new GameScene({
-  engine,
-  save,
-  audio,
-  hud,
-  onReady: () => {
-    // Wait for layout before revealing the FIT canvas, especially in WebKit landscape.
-    requestAnimationFrame(() => {
-      game.scale.refresh();
-      ready = true;
-      document.querySelector('#loading')!.remove();
-      hud.setSaved(save.lastError === null);
-    });
-  },
-});
-const game = new Phaser.Game({ ...gameConfig, scene: [BootScene, PreloadScene, gameScene] });
-const resizeObserver = new ResizeObserver(() => game.scale.refresh());
-resizeObserver.observe(document.querySelector('#game-canvas')!);
+let runtime: GameRuntime;
+try {
+  runtime = new GameRuntime(document.querySelector('#game-canvas')!, { engine, save, audio, hud });
+  ready = true;
+  document.querySelector('#loading')!.remove();
+  hud.setSaved(save.lastError === null);
+} catch (error) {
+  console.error('The 3D market could not start.', error);
+  document.querySelector('#loading')!.innerHTML =
+    '<strong>The 3D market needs WebGL 2.</strong><p>Try an updated browser with hardware acceleration enabled. Your saved market is safe.</p><button class="primary-button" id="retry-game">Try again</button>';
+  document.querySelector('#retry-game')!.addEventListener('click', () => location.reload());
+}
 
 function setPaused(value: boolean): void {
   if (!ready) return;
   paused = value;
   if (paused) {
-    game.scene.pause('GameScene');
-    gameScene.persist();
+    runtime.setPaused(true);
+    runtime.persist();
   } else {
-    game.scene.resume('GameScene');
+    runtime.setPaused(false);
     audio.unlock();
+    document.querySelector<HTMLElement>('#game-canvas')!.focus({ preventScroll: true });
   }
   hud.setPaused(paused);
 }
 
 function toggleSound(): void {
+  if (!ready) return;
   audio.unlock();
   engine.state.soundEnabled = !engine.state.soundEnabled;
   audio.setEnabled(engine.state.soundEnabled);
   hud.update(engine.state);
-  gameScene.persist();
+  runtime.persist();
+  if (!document.querySelector('dialog[open]'))
+    document.querySelector<HTMLElement>('#game-canvas')!.focus({ preventScroll: true });
 }
 
 function showDialog(kind: 'settings' | 'help'): void {
@@ -105,7 +99,7 @@ document.querySelector<HTMLDialogElement>('#settings-dialog')!.addEventListener(
 });
 let resetting = false;
 window.addEventListener('pagehide', () => {
-  if (ready && !resetting) gameScene.persist();
+  if (ready && !resetting) runtime.persist();
 });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && ready && !resetting) setPaused(true);
@@ -116,13 +110,17 @@ window.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !document.querySelector('dialog[open]')) setPaused(!paused);
 });
 
+if (import.meta.hot) import.meta.hot.dispose(() => runtime?.dispose());
+
 // Explicitly opt-in inspection surface for reproducible development and browser tests.
 if (new URLSearchParams(location.search).get('debug') === 'true') {
   Object.assign(window, {
     __MARKET__: {
       engine,
       save,
-      game,
+      get world() {
+        return runtime?.world;
+      },
       setPaused,
       get ready() {
         return ready;
