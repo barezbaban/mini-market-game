@@ -213,22 +213,29 @@ export class CustomerSystem {
     const reservation = this.yielding.get(customer.id);
     const reservedEarlier =
       reservation && queue.slice(0, index).find((other) => other.id === reservation.earlierId);
-    const reservationActive = Boolean(
+    let reservationActive = Boolean(
       reservation &&
       reservedEarlier?.path[0] &&
       distance(reservation.anchor, reservedEarlier) < 70 &&
       distanceToApproach(reservation.anchor, reservedEarlier) < 30,
     );
     if (!reservationActive) this.yielding.delete(customer.id);
-    const earlier = reservationActive
-      ? reservedEarlier
-      : queue.slice(0, index).find((other) => {
-          return (
-            other.path.length &&
-            distance(customer, other) < 60 &&
-            distanceToApproach(customer, other) < 28
-          );
-        });
+    const approaching = queue.slice(0, index).find((other) => {
+      return (
+        other.path.length &&
+        distance(customer, other) < 60 &&
+        distanceToApproach(customer, other) < 28
+      );
+    });
+    const earlier =
+      reservationActive &&
+      reservedEarlier &&
+      (!approaching || queue.indexOf(reservedEarlier) < queue.indexOf(approaching))
+        ? reservedEarlier
+        : approaching;
+    // A reservation for a later shopper cannot take priority over the queue head.
+    reservationActive = reservationActive && earlier?.id === reservedEarlier?.id;
+    if (!reservationActive) this.yielding.delete(customer.id);
     if (!earlier) return false;
     const step = (GAME_CONFIG.customerSpeed * deltaMs) / 1000;
     const direction = index < 5 ? 1 : -1;

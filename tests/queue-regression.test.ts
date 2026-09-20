@@ -225,6 +225,68 @@ describe('checkout queue routing regressions', () => {
     },
   );
 
+  it.each([2, 8])(
+    'keeps checkout moving for recorded intermittent-stock schedule seed %i',
+    (seed) => {
+      // These two deterministic schedules caught later yielding deadlocks after
+      // the original diagonal-route fix. Keep the random-call order reproducible.
+      let randomState = Math.imul(seed, 0x9e3779b9) >>> 0;
+      const random = (): number => {
+        randomState ^= randomState << 13;
+        randomState ^= randomState >>> 17;
+        randomState ^= randomState << 5;
+        return (randomState >>> 0) / 4294967296;
+      };
+      const hireAt = Math.floor(random() * 120_000);
+      const engine = new GameEngine();
+      engine.economy.earn(1000);
+      engine.purchaseUpgrade('corn');
+      engine.purchaseUpgrade('customers');
+      const observation = trackSimulation(engine);
+      const frames = [8, 12, 16, 1000 / 60, 20, 33, 50, 80];
+      let nextStock = 0;
+      let suppliedValue = 0;
+      let stalled = 0;
+      let longestStall = 0;
+      let time = 0;
+      while (time < 300_000) {
+        if (time >= hireAt && !engine.state.cashier) engine.purchaseUpgrade('cashier');
+        if (time >= nextStock) {
+          for (const product of PRODUCTS) {
+            const added = Math.min(
+              engine.state.shelfCapacities[product.id] - engine.state.shelves[product.id],
+              1 + Math.floor(random() * 8),
+            );
+            engine.state.shelves[product.id] += added;
+            suppliedValue += added * product.sellingPrice;
+          }
+          nextStock = time + 3000 + random() * 15_000;
+        }
+        const beforeSales = engine.state.totalServed;
+        const delta = Math.min(frames[Math.floor(random() * frames.length)], 300_000 - time);
+        observation.step(delta);
+        time += delta;
+        stalled =
+          engine.state.cashier &&
+          engine.state.totalServed === beforeSales &&
+          engine.state.customers.some(
+            (customer) => isInQueue(customer) && valueOf(customer.basket) > 0,
+          )
+            ? stalled + delta
+            : 0;
+        longestStall = Math.max(longestStall, stalled);
+      }
+      expect(
+        longestStall,
+        'a staffed checkout with unpaid queued shoppers keeps making sales',
+      ).toBeLessThan(30_000);
+      observation.verify();
+      expect(engine.state.totalEarned).toBe(1000 + observation.paidValue);
+      expect(engine.state.money).toBe(1000 - 150 - 90 - 300 + observation.paidValue);
+      expect(observation.paidValue + unsoldValue(engine)).toBe(suppliedValue);
+    },
+  );
+
   it('recovers a captured jammed save without losing purchases, stock, cash, or FIFO order', () => {
     // Captured from the original bug: 16 ms frames, corn + customer upgrades,
     // replenished shelves, cashier hired at 30 s, then saved at 90 s after six sales.
