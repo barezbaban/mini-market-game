@@ -17,9 +17,9 @@ import type { BufferGeometry, Material, Texture } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GAME_CONFIG } from '../data/gameConfig';
 import { PRODUCTS } from '../data/products';
-import { checkoutDuration } from '../data/upgrades';
+import { cartCapacity, checkoutDuration } from '../data/upgrades';
 import { remainingCustomerNeed } from '../systems/CustomerSystem';
-import type { GameEvent, GameState, ProductId, Vec2 } from '../types';
+import type { GameEvent, GameState, ItemCounts, ProductId, Vec2 } from '../types';
 import { driveThroughRemaining } from '../systems/DriveThroughSystem';
 import { createCharacter, createProduce, createTree } from './Models';
 import { StoreDisplays } from './world/StoreDisplays';
@@ -29,11 +29,16 @@ import type { WorldLabel } from './world/WorldKit';
 
 interface CustomerVisual {
   model: CharacterModel;
+  cart: ShoppingCartVisual;
   id: number;
   previous: Vec2;
   bubble: Group;
   item: Record<ProductId, Group>;
   quantity: WorldLabel;
+}
+interface ShoppingCartVisual {
+  group: Group;
+  setInventory(items: Partial<ItemCounts>): void;
 }
 interface Transfer {
   group: Group;
@@ -54,6 +59,51 @@ interface DriveVehicleVisual {
 const toWorld = (point: Vec2, elevation = 0): Vector3 =>
   new Vector3((point.x - 640) / 100, elevation, (point.y - 390) / 100);
 const YAW = (20 * Math.PI) / 180;
+
+function createShoppingCart(name: string): ShoppingCartVisual {
+  const group = new Group();
+  group.name = name;
+  group.position.set(0, 0, 0.43);
+  const basket = new Group();
+  group.add(basket);
+  block(basket, 0, 0.25, 0.03, 0.4, 0.055, 0.5, C.green);
+  [-0.2, 0.2].forEach((x) => block(basket, x, 0.43, 0.03, 0.035, 0.34, 0.5, C.green));
+  [-0.21, 0.27].forEach((z) => block(basket, 0, 0.43, z, 0.43, 0.34, 0.035, C.green));
+  [-0.16, 0.16].forEach((x) => {
+    block(group, x, 0.47, -0.35, 0.035, 0.46, 0.035, C.green);
+    sphere(group, x, 0.08, -0.16, 0.055, 0x4b5b54);
+    sphere(group, x, 0.08, 0.21, 0.055, 0x4b5b54);
+  });
+  block(group, 0, 0.69, -0.35, 0.43, 0.045, 0.045, C.wood);
+  const cargo = new Group();
+  cargo.name = `${name}:inventory`;
+  cargo.position.set(0, 0.31, 0.02);
+  group.add(cargo);
+  let inventoryKey = '';
+  return {
+    group,
+    setInventory(items) {
+      const counts = Object.fromEntries(
+        PRODUCTS.map(({ id }) => [id, Math.max(0, Math.floor(items[id] ?? 0))]),
+      ) as ItemCounts;
+      const key = PRODUCTS.map(({ id }) => counts[id]).join(':');
+      if (key === inventoryKey) return;
+      inventoryKey = key;
+      cargo.clear();
+      const products: ProductId[] = [];
+      for (const { id } of PRODUCTS)
+        for (let index = 0; index < counts[id] && products.length < 2; index += 1)
+          products.push(id);
+      products.forEach((id, index) => {
+        const product = createProduce(id);
+        product.scale.setScalar(0.72);
+        product.position.set(index ? 0.11 : -0.11, 0.08, 0);
+        product.rotation.y = index * 1.4;
+        cargo.add(product);
+      });
+    },
+  };
+}
 
 /** Render-only presentation: game rules and existing saves stay in GameEngine. */
 export class WorldRenderer {
@@ -76,6 +126,8 @@ export class WorldRenderer {
   private readonly trashProgress: Mesh;
   private readonly storeDoorLeft: Mesh;
   private readonly storeDoorRight: Mesh;
+  private readonly cartStationLabel: WorldLabel;
+  private readonly parkedCarts: Group[];
   private readonly driveArea: Group;
   private readonly driveSpot: Group;
   private readonly driveProgress: Mesh;
@@ -117,6 +169,9 @@ export class WorldRenderer {
     const storeEntrance = this.drawStoreEntrance();
     this.storeDoorLeft = storeEntrance.left;
     this.storeDoorRight = storeEntrance.right;
+    const cartStation = this.drawCartStation();
+    this.cartStationLabel = cartStation.label;
+    this.parkedCarts = cartStation.carts;
     this.displays = new StoreDisplays(this.scene);
     this.drawOffice();
     const checkout = this.drawCheckout();
@@ -157,6 +212,8 @@ export class WorldRenderer {
     });
     for (let index = 0; index < GAME_CONFIG.customerMax; index += 1) {
       const model = createCharacter('customer');
+      const cart = createShoppingCart(`customer:${index}:cart`);
+      model.group.add(cart.group);
       model.group.visible = false;
       this.scene.add(model.group);
       const bubble = new Group();
@@ -191,6 +248,7 @@ export class WorldRenderer {
       this.scene.add(bubble);
       this.customers.push({
         model,
+        cart,
         id: -1,
         previous: { x: 0, y: 0 },
         bubble,
@@ -270,7 +328,8 @@ export class WorldRenderer {
       if (customerMoving) visual.model.setFacing(customerDx, customerDy);
       else if (customer.state === 'WAITING_FOR_PRODUCT') visual.model.setFacing(0, -1);
       else if (customer.state === 'PAYING') visual.model.setFacing(1, 0);
-      visual.model.setInventory(customer.basket);
+      visual.model.setInventory({});
+      visual.cart.setInventory(customer.basket);
       visual.model.animate(timeMs + customer.id * 131, customerMoving);
       visual.previous = { x: customer.x, y: customer.y };
       if (['ENTERING', 'MOVING_TO_SHELF', 'WAITING_FOR_PRODUCT'].includes(customer.state)) {
@@ -282,6 +341,16 @@ export class WorldRenderer {
         });
         visual.quantity.setText(`×${Math.max(1, remainingCustomerNeed(customer))}`);
       }
+    });
+    const totalCarts = cartCapacity(state);
+    const availableCarts = Math.max(0, totalCarts - state.customers.length);
+    this.cartStationLabel.setText(
+      `CARTS ${availableCarts}/${totalCarts}`,
+      availableCarts ? '#17694b' : '#ffffff',
+      availableCarts ? '#ffffff' : '#cc765e',
+    );
+    this.parkedCarts.forEach((cart, index) => {
+      cart.visible = index < availableCarts;
     });
     const doorNeeded = state.customers.some(
       (customer) =>
@@ -687,6 +756,34 @@ export class WorldRenderer {
     block(left, 0.13, 0, 0.055, 0.035, 0.32, 0.035, C.green);
     block(right, -0.13, 0, 0.055, 0.035, 0.32, 0.035, C.green);
     return { left, right };
+  }
+
+  private drawCartStation(): { label: WorldLabel; carts: Group[] } {
+    const station = new Group();
+    station.name = 'cart-station';
+    station.position.copy(toWorld(GAME_CONFIG.cartStation));
+    this.scene.add(station);
+    block(station, 0, 0.025, 0, 1.34, 0.045, 0.82, C.cream);
+    [-0.65, 0.65].forEach((x) => block(station, x, 0.21, 0, 0.045, 0.38, 0.82, C.green));
+    block(station, 0, 0.64, -0.38, 1.36, 0.3, 0.055, C.green);
+    block(station, 0, 0.39, -0.38, 0.045, 0.36, 0.045, C.green);
+    const count = label(station, 'CARTS 3/3', 1.25, 0.25, {
+      id: 'store:carts:count',
+      kind: 'status',
+      mount: 'surface',
+      foreground: '#17694b',
+      background: '#ffffff',
+      border: false,
+    });
+    count.object.position.set(0, 0.64, -0.348);
+    const carts = Array.from({ length: GAME_CONFIG.customerMax }, (_, index) => {
+      const cart = createShoppingCart(`cart-station:${index}`).group;
+      cart.scale.setScalar(0.43);
+      cart.position.set(-0.47 + (index % 5) * 0.235, 0.025, -0.11 + Math.floor(index / 5) * 0.28);
+      station.add(cart);
+      return cart;
+    });
+    return { label: count, carts };
   }
 
   private drawDriveThrough(): {

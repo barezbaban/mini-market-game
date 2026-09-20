@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GAME_CONFIG } from '../src/game/data/gameConfig';
 import { PRODUCTS, emptyItems } from '../src/game/data/products';
+import { cartCapacity } from '../src/game/data/upgrades';
 import { CheckoutSystem } from '../src/game/systems/CheckoutSystem';
 import { queuePosition, remainingCustomerNeed } from '../src/game/systems/CustomerSystem';
 import { EconomySystem } from '../src/game/systems/EconomySystem';
@@ -285,6 +286,7 @@ describe('customers and checkout', () => {
     const arriving = engine.state.customers[0];
     expect(arriving.state).toBe('ENTERING');
     expect(arriving.y).toBeLessThan(GAME_CONFIG.entranceOutside.y);
+    expect(arriving.path).toContainEqual(GAME_CONFIG.cartStation);
     expect(arriving.path).toContainEqual(GAME_CONFIG.entranceOutside);
     expect(arriving.path).toContainEqual(GAME_CONFIG.entrance);
     advance(engine, 10000);
@@ -298,7 +300,22 @@ describe('customers and checkout', () => {
     expect(state.customers[0].state).toBe('LEAVING');
     expect(state.customers[0].path).toContainEqual(GAME_CONFIG.entrance);
     expect(state.customers[0].path).toContainEqual(GAME_CONFIG.entranceOutside);
+    expect(state.customers[0].path).toContainEqual(GAME_CONFIG.cartStation);
     expect(state.customers[0].path.at(-1)).toEqual(GAME_CONFIG.customerExit);
+  });
+
+  it('starts with three carts and adds one concurrent shopper per cart upgrade', () => {
+    const engine = new GameEngine();
+    engine.state.shelves.tomato = 12;
+    engine.state.shelves.egg = 12;
+    advance(engine, 40_000);
+    expect(cartCapacity(engine.state)).toBe(3);
+    expect(engine.state.customers).toHaveLength(3);
+    engine.economy.earn(125);
+    expect(engine.purchaseUpgrade('carts')).toBe(true);
+    expect(cartCapacity(engine.state)).toBe(4);
+    advance(engine, 5_000);
+    expect(engine.state.customers).toHaveLength(4);
   });
 
   it('keeps goods unpaid until a player serves for one second, then pays exactly once', () => {
@@ -336,6 +353,10 @@ describe('customers and checkout', () => {
 
   it('keeps a full snake queue distinct and drains it when the player returns', () => {
     const engine = new GameEngine();
+    engine.state.money = 100_000;
+    while (engine.purchaseUpgrade('carts')) {
+      // A full cart fleet intentionally exercises both rows of the checkout queue.
+    }
     engine.state.shelves.tomato = 8;
     engine.state.shelves.egg = 8;
     advance(engine, 100000);
@@ -354,6 +375,7 @@ describe('customers and checkout', () => {
 
   it('keeps arriving and advancing shoppers separated through sustained queue pressure', () => {
     const engine = new GameEngine();
+    engine.state.upgrades.carts = 7;
     engine.state.player = { x: 200, y: 450 };
     let closest = Infinity;
     for (let frame = 0; frame < 7000; frame += 1) {

@@ -50,6 +50,7 @@ export class CheckoutSystem {
       { x: 1010, y: 320 },
       { ...GAME_CONFIG.entrance },
       { ...GAME_CONFIG.entranceOutside },
+      { ...GAME_CONFIG.cartStation },
       { ...GAME_CONFIG.customerExit },
     ];
     this.emit({ type: 'money', text: `+$${amount}`, ...GAME_CONFIG.checkout });

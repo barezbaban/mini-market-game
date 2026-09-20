@@ -76,6 +76,7 @@ function establishStore(marketing: number, speed: number, capacity: number): Gam
     helperCapacity: capacity,
     cashier: 3,
     customers: marketing,
+    carts: 7,
     accountant: 1,
   };
   for (const [id, count] of Object.entries(levels)) {

@@ -33,6 +33,7 @@ async function demonstrate(page, expanded = true) {
           customers: 3,
           accountant: 2,
           inventory: 3,
+          carts: 7,
           driveThrough: 1,
           driveRunner: 1,
           driveCashier: 1,
@@ -53,6 +54,7 @@ async function demonstrate(page, expanded = true) {
           customers: 2,
           accountant: 1,
           inventory: 1,
+          carts: 3,
           driveThrough: 1,
         };
     for (const [id, count] of Object.entries(levels)) {

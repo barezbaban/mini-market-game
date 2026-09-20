@@ -30,11 +30,11 @@ Drive-through orders are a separate queue with explicit arriving, loading, payme
 
 ## Customer lifecycle
 
-Customers spawn beyond the visible shop, approach the storefront, pass through the animated entrance, move to a product shelf, wait when appropriate, collect available stock, move to checkout, queue, and pay. They then return through the same door and continue to an off-screen exit before their state is removed. Queue positions are derived from order in the line, with configured spacing. Customers cannot buy from an empty shelf, and only the customer at the front may pay.
+Customers spawn beyond the visible shop only when a shopping cart is available, pass the cart station and animated entrance, move to a product shelf, wait when appropriate, collect available stock, move to checkout, queue, and pay. The renderer displays each customer's basket contents inside their cart. They then return through the same door and cart station before continuing to an off-screen exit, where the customer is removed and the cart becomes available again. The store begins with three carts; the Manage-only cart upgrade adds one concurrent shopper slot per level up to the configured ten-customer limit. Queue positions are derived from order in the line, with configured spacing. Customers cannot buy from an empty shelf, and only the customer at the front may pay.
 
 Queue arrival order remains stable even when shoppers return from distant wings. Younger shoppers yield to earlier ones; when the head is blocked by a crowd, it plans a clear detour and walks it at the normal speed. Routing never resets a customer's basket, teleports them to checkout, or credits a sale. The regression and endurance suites exercise old blocked saves, mixed arrival rates, production gaps, and mid-queue reloads.
 
-Keep the active-customer cap in configuration. A larger map or extra counters should introduce explicit destinations and queues rather than random movement.
+Keep the active-customer cap and starting cart count in configuration. A larger map or extra counters should introduce explicit destinations and queues rather than random movement.
 
 ## Adding a product
 

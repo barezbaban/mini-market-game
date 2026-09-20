@@ -1,3 +1,4 @@
+import { GAME_CONFIG } from './gameConfig';
 import type { GameState, UpgradeDefinition, UpgradeId } from '../types';
 export const UPGRADES: UpgradeDefinition[] = [
   {
@@ -22,6 +23,18 @@ export const UPGRADES: UpgradeDefinition[] = [
     maxLevel: 1,
     position: { x: 1138, y: 337 },
     icon: 'shelf',
+    category: 'store',
+  },
+  {
+    id: 'carts',
+    name: 'Shopping carts',
+    description: 'Start with 3 carts; add 1 cart per level, up to 10',
+    cost: 125,
+    costGrowth: 1.45,
+    type: 'capacity',
+    maxLevel: 7,
+    position: { ...GAME_CONFIG.cartStation },
+    icon: 'basket',
     category: 'store',
   },
   {
@@ -265,3 +278,5 @@ export const playerLevel = (xp: number): number =>
 export const xpForLevel = (level: number): number => (level - 1) * level * 50;
 export const checkoutDuration = (state: GameState): number =>
   1000 / 1.25 ** Math.max(0, state.upgrades.cashier - 1);
+export const cartCapacity = (state: GameState): number =>
+  Math.min(GAME_CONFIG.customerMax, GAME_CONFIG.customerStartCarts + state.upgrades.carts);

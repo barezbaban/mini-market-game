@@ -4,6 +4,7 @@ export type MachineId = 'paste' | 'coffee';
 export type UpgradeId =
   | 'shelf'
   | 'inventory'
+  | 'carts'
   | 'customers'
   | 'corn'
   | 'cashier'

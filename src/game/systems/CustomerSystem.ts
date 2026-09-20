@@ -1,5 +1,6 @@
 import { GAME_CONFIG } from '../data/gameConfig';
 import { PRODUCTS, emptyItems, productById } from '../data/products';
+import { cartCapacity } from '../data/upgrades';
 import type { CustomerData, GameState, ProductId, Vec2 } from '../types';
 import { InventorySystem, itemCount } from './InventorySystem';
 
@@ -164,7 +165,7 @@ export class CustomerSystem {
   }
 
   private spawn(): void {
-    if (this.state.customers.length >= GAME_CONFIG.customerMax) return;
+    if (this.state.customers.length >= cartCapacity(this.state)) return;
     const choices = this.state.unlockedProducts.filter((id) => this.shoppersFor(id).length < 3);
     if (!choices.length) return;
     const id = this.nextId++;
@@ -180,6 +181,7 @@ export class CustomerSystem {
       color: COLORS[(id - 1) % COLORS.length],
       waitTime: 0,
       path: [
+        { ...GAME_CONFIG.cartStation },
         { ...GAME_CONFIG.entranceOutside },
         { ...GAME_CONFIG.entrance },
         { x: GAME_CONFIG.entrance.x, y: 450 },
@@ -410,8 +412,10 @@ export class CustomerSystem {
     const interval = GAME_CONFIG.customerSpawnInterval / (1 + this.state.upgrades.customers * 0.2);
     this.spawnElapsed += deltaMs;
     if (this.spawnElapsed >= interval) {
-      this.spawnElapsed %= interval;
-      this.spawn();
+      if (this.state.customers.length < cartCapacity(this.state)) {
+        this.spawnElapsed %= interval;
+        this.spawn();
+      } else this.spawnElapsed = interval;
     }
     const queue = orderedQueue(this.state);
     for (const customer of [

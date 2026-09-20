@@ -204,6 +204,44 @@ test('customer thought cloud shows the requested item and remaining quantity', a
   await expect.poll(thought).toMatchObject({ bubble: false });
 });
 
+test('customers use visible carts with inventory and cart capacity upgrades', async ({ page }) => {
+  await openGame(page);
+  const before = await page.evaluate(() => {
+    const { engine, world, setPaused } = window.__MARKET__;
+    setPaused(true);
+    engine.state.shelves.tomato = 12;
+    engine.state.shelves.egg = 12;
+    for (let elapsed = 0; elapsed < 40_000; elapsed += 50) engine.update(50);
+    const first = engine.state.customers[0];
+    first.basket = { ...first.basket, tomato: 1 };
+    world.update(engine.state, engine.state.elapsed, 50);
+    return {
+      customers: engine.state.customers.length,
+      label: world.scene.getObjectByName('label:store:carts:count')!.userData.worldLabel
+        .text as string,
+      carts: engine.state.customers.filter((_, index) =>
+        world.scene.getObjectByName(`customer:${index}:cart`),
+      ).length,
+      inventory: world.scene.getObjectByName('customer:0:cart:inventory')!.children.length,
+    };
+  });
+  expect(before).toEqual({ customers: 3, label: 'CARTS 0/3', carts: 3, inventory: 1 });
+
+  const after = await page.evaluate(() => {
+    const { engine, world } = window.__MARKET__;
+    engine.economy.earn(125);
+    const purchased = engine.purchaseUpgrade('carts');
+    world.update(engine.state, engine.state.elapsed, 0);
+    return {
+      purchased,
+      level: engine.state.upgrades.carts,
+      label: world.scene.getObjectByName('label:store:carts:count')!.userData.worldLabel
+        .text as string,
+    };
+  });
+  expect(after).toEqual({ purchased: true, level: 1, label: 'CARTS 1/4' });
+});
+
 test('store entrance opens for arriving and leaving shoppers', async ({ page }) => {
   await openGame(page);
   const opened = await page.evaluate((config) => {

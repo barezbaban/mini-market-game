@@ -109,6 +109,7 @@ describe('checkout queue routing regressions', () => {
     'serves all seven expanded aisles with marketing $marketing and $frameMs ms frames across reload',
     ({ frameMs, marketing }) => {
       let engine = new GameEngine();
+      engine.state.upgrades.carts = 7;
       engine.economy.earn(100000);
       for (const id of ['expansion', 'corn', 'pasteMachine', 'coffeeMachine', 'cashier'] as const)
         while (engine.purchaseUpgrade(id)) {
@@ -157,6 +158,7 @@ describe('checkout queue routing regressions', () => {
     'keeps serving an upgraded, stocked market at %f ms per frame',
     (frameMs) => {
       const engine = new GameEngine();
+      engine.state.upgrades.carts = 7;
       engine.economy.earn(1000);
       engine.purchaseUpgrade('corn');
       engine.purchaseUpgrade('customers');
@@ -207,6 +209,7 @@ describe('checkout queue routing regressions', () => {
     'handles variable frames, a mid-queue reload, and hiring at $hireAt ms (episodic stock: $episodic)',
     ({ hireAt, episodic }) => {
       let engine = new GameEngine();
+      engine.state.upgrades.carts = 7;
       engine.economy.earn(1000);
       engine.purchaseUpgrade('corn');
       engine.purchaseUpgrade('customers');
@@ -299,6 +302,7 @@ describe('checkout queue routing regressions', () => {
       };
       const hireAt = Math.floor(random() * 120_000);
       const engine = new GameEngine();
+      engine.state.upgrades.carts = 7;
       engine.economy.earn(1000);
       engine.purchaseUpgrade('corn');
       engine.purchaseUpgrade('customers');

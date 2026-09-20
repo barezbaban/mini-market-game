@@ -185,6 +185,7 @@ test('world labels use unique mounted signs and intentional status badges', asyn
     'store:tagline',
     'store:local',
     'store:open',
+    'store:carts:count',
     'office:team:title',
     'office:customers:title',
     'office:accountant:title',

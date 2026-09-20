@@ -98,7 +98,7 @@ Start a new game in a separate browser profile or confirm Reset Game in Settings
 2. Wait at the tomato farm, collect produce, and confirm basket counts stop at capacity.
 3. Move to the tomato shelf and confirm only matching produce transfers and shelf capacity is respected.
 4. Repeat for eggs. Confirm empty and stocked shelf indicators differ.
-5. Watch customers enter, choose stocked products, and form a spaced checkout queue.
+5. Confirm the entrance station starts with three carts. Watch each customer push a cart into the store, verify selected products appear inside it, and confirm a fourth shopper waits until a cart is returned.
 6. Stand near checkout; confirm progress completes, money increases once, and the customer leaves.
 7. Open Manage, try an unaffordable upgrade, and verify the shortfall feedback. Earn enough and verify one button press purchases exactly one level.
 8. Unlock corn and test its complete production-to-sale loop.
@@ -107,7 +107,7 @@ Start a new game in a separate browser profile or confirm Reset Game in Settings
 11. Toggle sound and test a confirmed reset. Canceling reset must preserve progress.
 12. Use the fixed joystick and drag an open part of the world; test pointer release, orientation changes, and confirm touch movement does not scroll the page.
 13. Check the original 3D characters and carried stacks, crop readiness, shelf counts, checkout spot, and floating rewards. Confirm the market has no upgrade pads or upgrade-price signs. Ensure important labels and the player remain readable in desktop, tablet, and phone layouts.
-14. Open Manage and visit all four tabs. Check prerequisites, unaffordable buttons, the included 12-item shelf capacity, next-level prices, and capped upgrades. Confirm the simulation pauses and resumes with keyboard focus restored when the dialog closes.
+14. Open Manage and visit all four tabs. Check prerequisites, unaffordable buttons, the included 12-item shelf capacity, shopping-cart levels from 3 through 10, next-level prices, and capped upgrades. Confirm the simulation pauses and resumes with keyboard focus restored when the dialog closes.
 15. Expand through the production wing, coffee corner, and carrot garden. Add farm units through their caps and verify independent growth. Supply both machines and check their 2/4/6/8-item batch levels, inventory transfer, and save/reload behavior.
 16. Hire three helpers, upgrade carrying capacity and speed, then watch them harvest, supply, collect, and stock without duplication. Upgrade marketing, cashier, and accountant through their limits; verify arrival rate, service timing, passive XP, and the player level meter.
 17. Open the Basket drawer to inspect all seven products. Check management tabs, card scrolling, inventory previews, and close controls on portrait and landscape screens. Confirm a purchase saves without closing the management dialog.
