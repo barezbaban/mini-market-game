@@ -8,7 +8,7 @@ import {
   Mesh,
   MeshBasicMaterial,
   OrthographicCamera,
-  PCFSoftShadowMap,
+  PCFShadowMap,
   Scene,
   SRGBColorSpace,
   Vector3,
@@ -95,7 +95,7 @@ export class WorldRenderer {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     this.renderer.outputColorSpace = SRGBColorSpace;
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = PCFSoftShadowMap;
+    this.renderer.shadowMap.type = PCFShadowMap;
     this.renderer.domElement.setAttribute('aria-label', 'Three dimensional mini market game');
     this.renderer.domElement.style.display = 'block';
     host.appendChild(this.renderer.domElement);
