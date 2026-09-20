@@ -59,7 +59,6 @@ export interface UpgradeDefinition {
   category: 'farms' | 'machines' | 'staff' | 'store';
   costGrowth: number;
   requires?: Partial<Record<UpgradeId, number>>;
-  inWorld?: boolean;
 }
 export interface FarmPlotState {
   ready: number;

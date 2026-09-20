@@ -10,7 +10,6 @@ export const GAME_CONFIG = {
   customerSpawnInterval: 5000,
   customerMax: 10,
   checkoutTime: 1000,
-  upgradeHoldTime: 1200,
   trashHoldTime: 1000,
   interactionRadius: 70,
   harvestInterval: 280,

@@ -1,6 +1,6 @@
 import { PRODUCTS } from '../data/products';
 import { GAME_CONFIG } from '../data/gameConfig';
-import { playerLevel, UPGRADES, upgradeAvailable, upgradeCost, xpForLevel } from '../data/upgrades';
+import { playerLevel, xpForLevel } from '../data/upgrades';
 import type { GameState } from '../types';
 import { icon, productIcon } from './icons';
 
@@ -88,13 +88,6 @@ export class Hud {
   }
 
   update(state: GameState): void {
-    const nearbyUpgrade = UPGRADES.find(
-      (upgrade) =>
-        upgrade.inWorld &&
-        upgradeAvailable(state, upgrade.id) &&
-        state.upgrades[upgrade.id] < upgrade.maxLevel &&
-        Math.hypot(state.player.x - upgrade.position.x, state.player.y - upgrade.position.y) < 80,
-    );
     const nearTrash =
       Math.hypot(state.player.x - GAME_CONFIG.trash.x, state.player.y - GAME_CONFIG.trash.y) < 85;
     const nearDriveThrough =
@@ -113,7 +106,6 @@ export class Hud {
       state.xp,
       ...Object.values(state.upgrades),
       state.unlockedProducts.join(':'),
-      nearbyUpgrade?.id,
       nearTrash,
       nearDriveThrough,
       state.driveThroughOrders
@@ -169,14 +161,6 @@ export class Hud {
       state.tutorialStep >= 6
         ? `<strong>${state.totalServed} happy customers</strong><span>Manage your farms, machines and growing team.</span>`
         : `<strong>${hint[0]}</strong><span>${hint[1]}</span>`;
-    if (nearbyUpgrade) {
-      const cost = upgradeCost(state, nearbyUpgrade.id);
-      const instruction =
-        state.money < cost
-          ? `Need $${(cost - state.money).toLocaleString()} more`
-          : 'Stay on the pad to buy';
-      this.hint.innerHTML = `<strong>${nearbyUpgrade.name} · $${cost.toLocaleString()}</strong><span>${instruction} · Or open Manage for details.</span>`;
-    }
     if (nearTrash)
       this.hint.innerHTML = count
         ? `<strong>Trash bin · ${count} item${count === 1 ? '' : 's'}</strong><span>Stay close for 1 second to discard everything.</span>`

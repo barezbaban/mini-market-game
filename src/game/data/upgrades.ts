@@ -11,7 +11,6 @@ export const UPGRADES: UpgradeDefinition[] = [
     position: { x: 1138, y: 230 },
     icon: 'basket',
     category: 'store',
-    inWorld: true,
   },
   {
     id: 'shelf',
@@ -36,7 +35,6 @@ export const UPGRADES: UpgradeDefinition[] = [
     position: { x: 1138, y: 444 },
     icon: 'heart',
     category: 'staff',
-    inWorld: true,
   },
   {
     id: 'corn',
@@ -49,7 +47,6 @@ export const UPGRADES: UpgradeDefinition[] = [
     position: { x: 1138, y: 551 },
     icon: 'corn',
     category: 'farms',
-    inWorld: true,
   },
   {
     id: 'cashier',
@@ -62,7 +59,6 @@ export const UPGRADES: UpgradeDefinition[] = [
     position: { x: 1138, y: 658 },
     icon: 'worker',
     category: 'staff',
-    inWorld: true,
   },
   {
     id: 'expansion',
@@ -75,7 +71,6 @@ export const UPGRADES: UpgradeDefinition[] = [
     position: { x: 1138, y: 337 },
     icon: 'shelf',
     category: 'store',
-    inWorld: true,
   },
   {
     id: 'tomatoPlots',
@@ -88,7 +83,6 @@ export const UPGRADES: UpgradeDefinition[] = [
     position: { x: 265, y: 855 },
     icon: 'tomato',
     category: 'farms',
-    inWorld: true,
   },
   {
     id: 'eggPlots',
@@ -101,7 +95,6 @@ export const UPGRADES: UpgradeDefinition[] = [
     position: { x: 475, y: 855 },
     icon: 'egg',
     category: 'farms',
-    inWorld: true,
   },
   {
     id: 'cornPlots',
@@ -115,7 +108,6 @@ export const UPGRADES: UpgradeDefinition[] = [
     icon: 'corn',
     category: 'farms',
     requires: { corn: 1 },
-    inWorld: true,
   },
   {
     id: 'coffeePlots',
@@ -142,7 +134,6 @@ export const UPGRADES: UpgradeDefinition[] = [
     icon: 'carrot',
     category: 'farms',
     requires: { expansion: 3 },
-    inWorld: true,
   },
   {
     id: 'pasteMachine',
@@ -156,7 +147,6 @@ export const UPGRADES: UpgradeDefinition[] = [
     icon: 'tomatoPaste',
     category: 'machines',
     requires: { expansion: 1 },
-    inWorld: true,
   },
   {
     id: 'coffeeMachine',
@@ -170,7 +160,6 @@ export const UPGRADES: UpgradeDefinition[] = [
     icon: 'groundCoffee',
     category: 'machines',
     requires: { expansion: 2 },
-    inWorld: true,
   },
   {
     id: 'helpers',

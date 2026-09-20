@@ -17,9 +17,9 @@ import type { BufferGeometry, Material, Texture } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GAME_CONFIG } from '../data/gameConfig';
 import { PRODUCTS } from '../data/products';
-import { UPGRADES, checkoutDuration, upgradeAvailable, upgradeCost } from '../data/upgrades';
+import { checkoutDuration } from '../data/upgrades';
 import { remainingCustomerNeed } from '../systems/CustomerSystem';
-import type { GameEvent, GameState, ProductId, UpgradeId, Vec2 } from '../types';
+import type { GameEvent, GameState, ProductId, Vec2 } from '../types';
 import { driveThroughRemaining } from '../systems/DriveThroughSystem';
 import { createCharacter, createProduce, createTree } from './Models';
 import { StoreDisplays } from './world/StoreDisplays';
@@ -27,13 +27,6 @@ import type { CharacterModel } from './Models';
 import { block, crate, disc, label, PALETTE as C, ring, sphere } from './world/WorldKit';
 import type { WorldLabel } from './world/WorldKit';
 
-interface UpgradeVisual {
-  group: Group;
-  outline: Mesh;
-  progress: Mesh;
-  action: WorldLabel;
-  name: string;
-}
 interface CustomerVisual {
   model: CharacterModel;
   id: number;
@@ -71,7 +64,6 @@ export class WorldRenderer {
   private readonly cashier: CharacterModel;
   private readonly customers: CustomerVisual[] = [];
   private readonly displays: StoreDisplays;
-  private readonly upgrades = new Map<UpgradeId, UpgradeVisual>();
   private readonly workers: { model: CharacterModel; previous: Vec2 }[] = [];
   private readonly officeStaff: { model: CharacterModel; upgrade: 'customers' | 'accountant' }[] =
     [];
@@ -127,7 +119,6 @@ export class WorldRenderer {
     this.storeDoorRight = storeEntrance.right;
     this.displays = new StoreDisplays(this.scene);
     this.drawOffice();
-    this.drawUpgrades();
     const checkout = this.drawCheckout();
     this.checkoutRing = checkout.ring;
     this.checkoutProgress = checkout.progress;
@@ -382,38 +373,6 @@ export class WorldRenderer {
       '#ffffff',
       drivePaying ? '#c77e26' : '#168a65',
     );
-    UPGRADES.forEach((upgrade) => {
-      const visual = this.upgrades.get(upgrade.id);
-      if (!visual) return;
-      visual.group.visible = upgradeAvailable(state, upgrade.id);
-      const complete = state.upgrades[upgrade.id] >= upgrade.maxLevel;
-      const cost = upgradeCost(state, upgrade.id);
-      const affordable = state.money >= cost;
-      const actionName =
-        upgrade.id === 'expansion'
-          ? complete
-            ? 'EXPANSION'
-            : ['PRODUCTION', 'COFFEE', 'CARROTS'][state.upgrades.expansion]
-          : visual.name;
-      (visual.outline.material as MeshBasicMaterial).color.set(
-        complete ? C.green : affordable ? C.gold : C.white,
-      );
-      visual.action.setText(
-        `${actionName} ${complete ? 'MAX' : `$${cost}`}`,
-        complete ? '#128560' : '#17694b',
-        complete ? '#def5d9' : '#ffffff',
-      );
-      const active = state.activeUpgrade === upgrade.id && !complete;
-      visual.progress.visible = active;
-      if (active)
-        visual.progress.geometry.setDrawRange(
-          0,
-          Math.max(
-            0,
-            Math.floor(Math.min(1, state.upgradeProgress / GAME_CONFIG.upgradeHoldTime) * 64) * 6,
-          ),
-        );
-    });
     const queue = state.customers.filter(
       (customer) => customer.state === 'QUEUEING' || customer.state === 'PAYING',
     );
@@ -529,14 +488,6 @@ export class WorldRenderer {
     else if (state.tutorialStep === 2)
       destination = { x: PRODUCTS[0].shelf.x, y: PRODUCTS[0].shelf.y + 61 };
     else if (state.tutorialStep <= 4) destination = GAME_CONFIG.cashierSpot;
-    else if (state.tutorialStep === 5)
-      destination = UPGRADES.find(
-        (upgrade) =>
-          upgrade.inWorld &&
-          upgradeAvailable(state, upgrade.id) &&
-          state.upgrades[upgrade.id] < upgrade.maxLevel &&
-          state.money >= upgradeCost(state, upgrade.id),
-      )?.position;
     this.objective.visible = Boolean(destination);
     if (destination) {
       this.objective.position.copy(toWorld(destination, 1.25 + Math.sin(timeMs / 300) * 0.07));
@@ -863,77 +814,6 @@ export class WorldRenderer {
     board.visible = false;
     this.scene.add(board);
     return { group, car, bike, board, status, id: -1, slots };
-  }
-
-  private drawUpgrades(): void {
-    const names: Partial<Record<UpgradeId, string>> = {
-      inventory: 'BASKET',
-      shelf: 'BIGGER SHELF',
-      customers: 'PROMOTE',
-      corn: 'CORN',
-      cashier: 'CASHIER',
-      expansion: 'EXPAND',
-      tomatoPlots: 'TOMATO',
-      eggPlots: 'CHICKEN',
-      cornPlots: 'CORN PLOT',
-      carrotPlots: 'CARROTS',
-      pasteMachine: 'CANNERY',
-      coffeeMachine: 'GRINDER',
-    };
-    UPGRADES.filter((upgrade) => upgrade.inWorld).forEach((upgrade) => {
-      const group = new Group();
-      group.position.copy(toWorld(upgrade.position));
-      this.scene.add(group);
-      block(group, 0, 0.013, 0, 1.17, 0.038, 0.85, 0xa6d388);
-      [-1, 1].forEach((side) => {
-        block(group, side * 0.56, 0.043, 0, 0.034, 0.013, 0.78, C.white);
-        block(group, 0, 0.043, side * 0.385, 1.11, 0.013, 0.034, C.white);
-      });
-      const outline = ring(group, 0.31, C.white, 0.028);
-      outline.position.y = 0.052;
-      const progress = ring(group, 0.37, C.gold, 0.063);
-      progress.position.y = 0.055;
-      progress.visible = false;
-      // One concise physical placard prevents a title and price from drifting
-      // apart or covering the pad icon at narrow aspect ratios.
-      const actionWidth = upgrade.id === 'expansion' ? 1.72 : 1.5;
-      block(group, 0, 0.58, -0.38, actionWidth + 0.08, 0.35, 0.055, C.green);
-      block(group, 0, 0.3, -0.38, 0.045, 0.42, 0.045, C.green);
-      const name = names[upgrade.id] ?? upgrade.name.toUpperCase();
-      const action = label(group, `${name} $${upgrade.cost}`, actionWidth, 0.3, {
-        id: `upgrade:${upgrade.id}:action`,
-        kind: 'action',
-        mount: 'surface',
-        foreground: '#17694b',
-        background: '#ffffff',
-        border: false,
-      });
-      action.object.position.set(0, 0.58, -0.348);
-      const icon = new Group();
-      icon.position.set(0, 0.4, -0.14);
-      icon.scale.setScalar(0.55);
-      group.add(icon);
-      if (upgrade.id === 'corn') {
-        const corn = createProduce('corn');
-        corn.scale.setScalar(1.5);
-        icon.add(corn);
-      } else if (upgrade.id === 'inventory') {
-        crate(icon, 0, -0.12, 0, 0.66);
-        block(icon, 0, 0.15, 0, 0.3, 0.045, 0.05, C.cream);
-      } else if (upgrade.id === 'shelf') {
-        block(icon, 0, 0.07, 0, 0.5, 0.045, 0.21, C.cream);
-        block(icon, 0, -0.1, 0, 0.5, 0.045, 0.21, C.cream);
-        [-0.21, 0.21].forEach((x) => block(icon, x, -0.02, 0, 0.045, 0.3, 0.21, C.green));
-      } else {
-        disc(icon, 0, -0.06, 0, 0.12, 0.22, upgrade.id === 'cashier' ? C.peach : C.green);
-        sphere(icon, 0, 0.15, 0, 0.11, C.cream);
-        if (upgrade.id === 'customers') {
-          sphere(icon, -0.2, 0.07, 0.05, 0.075, C.cream);
-          sphere(icon, 0.2, 0.07, 0.05, 0.075, C.cream);
-        }
-      }
-      this.upgrades.set(upgrade.id, { group, outline, progress, action, name });
-    });
   }
 
   private drawOffice(): void {

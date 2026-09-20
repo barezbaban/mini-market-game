@@ -80,17 +80,17 @@ describe('expanded market progression and compatibility', () => {
     expect(engine.purchaseUpgrade('expansion')).toBe(false);
   });
 
-  it('charges exactly once per visit to a multi-level farm upgrade pad', () => {
+  it('charges exactly once for each explicit multi-level farm purchase', () => {
     const engine = new GameEngine();
     engine.economy.earn(10000);
     engine.state.player = { x: 265, y: 855 };
     advance(engine, 6000);
+    expect(engine.state.upgrades.tomatoPlots).toBe(0);
+    expect(engine.state.money).toBe(10000);
+    expect(engine.purchaseUpgrade('tomatoPlots')).toBe(true);
     expect(engine.state.upgrades.tomatoPlots).toBe(1);
     expect(engine.state.money).toBe(9940);
-    engine.state.player = { x: 400, y: 880 };
-    advance(engine, 50);
-    engine.state.player = { x: 265, y: 855 };
-    advance(engine, 1250);
+    expect(engine.purchaseUpgrade('tomatoPlots')).toBe(true);
     expect(engine.state.upgrades.tomatoPlots).toBe(2);
     expect(engine.state.money).toBe(9940 - 81);
   });

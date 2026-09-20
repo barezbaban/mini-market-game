@@ -3,7 +3,6 @@ import type { Scene } from 'three';
 import { GAME_CONFIG } from '../../data/gameConfig';
 import { PRODUCTS, plotCount, plotPosition } from '../../data/products';
 import { MACHINES } from '../../data/machines';
-import { upgradeById, upgradeCost } from '../../data/upgrades';
 import type {
   GameState,
   MachineDefinition,
@@ -21,8 +20,6 @@ interface PlotVisual {
   group: Group;
   live: Group;
   marker: Group;
-  markerSign: Group;
-  markerLabel: WorldLabel;
   products: Group[];
   ready: WorldLabel;
   progress: Mesh;
@@ -95,22 +92,6 @@ export class StoreDisplays {
         plot.group.visible = areaOpen;
         plot.live.visible = active;
         plot.marker.visible = !active;
-        plot.markerSign.visible = false;
-        if (index === owned) {
-          const upgrade =
-            !unlocked && product.unlockUpgrade ? product.unlockUpgrade : product.plotUpgrade;
-          const separatePad = upgrade && upgradeById(upgrade).inWorld;
-          // The dedicated world upgrade pad already carries this action and
-          // price. Keep the empty plot marker, but avoid a second sign that can
-          // collide with the pad in the compact camera.
-          plot.markerSign.visible = !separatePad;
-          if (!separatePad)
-            plot.markerLabel.setText(
-              !unlocked ? 'LOCKED' : upgrade ? `+$${upgradeCost(state, upgrade)}` : 'NEXT',
-              '#67905d',
-              '#edf6db',
-            );
-        }
         const data = state.farms[product.id].plots[index];
         const ready = data?.ready ?? 0;
         plot.products.forEach((item, itemIndex) => {
@@ -316,19 +297,7 @@ export class StoreDisplays {
     outline.position.y = 0.047;
     block(marker, 0, 0.052, 0, 0.2, 0.018, 0.045, 0x95b970, false);
     block(marker, 0, 0.052, 0, 0.045, 0.018, 0.2, 0x95b970, false);
-    const markerSign = new Group();
-    marker.add(markerSign);
-    block(markerSign, 0, 0.32, 0.22, 0.82, 0.28, 0.045, C.cream);
-    block(markerSign, 0, 0.17, 0.22, 0.035, 0.26, 0.035, C.green);
-    const markerLabel = label(markerSign, '', 0.74, 0.25, {
-      id: `plot:${product.id}:${index}:action`,
-      kind: 'action',
-      mount: 'surface',
-      foreground: '#67905d',
-      border: false,
-    });
-    markerLabel.object.position.set(0, 0.32, 0.245);
-    return { group, live, marker, markerSign, markerLabel, products, ready, progress, chicken };
+    return { group, live, marker, products, ready, progress, chicken };
   }
 
   private createMachine(machine: MachineDefinition): void {

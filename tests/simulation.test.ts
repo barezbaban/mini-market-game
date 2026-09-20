@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GAME_CONFIG } from '../src/game/data/gameConfig';
 import { PRODUCTS, emptyItems } from '../src/game/data/products';
-import { UPGRADES } from '../src/game/data/upgrades';
 import { CheckoutSystem } from '../src/game/systems/CheckoutSystem';
 import { queuePosition, remainingCustomerNeed } from '../src/game/systems/CustomerSystem';
 import { EconomySystem } from '../src/game/systems/EconomySystem';
@@ -266,15 +265,15 @@ describe('upgrades', () => {
     expect(engine.state.tutorialStep).toBe(6);
   });
 
-  it('requires a complete hold on an upgrade pad and charges once', () => {
+  it('only purchases upgrades through an explicit management action', () => {
     const engine = new GameEngine();
     engine.economy.earn(150);
-    engine.state.player = { ...UPGRADES.find((upgrade) => upgrade.id === 'corn')!.position };
-    advance(engine, GAME_CONFIG.upgradeHoldTime - 50);
+    engine.state.player = { x: 1138, y: 551 };
+    advance(engine, 5000);
     expect(engine.state.upgrades.corn).toBe(0);
-    advance(engine, 50);
+    expect(engine.state.money).toBe(150);
+    expect(engine.purchaseUpgrade('corn')).toBe(true);
     expect(engine.state.upgrades.corn).toBe(1);
-    advance(engine, 3000);
     expect(engine.state.money).toBe(0);
   });
 });

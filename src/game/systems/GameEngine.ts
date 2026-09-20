@@ -1,7 +1,6 @@
 import { GAME_CONFIG } from '../data/gameConfig';
 import { PRODUCTS, plotCount, plotPosition, productById } from '../data/products';
 import { MACHINES } from '../data/machines';
-import { UPGRADES, upgradeAvailable } from '../data/upgrades';
 import type { GameEvent, GameState, UpgradeId, Vec2 } from '../types';
 import { CheckoutSystem } from './CheckoutSystem';
 import { CustomerSystem, distance } from './CustomerSystem';
@@ -31,7 +30,6 @@ export class GameEngine {
   private harvestElapsed: number = GAME_CONFIG.harvestInterval;
   private stockElapsed: number = GAME_CONFIG.stockInterval;
   private machineElapsed: number = GAME_CONFIG.harvestInterval;
-  private lastUpgradeAttempt: UpgradeId | null = null;
   private lastBlockedZone: string | null = null;
   private nextBlockedNotice = 0;
   private trashElapsed = 0;
@@ -232,32 +230,6 @@ export class GameEngine {
       this.nextBlockedNotice = this.state.elapsed + 3000;
     }
     this.lastBlockedZone = blocked?.zone ?? null;
-    const upgrade = UPGRADES.find(
-      (entry) =>
-        distance(this.state.player, entry.position) < 40 &&
-        entry.inWorld &&
-        upgradeAvailable(this.state, entry.id) &&
-        this.state.upgrades[entry.id] < entry.maxLevel,
-    );
-    if (!upgrade) {
-      this.state.activeUpgrade = null;
-      this.state.upgradeProgress = 0;
-      this.lastUpgradeAttempt = null;
-      return;
-    }
-    if (this.state.activeUpgrade !== upgrade.id) {
-      this.state.activeUpgrade = upgrade.id;
-      this.state.upgradeProgress = 0;
-      this.lastUpgradeAttempt = null;
-    }
-    // One purchase per visit: remaining on a pad must not spend several upgrade levels.
-    if (this.lastUpgradeAttempt === upgrade.id) return;
-    this.state.upgradeProgress += deltaMs;
-    if (this.state.upgradeProgress >= GAME_CONFIG.upgradeHoldTime) {
-      this.state.upgradeProgress = GAME_CONFIG.upgradeHoldTime;
-      this.purchaseUpgrade(upgrade.id);
-      this.lastUpgradeAttempt = upgrade.id;
-    }
   }
 
   update(deltaMs: number, input: Vec2 = { x: 0, y: 0 }): void {

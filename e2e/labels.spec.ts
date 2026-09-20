@@ -62,9 +62,7 @@ async function labelBounds(page: Page): Promise<LabelBounds[]> {
     world.camera.updateMatrixWorld(true);
     const result: LabelBounds[] = [];
     world.scene.traverse((object) => {
-      const data = object.userData.worldLabel as
-        | Omit<LabelSnapshot, 'visible'>
-        | undefined;
+      const data = object.userData.worldLabel as Omit<LabelSnapshot, 'visible'> | undefined;
       if (!data || data.mount !== 'surface') return;
       let visible = object.visible;
       for (let parent = object.parent; parent; parent = parent.parent) visible &&= parent.visible;
@@ -175,7 +173,11 @@ test('world labels use unique mounted signs and intentional status badges', asyn
   const snapshot = await labels(page);
   expect(new Set(snapshot.map(({ id }) => id)).size).toBe(snapshot.length);
   expect(snapshot.every(({ mount }) => mount === 'surface' || mount === 'billboard')).toBe(true);
-  expect(snapshot.filter(({ mount }) => mount === 'billboard').every(({ id }) => /^plot:.+:\d+:ready$/.test(id))).toBe(true);
+  expect(
+    snapshot
+      .filter(({ mount }) => mount === 'billboard')
+      .every(({ id }) => /^plot:.+:\d+:ready$/.test(id)),
+  ).toBe(true);
 
   const byId = new Map(snapshot.map((entry) => [entry.id, entry]));
   const mounted = [
@@ -202,31 +204,13 @@ test('world labels use unique mounted signs and intentional status badges', asyn
       `machine:${id}:locked`,
     ]),
     ...[1, 2, 3].map((area) => `area:${area}:title`),
-    ...[
-      'inventory',
-      'customers',
-      'corn',
-      'cashier',
-      'expansion',
-      'tomatoPlots',
-      'eggPlots',
-      'cornPlots',
-      'carrotPlots',
-      'pasteMachine',
-      'coffeeMachine',
-    ].map((id) => `upgrade:${id}:action`),
-    ...['tomato', 'egg', 'corn', 'coffee', 'carrot'].flatMap((id) =>
-      Array.from({ length: id === 'carrot' ? 8 : 5 }, (_, index) =>
-        `plot:${id}:${index}:action`,
-      ),
-    ),
   ];
   for (const id of mounted) expect(byId.get(id), id).toMatchObject({ mount: 'surface' });
   expect(byId.get('checkout:title')?.text).toBe('CHECKOUT');
   expect(byId.get('plot:tomato:0:ready')).toMatchObject({ text: '3', visible: true });
   expect(byId.get('plot:tomato:1:ready')?.visible).toBe(false);
-  expect(byId.get('plot:tomato:1:action')?.visible).toBe(false);
-  expect(byId.get('plot:tomato:2:action')?.visible).toBe(false);
+  expect([...byId.keys()].some((id) => id.startsWith('upgrade:'))).toBe(false);
+  expect([...byId.keys()].some((id) => /plot:.*:action/.test(id))).toBe(false);
 
   await page.evaluate(() => {
     const { engine } = window.__MARKET__;
@@ -261,17 +245,10 @@ test('labels stay concise through upgrades and compact layouts hide decorative h
   });
   let snapshot = await labels(page);
   let byId = new Map(snapshot.map((entry) => [entry.id, entry]));
-  expect(byId.get('upgrade:tomatoPlots:action')).toMatchObject({
-    text: 'TOMATO MAX',
-    visible: true,
-  });
-  expect(byId.get('upgrade:expansion:action')).toMatchObject({
-    text: 'EXPANSION MAX',
-    visible: true,
-  });
+  expect(snapshot.some(({ id }) => id.startsWith('upgrade:'))).toBe(false);
+  expect(snapshot.some(({ id }) => /plot:.*:action/.test(id))).toBe(false);
   expect(byId.get('machine:paste:level')?.text).toBe('LV4 · 8/BATCH');
   expect(byId.get('machine:paste:status')?.text).toBe('ADD TOMATOES');
-  expect(byId.get('plot:coffee:1:action')).toMatchObject({ text: '+$110', visible: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => window.__MARKET__.world.resize());
@@ -283,7 +260,9 @@ test('labels stay concise through upgrades and compact layouts hide decorative h
   expect(byId.get('machine:paste:status')?.visible).toBe(true);
 });
 
-test('critical signs stay legible and contained in the compact landscape view', async ({ page }) => {
+test('critical signs stay legible and contained in the compact landscape view', async ({
+  page,
+}) => {
   const viewport = { width: 844, height: 390 };
   await page.setViewportSize(viewport);
   await openGame(page);
@@ -314,12 +293,7 @@ test('critical signs stay legible and contained in the compact landscape view', 
     world.update(engine.state, engine.state.elapsed, 0);
   });
 
-  await focusCamera(page, { x: 1138, y: 337 });
-  bounds = await labelBounds(page);
-  expect(expectContained(bounds, 'upgrade:expansion:action', viewport).text).toBe(
-    'PRODUCTION $250',
-  );
-  expectVisibleLabelsLegible(bounds, viewport);
+  expect((await labels(page)).some(({ id }) => id.startsWith('upgrade:'))).toBe(false);
 
   await page.evaluate(() => {
     const { engine, world } = window.__MARKET__;
@@ -333,17 +307,6 @@ test('critical signs stay legible and contained in the compact landscape view', 
     });
     world.update(engine.state, engine.state.elapsed, 0);
   });
-  for (const tour of [
-    { position: { x: 1138, y: 444 }, id: 'upgrade:customers:action' },
-    { position: { x: 1138, y: 658 }, id: 'upgrade:cashier:action' },
-    { position: { x: 685, y: 855 }, id: 'upgrade:cornPlots:action' },
-    { position: { x: 1740, y: 745 }, id: 'upgrade:coffeeMachine:action' },
-  ]) {
-    await focusCamera(page, tour.position);
-    bounds = await labelBounds(page);
-    expectContained(bounds, tour.id, viewport);
-  }
-
   await focusCamera(page, { x: 990, y: 780 });
   bounds = await labelBounds(page);
   const office = [
@@ -378,10 +341,6 @@ test('critical signs stay legible and contained in the compact landscape view', 
     {
       position: { x: 2010, y: 300 },
       ids: ['shelf:carrot:title', 'shelf:carrot:count'],
-    },
-    {
-      position: { x: 2010, y: 820 },
-      ids: ['upgrade:carrotPlots:action'],
     },
   ]) {
     await focusCamera(page, tour.position);

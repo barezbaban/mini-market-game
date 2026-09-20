@@ -10,7 +10,7 @@ Start with **$0**, a basket that holds **8 items**, a tomato patch, and a chicke
 
 Grow → harvest → process → carry → stock → serve → earn → upgrade.
 
-The market occupies the top of the map; the farms and processing areas sit below it. Customers arrive from outside, walk through the labeled sliding entrance, find available products, form a checkout line, pay, return through the door, and continue off-screen before leaving the simulation. Open **Manage** to inspect and purchase upgrades, or stand on an affordable world pad for a little over a second. The management window pauses the simulation while you plan.
+The market occupies the top of the map; the farms and processing areas sit below it. Customers arrive from outside, walk through the labeled sliding entrance, find available products, form a checkout line, pay, return through the door, and continue off-screen before leaving the simulation. Open **Manage** to inspect and purchase every upgrade. Keeping progression in this dedicated screen leaves the market floor clear and easy to read. The management window pauses the simulation while you plan.
 
 | Product       | Production                       | Sale price | Availability                |
 | ------------- | -------------------------------- | ---------- | --------------------------- |
@@ -53,7 +53,7 @@ The **drive-through service** is available to purchase from the beginning. Cars 
 | Harvest or stock    | Stand near a farm or matching shelf                    | Same                               |
 | Serve checkout      | Stand beside the checkout counter                      | Same                               |
 | Serve drive-through | Bring listed items to its window, then collect payment | Same                               |
-| Buy an upgrade      | Open **Manage**, or hold on a world pad                | Same                               |
+| Buy an upgrade      | Open **Manage**                                        | Same                               |
 | See all inventory   | Open the **Basket** dropdown                           | Tap **Basket**                     |
 | Sound               | Use the speaker button in the toolbar                  | Tap the speaker button             |
 | Reset progress      | Open **Settings**                                      | Tap **Settings**                   |

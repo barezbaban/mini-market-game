@@ -340,17 +340,20 @@ test('drive-through vehicle shows its item list and accepts one item at a time',
   expect(Object.values(ready.inventory).reduce((sum, count) => sum + count, 0)).toBe(0);
 });
 
-test('upgrade hold, corn production, hired cashier, tutorial and settings persistence', async ({
+test('management upgrades, corn production, hired cashier, tutorial and settings persistence', async ({
   page,
 }) => {
   await openGame(page);
   await page.evaluate(() => {
-    window.__MARKET__.setPaused(true);
     // Fixture funds exercise upgrades without waiting through several minutes of sales.
     window.__MARKET__.engine.economy.earn(1000);
-    window.__MARKET__.engine.state.player = { x: 1138, y: 551 };
   });
-  await advance(page, 1300);
+  await page.locator('#manage-button').click();
+  await page.locator('#management-tab-farms').click();
+  await page.locator('#buy-corn').click();
+  await page.locator('#management-tab-staff').click();
+  await page.locator('#buy-cashier').click();
+  await page.locator('#management-close').click();
   expect((await state(page)).unlockedProducts).toContain('corn');
   await page.evaluate(() => {
     window.__MARKET__.engine.state.player = { x: 685, y: 590 };
@@ -362,10 +365,6 @@ test('upgrade hold, corn production, hired cashier, tutorial and settings persis
   });
   await advance(page, 1200);
   expect((await state(page)).shelves.corn).toBeGreaterThan(0);
-  await page.evaluate(() => {
-    window.__MARKET__.engine.state.player = { x: 1138, y: 658 };
-  });
-  await advance(page, 1300);
   expect((await state(page)).cashier).toBe(true);
   await page.evaluate(() => {
     window.__MARKET__.engine.state.player = { x: 400, y: 650 };
