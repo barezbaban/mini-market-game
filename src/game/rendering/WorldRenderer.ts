@@ -18,6 +18,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GAME_CONFIG } from '../data/gameConfig';
 import { PRODUCTS } from '../data/products';
 import { UPGRADES, checkoutDuration, upgradeAvailable, upgradeCost } from '../data/upgrades';
+import { remainingCustomerNeed } from '../systems/CustomerSystem';
 import type { GameEvent, GameState, ProductId, UpgradeId, Vec2 } from '../types';
 import { createCharacter, createProduce, createTree } from './Models';
 import { StoreDisplays } from './world/StoreDisplays';
@@ -38,6 +39,7 @@ interface CustomerVisual {
   previous: Vec2;
   bubble: Group;
   item: Record<ProductId, Group>;
+  quantity: WorldLabel;
 }
 interface Transfer {
   group: Group;
@@ -137,20 +139,43 @@ export class WorldRenderer {
       model.group.visible = false;
       this.scene.add(model.group);
       const bubble = new Group();
-      const background = sphere(bubble, 0, 0, 0, 0.15, C.white);
-      background.scale.z *= 0.55;
+      bubble.name = `customer:${index}:thought`;
+      const background = sphere(bubble, 0, 0, 0, 0.2, C.white);
+      background.scale.x *= 1.35;
+      background.scale.y *= 0.9;
+      background.scale.z *= 0.5;
+      const nearThought = sphere(bubble, -0.16, -0.18, 0, 0.055, C.white);
+      nearThought.scale.z *= 0.55;
+      const farThought = sphere(bubble, -0.22, -0.27, 0, 0.032, C.white);
+      farThought.scale.z *= 0.55;
       const item = Object.fromEntries(PRODUCTS.map(({ id }) => [id, createProduce(id)])) as Record<
         ProductId,
         Group
       >;
-      Object.values(item).forEach((produce) => {
-        produce.scale.setScalar(0.7);
-        produce.position.z = 0.08;
+      Object.entries(item).forEach(([id, produce]) => {
+        produce.name = `customer:${index}:need:${id}`;
+        produce.scale.setScalar(0.58);
+        produce.position.set(-0.075, 0, 0.12);
         bubble.add(produce);
       });
+      const quantity = label(bubble, '×1', 0.22, 0.18, {
+        id: `customer:${index}:need-quantity`,
+        kind: 'status',
+        mount: 'surface',
+        foreground: '#17694b',
+        border: false,
+      });
+      quantity.object.position.set(0.115, -0.005, 0.13);
       bubble.visible = false;
       this.scene.add(bubble);
-      this.customers.push({ model, id: -1, previous: { x: 0, y: 0 }, bubble, item });
+      this.customers.push({
+        model,
+        id: -1,
+        previous: { x: 0, y: 0 },
+        bubble,
+        item,
+        quantity,
+      });
     }
     this.resize();
   }
@@ -225,13 +250,14 @@ export class WorldRenderer {
       visual.model.setInventory(customer.basket);
       visual.model.animate(timeMs + customer.id * 131, customerMoving);
       visual.previous = { x: customer.x, y: customer.y };
-      if (customer.state === 'WAITING_FOR_PRODUCT') {
+      if (['ENTERING', 'MOVING_TO_SHELF', 'WAITING_FOR_PRODUCT'].includes(customer.state)) {
         visual.bubble.visible = true;
-        visual.bubble.position.copy(toWorld(customer, 1.07 + Math.sin(timeMs / 500) * 0.025));
+        visual.bubble.position.copy(toWorld(customer, 1.18 + Math.sin(timeMs / 500) * 0.025));
         visual.bubble.quaternion.copy(this.camera.quaternion);
         PRODUCTS.forEach(({ id }) => {
           visual.item[id].visible = id === customer.targetProduct;
         });
+        visual.quantity.setText(`×${Math.max(1, remainingCustomerNeed(customer))}`);
       }
     });
     this.displays.update(state, timeMs);

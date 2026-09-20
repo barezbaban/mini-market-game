@@ -3,7 +3,7 @@ import { GAME_CONFIG } from '../src/game/data/gameConfig';
 import { PRODUCTS, emptyItems } from '../src/game/data/products';
 import { UPGRADES } from '../src/game/data/upgrades';
 import { CheckoutSystem } from '../src/game/systems/CheckoutSystem';
-import { queuePosition } from '../src/game/systems/CustomerSystem';
+import { queuePosition, remainingCustomerNeed } from '../src/game/systems/CustomerSystem';
 import { EconomySystem } from '../src/game/systems/EconomySystem';
 import { FarmingSystem } from '../src/game/systems/FarmingSystem';
 import { GameEngine } from '../src/game/systems/GameEngine';
@@ -34,6 +34,7 @@ const buyer = (id = 1): CustomerData => ({
   ...queuePosition(0),
   state: 'QUEUEING',
   targetProduct: 'tomato',
+  targetQuantity: 1,
   basket: { ...emptyItems(), tomato: 1, egg: 1 },
   color: 0x739ebd,
   waitTime: 0,
@@ -130,6 +131,34 @@ describe('production and player interaction', () => {
     expect(engine.state.shelves.tomato).toBe(3);
     expect(engine.state.money).toBe(0);
     expect(engine.state.tutorialStep).toBe(3);
+  });
+
+  it('keeps a shopper waiting until the quantity in their thought bubble is fulfilled', () => {
+    const engine = new GameEngine();
+    engine.state.shelves.tomato = 1;
+    engine.state.customers = [
+      {
+        id: 2,
+        x: 265,
+        y: 305,
+        state: 'WAITING_FOR_PRODUCT',
+        targetProduct: 'tomato',
+        targetQuantity: 2,
+        basket: emptyItems(),
+        color: 0x739ebd,
+        waitTime: 0,
+        path: [],
+      },
+    ];
+    engine.customers.update(50);
+    expect(engine.state.customers[0].basket.tomato).toBe(1);
+    expect(engine.state.customers[0].state).toBe('WAITING_FOR_PRODUCT');
+    expect(remainingCustomerNeed(engine.state.customers[0])).toBe(1);
+    engine.state.shelves.tomato = 1;
+    engine.customers.update(50);
+    expect(engine.state.customers[0].basket.tomato).toBe(2);
+    expect(engine.state.customers[0].state).toBe('MOVING_TO_CHECKOUT');
+    expect(remainingCustomerNeed(engine.state.customers[0])).toBe(0);
   });
 
   it('normalizes diagonal movement and blocks walking through shelving', () => {

@@ -111,6 +111,7 @@ export interface CustomerData {
   y: number;
   state: CustomerState;
   targetProduct: ProductId;
+  targetQuantity: number;
   queueOrder?: number;
   basket: ItemCounts;
   color: number;

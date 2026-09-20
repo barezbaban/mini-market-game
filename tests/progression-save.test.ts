@@ -37,6 +37,9 @@ describe('expanded market progression and compatibility', () => {
     expect(migrated.customers.map(({ id, basket }) => ({ id, basket }))).toEqual(
       oldSave.customers.map(({ id, basket }) => ({ id, basket: { ...emptyItems(), ...basket } })),
     );
+    expect(migrated.customers.every(({ targetQuantity }) => [1, 2].includes(targetQuantity))).toBe(
+      true,
+    );
     expect(migrated.shelves).toEqual({ ...emptyItems(), ...oldSave.shelves });
     expect(migrated.farms.tomato.plots[0].ready).toBe(oldSave.farms.tomato.ready);
     expect(migrated.xp).toBe(oldSave.totalServed * 5);
@@ -108,6 +111,7 @@ describe('expanded market progression and compatibility', () => {
           y: 260,
           state: 'QUEUEING',
           targetProduct: 'tomato',
+          targetQuantity: 1,
           basket: { ...emptyItems(), tomato: 1 },
           color: 0xffffff,
           waitTime: 0,

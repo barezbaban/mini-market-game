@@ -288,8 +288,34 @@ test('critical signs stay legible and contained in the compact landscape view', 
   await page.setViewportSize(viewport);
   await openGame(page);
 
-  await focusCamera(page, { x: 1138, y: 337 });
+  await page.evaluate(() => {
+    const { engine } = window.__MARKET__;
+    engine.state.customers = [
+      {
+        id: 2,
+        x: 1000,
+        y: 385,
+        state: 'ENTERING',
+        targetProduct: 'tomato',
+        targetQuantity: 2,
+        basket: { ...engine.state.inventory },
+        color: 0x739ebd,
+        waitTime: 0,
+        path: [],
+      },
+    ];
+  });
+  await focusCamera(page, { x: 1000, y: 385 });
   let bounds = await labelBounds(page);
+  expect(expectContained(bounds, 'customer:0:need-quantity', viewport).text).toBe('×2');
+  await page.evaluate(() => {
+    const { engine, world } = window.__MARKET__;
+    engine.state.customers = [];
+    world.update(engine.state, engine.state.elapsed, 0);
+  });
+
+  await focusCamera(page, { x: 1138, y: 337 });
+  bounds = await labelBounds(page);
   expect(expectContained(bounds, 'upgrade:expansion:action', viewport).text).toBe(
     'PRODUCTION $250',
   );

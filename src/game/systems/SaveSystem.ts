@@ -219,6 +219,10 @@ export function validateSave(value: unknown): GameState | null {
         ...point(customer, GAME_CONFIG.entrance, true),
         state: customer.state as CustomerState,
         targetProduct: product.id,
+        targetQuantity: Math.max(
+          1,
+          integer(customer.targetQuantity, id % 2 === 0 ? 2 : 1, 2),
+        ),
         basket,
         color: integer(customer.color, 0x6296d1, 0xffffff),
         waitTime: number(customer.waitTime, 0, 60000),

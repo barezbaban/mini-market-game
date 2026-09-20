@@ -149,6 +149,61 @@ test('trash bin deliberately empties the carried basket and saves the result', a
   );
 });
 
+test('customer thought cloud shows the requested item and remaining quantity', async ({ page }) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    const { engine, world } = window.__MARKET__;
+    window.__MARKET__.setPaused(true);
+    engine.state.customers = [
+      {
+        id: 2,
+        x: 1000,
+        y: 385,
+        state: 'ENTERING',
+        targetProduct: 'egg',
+        targetQuantity: 2,
+        basket: { ...engine.state.inventory },
+        color: 0x739ebd,
+        waitTime: 0,
+        path: [],
+      },
+    ];
+    world.update(engine.state, engine.state.elapsed, 0);
+  });
+  const thought = () =>
+    page.evaluate(() => {
+      const { world } = window.__MARKET__;
+      const visible = (name: string) => {
+        const object = world.scene.getObjectByName(name)!;
+        let result = object.visible;
+        for (let parent = object.parent; parent; parent = parent.parent) result &&= parent.visible;
+        return result;
+      };
+      const quantity = world.scene.getObjectByName('label:customer:0:need-quantity')!;
+      return {
+        bubble: visible('customer:0:thought'),
+        egg: visible('customer:0:need:egg'),
+        tomato: visible('customer:0:need:tomato'),
+        quantity: quantity.userData.worldLabel.text as string,
+      };
+    });
+  await expect.poll(thought).toEqual({ bubble: true, egg: true, tomato: false, quantity: '×2' });
+  await page.evaluate(() => {
+    const { engine, world } = window.__MARKET__;
+    const customer = engine.state.customers[0];
+    customer.state = 'WAITING_FOR_PRODUCT';
+    customer.basket.egg = 1;
+    world.update(engine.state, engine.state.elapsed, 0);
+  });
+  await expect.poll(thought).toMatchObject({ bubble: true, quantity: '×1' });
+  await page.evaluate(() => {
+    const { engine, world } = window.__MARKET__;
+    engine.state.customers[0].state = 'MOVING_TO_CHECKOUT';
+    world.update(engine.state, engine.state.elapsed, 0);
+  });
+  await expect.poll(thought).toMatchObject({ bubble: false });
+});
+
 test('upgrade hold, corn production, hired cashier, tutorial and settings persistence', async ({
   page,
 }) => {

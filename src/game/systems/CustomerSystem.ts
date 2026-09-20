@@ -9,6 +9,14 @@ export const isInQueue = (customer: CustomerData): boolean =>
   ['MOVING_TO_CHECKOUT', 'QUEUEING', 'PAYING'].includes(customer.state);
 export const orderedQueue = (state: GameState): CustomerData[] =>
   state.customers.filter(isInQueue).sort((a, b) => (a.queueOrder ?? a.id) - (b.queueOrder ?? b.id));
+export const remainingCustomerNeed = (customer: CustomerData): number =>
+  Math.max(
+    0,
+    Math.min(
+      2 - itemCount(customer.basket),
+      customer.targetQuantity - customer.basket[customer.targetProduct],
+    ),
+  );
 export function queuePosition(index: number): Vec2 {
   const safe = Math.max(0, Math.min(GAME_CONFIG.customerMax - 1, index));
   return safe < 5
@@ -161,6 +169,7 @@ export class CustomerSystem {
       ...GAME_CONFIG.entrance,
       state: 'ENTERING',
       targetProduct: targets[(id - 1) % targets.length],
+      targetQuantity: id % 2 === 0 ? 2 : 1,
       basket: emptyItems(),
       color: COLORS[(id - 1) % COLORS.length],
       waitTime: 0,
@@ -198,11 +207,14 @@ export class CustomerSystem {
     }
     // Only the shopper at the front can take stock; the others advance behind it.
     if (shoppers[0]?.id !== customer.id) return;
-    const held = itemCount(customer.basket);
-    const requested = held ? 1 : customer.id % 2 === 0 ? 2 : 1;
+    const requested = remainingCustomerNeed(customer);
+    if (!requested) {
+      this.joinCheckout(customer);
+      return;
+    }
     const taken = this.inventory.takeFromShelf(
       customer.targetProduct,
-      Math.min(2 - held, requested),
+      requested,
     );
     if (!taken) {
       const alternative = this.state.unlockedProducts.find(
@@ -212,13 +224,16 @@ export class CustomerSystem {
           this.shoppersFor(id).length < 3,
       );
       if (customer.waitTime > 6000 && alternative) {
+        const remaining = requested;
         customer.targetProduct = alternative;
+        customer.targetQuantity = remaining;
         customer.waitTime = 0;
         this.routeToShelf(customer);
       }
       return;
     }
     customer.basket[customer.targetProduct] += taken;
+    if (remainingCustomerNeed(customer) > 0) return;
     const second = this.state.unlockedProducts.find(
       (id) =>
         id !== customer.targetProduct &&
@@ -227,6 +242,7 @@ export class CustomerSystem {
     );
     if (customer.id % 3 === 0 && itemCount(customer.basket) < 2 && second) {
       customer.targetProduct = second;
+      customer.targetQuantity = 1;
       customer.waitTime = 0;
       this.routeToShelf(customer);
     } else this.joinCheckout(customer);
