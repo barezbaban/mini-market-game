@@ -37,12 +37,45 @@ function move(customer: CustomerData, deltaMs: number): void {
   }
 }
 
+function distanceToSegment(point: Vec2, start: Vec2, end: Vec2): number {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const lengthSquared = dx * dx + dy * dy;
+  const fraction = lengthSquared
+    ? Math.max(
+        0,
+        Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared),
+      )
+    : 0;
+  return Math.hypot(point.x - start.x - dx * fraction, point.y - start.y - dy * fraction);
+}
+
+function distanceToApproach(point: Vec2, customer: CustomerData): number {
+  let start: Vec2 = customer;
+  let remaining = 70;
+  let closest = Infinity;
+  for (const waypoint of customer.path) {
+    const length = distance(start, waypoint);
+    const fraction = length ? Math.min(1, remaining / length) : 1;
+    const end = {
+      x: start.x + (waypoint.x - start.x) * fraction,
+      y: start.y + (waypoint.y - start.y) * fraction,
+    };
+    closest = Math.min(closest, distanceToSegment(point, start, end));
+    remaining -= length;
+    if (remaining <= 0) break;
+    start = waypoint;
+  }
+  return closest;
+}
+
 /** Shoppers follow explicit aisle routes, then occupy stable, ordered queue slots. */
 export class CustomerSystem {
   private spawnElapsed: number;
   private nextId: number;
   private nextQueueOrder: number;
   private readonly queueIndices = new Map<number, number>();
+  private readonly yielding = new Map<number, { earlierId: number; anchor: Vec2 }>();
 
   constructor(
     private readonly state: GameState,
@@ -171,6 +204,76 @@ export class CustomerSystem {
     } else this.joinCheckout(customer);
   }
 
+  private yieldToEarlier(
+    customer: CustomerData,
+    index: number,
+    queue: CustomerData[],
+    deltaMs: number,
+  ): boolean {
+    const reservation = this.yielding.get(customer.id);
+    const reservedEarlier =
+      reservation && queue.slice(0, index).find((other) => other.id === reservation.earlierId);
+    const reservationActive = Boolean(
+      reservation &&
+      reservedEarlier?.path[0] &&
+      distance(reservation.anchor, reservedEarlier) < 70 &&
+      distanceToApproach(reservation.anchor, reservedEarlier) < 30,
+    );
+    if (!reservationActive) this.yielding.delete(customer.id);
+    const earlier = reservationActive
+      ? reservedEarlier
+      : queue.slice(0, index).find((other) => {
+          return (
+            other.path.length &&
+            distance(customer, other) < 60 &&
+            distanceToApproach(customer, other) < 28
+          );
+        });
+    if (!earlier) return false;
+    const step = (GAME_CONFIG.customerSpeed * deltaMs) / 1000;
+    const direction = index < 5 ? 1 : -1;
+    // Reserve the passing space until the older shopper clears the original
+    // crossing point; returning to the slot immediately would cause oscillation.
+    if (reservationActive && distanceToApproach(customer, earlier) >= 28) return true;
+    const candidates = [
+      { x: direction, y: 0 },
+      { x: customer.x - earlier.x, y: customer.y - earlier.y },
+      { x: direction, y: 1 },
+      { x: direction, y: -1 },
+      { x: 0, y: 1 },
+      { x: 0, y: -1 },
+    ];
+    let best: Vec2 | undefined;
+    let clearance = distanceToApproach(customer, earlier);
+    for (const vector of candidates) {
+      const length = Math.hypot(vector.x, vector.y) || 1;
+      const point = {
+        x: customer.x + (vector.x / length) * step,
+        y: customer.y + (vector.y / length) * step,
+      };
+      const candidateClearance = distanceToApproach(point, earlier);
+      if (
+        candidateClearance <= clearance ||
+        queue.some((other) => other.id !== customer.id && distance(point, other) < 26)
+      )
+        continue;
+      best = point;
+      clearance = candidateClearance;
+    }
+    if (!best) return false;
+    if (!reservationActive)
+      this.yielding.set(customer.id, {
+        earlierId: earlier.id,
+        anchor: { x: customer.x, y: customer.y },
+      });
+    customer.x = best.x;
+    customer.y = best.y;
+    // Keep the assigned slot as the destination, so the shopper returns after the earlier one passes.
+    if (!customer.path.length) customer.path = [queuePosition(index)];
+    customer.state = 'MOVING_TO_CHECKOUT';
+    return true;
+  }
+
   update(deltaMs: number): void {
     const interval = GAME_CONFIG.customerSpawnInterval / (this.state.upgrades.customers ? 1.65 : 1);
     this.spawnElapsed += deltaMs;
@@ -179,27 +282,27 @@ export class CustomerSystem {
       this.spawn();
     }
     const queue = orderedQueue(this.state);
-    for (const customer of [...this.state.customers]) {
+    for (const customer of [
+      ...queue,
+      ...this.state.customers.filter((entry) => !isInQueue(entry)),
+    ]) {
       customer.waitTime += deltaMs;
       if (isInQueue(customer)) {
         const index = queue.findIndex((entry) => entry.id === customer.id);
         const target = queuePosition(index);
         const previous = this.queueIndices.get(customer.id);
         if (previous !== index) {
-          if (customer.state === 'QUEUEING' || customer.state === 'PAYING')
-            customer.path = [target];
-          else if (customer.path.length) {
-            if (previous !== undefined && previous >= 5 && index < 5) customer.path.push(target);
-            else {
-              customer.path[customer.path.length - 1] = target;
-              const corner = customer.path[customer.path.length - 2];
-              if (corner && (corner.x === 765 || corner.x === 880)) corner.y = target.y;
-            }
-          }
+          // Append each vacated slot instead of rewriting the previous endpoint.
+          // In particular, the left-to-right bend must survive several rapid sales.
+          if (previous !== undefined && previous > index) {
+            for (let slot = previous - 1; slot >= index; slot -= 1)
+              customer.path.push(queuePosition(slot));
+          } else customer.path = [target];
           this.queueIndices.set(customer.id, index);
           customer.state = 'MOVING_TO_CHECKOUT';
         }
         if (!customer.path.length && distance(customer, target) > 1) customer.path = [target];
+        if (this.yieldToEarlier(customer, index, queue, deltaMs)) continue;
         const before = {
           x: customer.x,
           y: customer.y,
@@ -255,6 +358,7 @@ export class CustomerSystem {
       } else if (customer.state === 'LEAVING') {
         this.state.customers.splice(this.state.customers.indexOf(customer), 1);
         this.queueIndices.delete(customer.id);
+        this.yielding.delete(customer.id);
       }
     }
   }

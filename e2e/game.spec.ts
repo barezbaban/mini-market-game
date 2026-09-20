@@ -3,6 +3,7 @@ import type { WorldRenderer } from '../src/game/rendering/WorldRenderer';
 import type { GameEngine } from '../src/game/systems/GameEngine';
 import type { SaveSystem } from '../src/game/systems/SaveSystem';
 import type { GameState } from '../src/game/types';
+import stuckQueue from '../tests/fixtures/stuck-queue.json' with { type: 'json' };
 
 declare global {
   interface Window {
@@ -174,6 +175,45 @@ test('upgrade hold, corn production, hired cashier, tutorial and settings persis
   );
   expect((await state(page)).cashier).toBe(false);
   expect((await state(page)).upgrades.corn).toBe(0);
+});
+
+test('a saved blocked queue resumes cashier sales without resetting progress', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.addInitScript((saved) => {
+    const key = 'mini-market-manager.save.v1';
+    if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(saved));
+  }, stuckQueue);
+  await openGame(page);
+  const initial = await state(page);
+  expect(initial.cashier).toBe(true);
+  expect(initial.upgrades).toEqual(stuckQueue.upgrades);
+  expect(initial.money).toBe(stuckQueue.money);
+
+  // Exercise the actual browser frame loop first, not just accelerated test time.
+  await expect
+    .poll(async () => (await state(page)).totalServed, { timeout: 20_000 })
+    .toBeGreaterThan(stuckQueue.totalServed);
+  await expect.poll(async () => (await state(page)).money).toBeGreaterThan(stuckQueue.money);
+  await page.evaluate(() => {
+    window.__MARKET__.setPaused(true);
+    for (let time = 0; time < 60_000; time += 16) window.__MARKET__.engine.update(16);
+    window.__MARKET__.save.save(window.__MARKET__.engine.snapshot());
+  });
+  const recovered = await state(page);
+  expect(recovered.totalServed).toBeGreaterThanOrEqual(
+    stuckQueue.totalServed + stuckQueue.customers.length,
+  );
+  const originalIds = new Set(stuckQueue.customers.map((customer) => customer.id));
+  expect(recovered.customers.filter((customer) => originalIds.has(customer.id))).toEqual([]);
+  expect(recovered.upgrades).toEqual(stuckQueue.upgrades);
+  await page.reload();
+  await page.waitForFunction(() => window.__MARKET__?.ready);
+  const restored = await state(page);
+  expect(restored.money).toBe(recovered.money);
+  expect(restored.totalServed).toBe(recovered.totalServed);
+  expect(restored.upgrades).toEqual(stuckQueue.upgrades);
+  expect(errors).toEqual([]);
 });
 
 for (const [width, height] of [

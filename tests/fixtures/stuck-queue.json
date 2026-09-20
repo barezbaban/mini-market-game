@@ -1,0 +1,223 @@
+{
+  "version": 1,
+  "money": 531,
+  "inventory": {
+    "tomato": 0,
+    "egg": 0,
+    "corn": 0
+  },
+  "inventoryCapacity": 8,
+  "shelves": {
+    "tomato": 8,
+    "egg": 8,
+    "corn": 8
+  },
+  "shelfCapacities": {
+    "tomato": 8,
+    "egg": 8,
+    "corn": 8
+  },
+  "farms": {
+    "tomato": {
+      "ready": 8,
+      "elapsed": 0
+    },
+    "egg": {
+      "ready": 8,
+      "elapsed": 0
+    },
+    "corn": {
+      "ready": 8,
+      "elapsed": 0
+    }
+  },
+  "unlockedProducts": ["tomato", "egg", "corn"],
+  "upgrades": {
+    "shelf": 0,
+    "inventory": 0,
+    "customers": 1,
+    "corn": 1,
+    "cashier": 1
+  },
+  "cashier": true,
+  "player": {
+    "x": 485,
+    "y": 442
+  },
+  "customers": [
+    {
+      "id": 7,
+      "x": 824.1900633714788,
+      "y": 317.18220735070486,
+      "state": "MOVING_TO_CHECKOUT",
+      "targetProduct": "tomato",
+      "basket": {
+        "tomato": 1,
+        "egg": 0,
+        "corn": 0
+      },
+      "color": 7577277,
+      "waitTime": 60240,
+      "path": [
+        {
+          "x": 843,
+          "y": 260
+        }
+      ],
+      "queueOrder": 7
+    },
+    {
+      "id": 8,
+      "x": 843,
+      "y": 298,
+      "state": "QUEUEING",
+      "targetProduct": "egg",
+      "basket": {
+        "tomato": 0,
+        "egg": 2,
+        "corn": 0
+      },
+      "color": 15043441,
+      "waitTime": 59776,
+      "path": [],
+      "queueOrder": 8
+    },
+    {
+      "id": 9,
+      "x": 843,
+      "y": 336,
+      "state": "QUEUEING",
+      "targetProduct": "tomato",
+      "basket": {
+        "tomato": 1,
+        "egg": 0,
+        "corn": 1
+      },
+      "color": 10980279,
+      "waitTime": 50608,
+      "path": [],
+      "queueOrder": 9
+    },
+    {
+      "id": 10,
+      "x": 843,
+      "y": 374,
+      "state": "QUEUEING",
+      "targetProduct": "tomato",
+      "basket": {
+        "tomato": 2,
+        "egg": 0,
+        "corn": 0
+      },
+      "color": 15187303,
+      "waitTime": 50192,
+      "path": [],
+      "queueOrder": 10
+    },
+    {
+      "id": 11,
+      "x": 843,
+      "y": 412,
+      "state": "QUEUEING",
+      "targetProduct": "egg",
+      "basket": {
+        "tomato": 0,
+        "egg": 1,
+        "corn": 0
+      },
+      "color": 7906959,
+      "waitTime": 41584,
+      "path": [],
+      "queueOrder": 11
+    },
+    {
+      "id": 12,
+      "x": 793,
+      "y": 412,
+      "state": "QUEUEING",
+      "targetProduct": "corn",
+      "basket": {
+        "tomato": 0,
+        "egg": 0,
+        "corn": 2
+      },
+      "color": 13998510,
+      "waitTime": 41120,
+      "path": [],
+      "queueOrder": 12
+    },
+    {
+      "id": 13,
+      "x": 793,
+      "y": 374,
+      "state": "QUEUEING",
+      "targetProduct": "tomato",
+      "basket": {
+        "tomato": 1,
+        "egg": 0,
+        "corn": 0
+      },
+      "color": 7577277,
+      "waitTime": 32976,
+      "path": [],
+      "queueOrder": 13
+    },
+    {
+      "id": 14,
+      "x": 793,
+      "y": 336,
+      "state": "QUEUEING",
+      "targetProduct": "egg",
+      "basket": {
+        "tomato": 0,
+        "egg": 2,
+        "corn": 0
+      },
+      "color": 15043441,
+      "waitTime": 32496,
+      "path": [],
+      "queueOrder": 14
+    },
+    {
+      "id": 15,
+      "x": 793,
+      "y": 298,
+      "state": "QUEUEING",
+      "targetProduct": "tomato",
+      "basket": {
+        "tomato": 1,
+        "egg": 0,
+        "corn": 1
+      },
+      "color": 10980279,
+      "waitTime": 23344,
+      "path": [],
+      "queueOrder": 15
+    },
+    {
+      "id": 16,
+      "x": 793,
+      "y": 260,
+      "state": "QUEUEING",
+      "targetProduct": "tomato",
+      "basket": {
+        "tomato": 2,
+        "egg": 0,
+        "corn": 0
+      },
+      "color": 15187303,
+      "waitTime": 22928,
+      "path": [],
+      "queueOrder": 16
+    }
+  ],
+  "checkoutProgress": 0,
+  "upgradeProgress": 0,
+  "activeUpgrade": null,
+  "tutorialStep": 6,
+  "totalEarned": 1071,
+  "totalServed": 6,
+  "totalHarvested": 0,
+  "elapsed": 90000,
+  "soundEnabled": true
+}
