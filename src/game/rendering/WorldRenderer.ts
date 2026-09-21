@@ -213,6 +213,8 @@ export class WorldRenderer {
     for (let index = 0; index < GAME_CONFIG.customerMax; index += 1) {
       const model = createCharacter('customer');
       const cart = createShoppingCart(`customer:${index}:cart`);
+      cart.group.scale.setScalar(0.6);
+      cart.group.position.z = 0.29;
       model.group.add(cart.group);
       model.group.visible = false;
       this.scene.add(model.group);
