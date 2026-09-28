@@ -34,10 +34,9 @@ let managementWasPaused = false;
 let managementSessionActive = false;
 let managementCategory: UpgradeDefinition['category'] = 'store';
 let managementMessage = '';
-let accountController: AccountController | undefined;
 let accountWasPaused = false;
 const hud = new Hud(document.querySelector('#app')!, {
-  account: () => accountController?.open(),
+  account: () => accountController.open(),
   sound: toggleSound,
   pause: () => setPaused(!paused),
   settings: () => showDialog('settings'),
@@ -57,7 +56,7 @@ try {
   document.querySelector('#retry-game')!.addEventListener('click', () => location.reload());
 }
 
-accountController = new AccountController(
+const accountController = new AccountController(
   document.querySelector<HTMLDialogElement>('#account-dialog')!,
   document.querySelector<HTMLButtonElement>('#account-button')!,
   new AuthClient(import.meta.env.VITE_API_URL ?? ''),
