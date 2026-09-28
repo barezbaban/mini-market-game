@@ -1,21 +1,36 @@
-import { Group, Mesh, Vector3 } from 'three';
+import { CircleGeometry, Group, Mesh, MeshBasicMaterial, Vector3 } from 'three';
 import type { Scene } from 'three';
 import { GAME_CONFIG } from '../../data/gameConfig';
 import { PRODUCTS, plotCount, plotPosition } from '../../data/products';
 import { MACHINES } from '../../data/machines';
+import {
+  farmStandSpot,
+  machineStandSpot,
+  shelfStandSpot,
+  STAND_SPOT_RADIUS,
+} from '../../data/standSpots';
 import type {
   GameState,
   MachineDefinition,
   MachineId,
   ProductDefinition,
   ProductId,
+  Vec2,
 } from '../../types';
-import { createChicken, createProduce } from '../Models';
+import { createChicken, createCow, createProduce } from '../Models';
+import { itemCount } from '../../systems/InventorySystem';
 import { block, disc, label, PALETTE as C, ring, sphere } from './WorldKit';
 import type { WorldLabel } from './WorldKit';
 
 const point = (x: number, y: number, height = 0) =>
   new Vector3((x - 640) / 100, height, (y - 390) / 100);
+const standFillGeometry = new CircleGeometry(0.16, 32);
+interface StandVisual {
+  group: Group;
+  outline: Mesh;
+  fill: Mesh;
+  position: Vec2;
+}
 interface PlotVisual {
   group: Group;
   live: Group;
@@ -24,9 +39,11 @@ interface PlotVisual {
   ready: WorldLabel;
   progress: Mesh;
   chicken?: Group;
+  stand: StandVisual;
 }
 interface ProductVisual {
   shelf: Group;
+  stand: StandVisual;
   items: Group[];
   count: WorldLabel;
   farmSign?: Group;
@@ -34,6 +51,7 @@ interface ProductVisual {
 }
 interface MachineVisual {
   root: Group;
+  stand: StandVisual;
   body: Group;
   locked: Group;
   status: WorldLabel;
@@ -67,6 +85,7 @@ export class StoreDisplays {
   }
 
   update(state: GameState, time: number): void {
+    const playerHasRoom = itemCount(state.inventory) < state.inventoryCapacity;
     this.wings.forEach(({ floor, gate, title, area }) => {
       floor.visible = state.upgrades.expansion >= area;
       gate.visible = state.upgrades.expansion === area - 1;
@@ -77,6 +96,16 @@ export class StoreDisplays {
       const areaOpen = state.upgrades.expansion >= product.area;
       const unlocked = state.unlockedProducts.includes(product.id);
       visual.shelf.visible = areaOpen;
+      this.updateStand(
+        visual.stand,
+        areaOpen &&
+          unlocked &&
+          state.inventory[product.id] > 0 &&
+          state.shelves[product.id] < state.shelfCapacities[product.id],
+        state.player,
+        product.shelf,
+        GAME_CONFIG.interactionRadius,
+      );
       visual.items.forEach((item, index) => {
         item.visible = unlocked && index < state.shelves[product.id];
       });
@@ -94,6 +123,13 @@ export class StoreDisplays {
         plot.marker.visible = !active;
         const data = state.farms[product.id].plots[index];
         const ready = data?.ready ?? 0;
+        this.updateStand(
+          plot.stand,
+          active && ready > 0 && playerHasRoom,
+          state.player,
+          plotPosition(product.id, index),
+          55,
+        );
         plot.products.forEach((item, itemIndex) => {
           item.visible = itemIndex < ready;
         });
@@ -111,21 +147,29 @@ export class StoreDisplays {
       const level = state.upgrades[machine.upgrade];
       const data = state.machines[machine.id];
       visual.root.visible = state.upgrades.expansion >= machine.area;
+      this.updateStand(
+        visual.stand,
+        state.upgrades.expansion >= machine.area &&
+          level > 0 &&
+          ((state.inventory[machine.input] > 0 && data.input < machine.bufferCapacity) ||
+            (data.output > 0 && playerHasRoom)),
+        state.player,
+        machine.position,
+        GAME_CONFIG.interactionRadius,
+      );
       visual.body.visible = level > 0;
       visual.locked.visible = level === 0;
       visual.level.setText(
         `LV${level} · ${level * 2}/BATCH`,
         '#ffffff',
-        machine.id === 'paste' ? '#cc765e' : '#8b654b',
+        machine.id === 'paste' ? '#cc765e' : machine.id === 'coffee' ? '#8b654b' : '#6daeb9',
       );
       visual.status.setText(
         data.processing
           ? `MAKING ${data.processing}`
           : data.output
             ? `${data.output} READY`
-            : machine.id === 'paste'
-              ? 'ADD TOMATOES'
-              : 'ADD BEANS',
+            : `ADD ${machine.input.toUpperCase()}`,
         '#1d6e51',
         '#fff9e9',
       );
@@ -144,11 +188,50 @@ export class StoreDisplays {
     });
   }
 
+  private createStand(id: string, position: Vec2): StandVisual {
+    const group = new Group();
+    group.name = `stand-spot-${id}`;
+    group.position.copy(point(position.x, position.y));
+    group.visible = false;
+    this.scene.add(group);
+    const fill = new Mesh(
+      standFillGeometry,
+      new MeshBasicMaterial({ color: C.gold, transparent: true, opacity: 0.25, depthWrite: false }),
+    );
+    fill.rotation.x = -Math.PI / 2;
+    fill.position.y = 0.086;
+    fill.renderOrder = 1;
+    group.add(fill);
+    const outline = ring(group, STAND_SPOT_RADIUS / 100, C.gold, 0.043);
+    outline.name = `${group.name}:outline`;
+    outline.position.y = 0.095;
+    block(group, -0.037, 0.091, -0.024, 0.035, 0.008, 0.075, C.white).rotation.y = -0.2;
+    block(group, 0.037, 0.091, 0.024, 0.035, 0.008, 0.075, C.white).rotation.y = 0.2;
+    return { group, outline, fill, position };
+  }
+
+  private updateStand(
+    stand: StandVisual,
+    usable: boolean,
+    player: Vec2,
+    target: Vec2,
+    reach: number,
+  ): void {
+    stand.group.visible =
+      usable && Math.hypot(player.x - stand.position.x, player.y - stand.position.y) < 400;
+    if (!stand.group.visible) return;
+    const inRange = Math.hypot(player.x - target.x, player.y - target.y) <= reach;
+    const color = inRange ? C.green : C.gold;
+    (stand.outline.material as MeshBasicMaterial).color.setHex(color);
+    (stand.fill.material as MeshBasicMaterial).color.setHex(color);
+  }
+
   private createProduct(product: ProductDefinition): void {
     const shelf = new Group();
     shelf.name = `shelf-${product.id}`;
     shelf.position.copy(point(product.shelf.x, product.shelf.y));
     this.scene.add(shelf);
+    const stand = this.createStand(`shelf-${product.id}`, shelfStandSpot(product));
     block(shelf, 0, 0.14, 0, 1.46, 0.2, 0.72, C.green);
     block(shelf, 0, 0.54, -0.4, 1.44, 0.9, 0.075, C.cream);
     [-0.68, 0.68].forEach((x) => block(shelf, x, 0.49, -0.015, 0.075, 0.84, 0.81, C.cream));
@@ -192,8 +275,10 @@ export class StoreDisplays {
         corn: 'CORN FIELD',
         coffee: 'COFFEE GROVE',
         carrot: 'CARROT PATCH',
+        milk: 'DAIRY COWS',
         tomatoPaste: '',
         groundCoffee: '',
+        cheese: '',
       };
       farmSign = new Group();
       farmSign.name = `farm-sign-${product.id}`;
@@ -215,7 +300,7 @@ export class StoreDisplays {
       for (let index = 0; index < product.maxPlots; index += 1)
         plots.push(this.createPlot(product, index));
     }
-    this.products.set(product.id, { shelf, items, count, plots, farmSign });
+    this.products.set(product.id, { shelf, stand, items, count, plots, farmSign });
   }
 
   private createPlot(product: ProductDefinition, index: number): PlotVisual {
@@ -224,9 +309,10 @@ export class StoreDisplays {
     group.name = `plot-${product.id}-${index}`;
     group.position.copy(point(position.x, position.y));
     this.scene.add(group);
+    const stand = this.createStand(`farm-${product.id}-${index}`, farmStandSpot(product.id, index));
     const live = new Group();
     group.add(live);
-    const size = product.id === 'carrot' ? 0.49 : 0.74;
+    const size = product.id === 'carrot' ? 0.49 : product.id === 'milk' ? 0.88 : 0.74;
     block(live, 0, 0.075, 0, size, 0.15, 0.71, C.wood);
     block(live, 0, 0.155, 0, size - 0.09, 0.035, 0.61, product.id === 'egg' ? 0xe4bd6c : C.soil);
     const products: Group[] = [];
@@ -237,6 +323,12 @@ export class StoreDisplays {
       chicken = createChicken();
       chicken.position.set(0.12, 0.16, -0.11);
       chicken.scale.setScalar(0.85);
+      live.add(chicken);
+    } else if (product.id === 'milk') {
+      block(live, 0, 0.2, -0.04, 0.78, 0.025, 0.59, 0xa8cc8d);
+      chicken = createCow();
+      chicken.position.set(0, 0.17, -0.08);
+      chicken.scale.setScalar(0.72);
       live.add(chicken);
     } else if (product.id === 'tomato' || product.id === 'coffee') {
       disc(live, 0, 0.43, 0, 0.025, 0.57, product.id === 'coffee' ? 0x8c6949 : 0x4d9343);
@@ -272,12 +364,15 @@ export class StoreDisplays {
         ((item % 3) - 1) * 0.14,
         product.id === 'egg'
           ? 0.29
-          : product.id === 'carrot'
-            ? 0.23
-            : 0.48 - Math.floor(item / 3) * 0.16,
+          : product.id === 'milk'
+            ? 0.35
+            : product.id === 'carrot'
+              ? 0.23
+              : 0.48 - Math.floor(item / 3) * 0.16,
         0.1,
       );
       if (product.id === 'coffee') produce.scale.setScalar(0.85);
+      if (product.id === 'milk') produce.scale.setScalar(0.75);
       live.add(produce);
       products.push(produce);
     }
@@ -297,7 +392,7 @@ export class StoreDisplays {
     outline.position.y = 0.047;
     block(marker, 0, 0.052, 0, 0.2, 0.018, 0.045, 0x95b970, false);
     block(marker, 0, 0.052, 0, 0.045, 0.018, 0.2, 0x95b970, false);
-    return { group, live, marker, products, ready, progress, chicken };
+    return { group, live, marker, products, ready, progress, chicken, stand };
   }
 
   private createMachine(machine: MachineDefinition): void {
@@ -305,9 +400,10 @@ export class StoreDisplays {
     root.name = `machine-${machine.id}`;
     root.position.copy(point(machine.position.x, machine.position.y));
     this.scene.add(root);
+    const stand = this.createStand(`machine-${machine.id}`, machineStandSpot(machine));
     const body = new Group();
     root.add(body);
-    const color = machine.id === 'paste' ? 0xe88b70 : 0xb58964;
+    const color = machine.id === 'paste' ? 0xe88b70 : machine.id === 'coffee' ? 0xb58964 : 0x8ac1cf;
     block(body, 0, 0.31, 0, 0.94, 0.6, 0.73, color);
     block(body, 0, 0.055, 0, 1.06, 0.11, 0.82, C.green);
     block(body, 0, 0.66, 0, 1.02, 0.12, 0.81, C.cream);
@@ -337,7 +433,8 @@ export class StoreDisplays {
     block(rotor, 0, 0, 0.025, 0.22, 0.04, 0.03, C.cream);
     block(rotor, 0, 0, 0.025, 0.04, 0.22, 0.03, C.cream);
     block(body, 0, 1.36, -0.18, 1.18, 0.31, 0.065, C.cream);
-    const machineTitle = machine.id === 'paste' ? 'CANNERY' : 'GRINDER';
+    const machineTitle =
+      machine.id === 'paste' ? 'CANNERY' : machine.id === 'coffee' ? 'GRINDER' : 'DAIRY';
     const title = label(body, machineTitle, 1.04, 0.27, {
       id: `machine:${machine.id}:title`,
       kind: 'object',
@@ -378,6 +475,7 @@ export class StoreDisplays {
     lockedTitle.object.position.set(0, 0.3, 0.18);
     this.machines.set(machine.id, {
       root,
+      stand,
       body,
       locked,
       status,
@@ -390,8 +488,8 @@ export class StoreDisplays {
   }
 
   private createWings(): void {
-    const names = ['PRODUCTION WING', 'COFFEE CORNER', 'CARROT GARDEN'];
-    for (let area = 1; area <= 3; area += 1) {
+    const names = ['PRODUCTION WING', 'COFFEE CORNER', 'CARROT GARDEN', 'DAIRY MEADOW'];
+    for (let area = 1; area <= 4; area += 1) {
       const left = GAME_CONFIG.areaBounds[area - 1];
       const right = GAME_CONFIG.areaBounds[area];
       const width = (right - left) / 100;

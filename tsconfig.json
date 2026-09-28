@@ -14,5 +14,11 @@
     "skipLibCheck": true,
     "types": ["vite/client"]
   },
-  "include": ["src", "vite.config.ts", "tests"]
+  "include": ["src", "vite.config.ts", "tests"],
+  "exclude": [
+    "src/game/GameRuntime 2.ts",
+    "src/game/rendering/Models 2.ts",
+    "src/game/rendering/WorldRenderer 2.ts",
+    "src/game/rendering/world/WorldKit 2.ts"
+  ]
 }

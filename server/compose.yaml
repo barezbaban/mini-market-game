@@ -1,0 +1,35 @@
+services:
+  database:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kurdmart
+      POSTGRES_USER: kurdmart
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - kurdmart_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kurdmart -d kurdmart"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 8787
+      DATABASE_URL: postgres://kurdmart:${POSTGRES_PASSWORD}@database:5432/kurdmart
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:?Set CLIENT_ORIGIN}
+      SESSION_DAYS: 30
+      TRUST_PROXY: "true"
+    ports:
+      - "127.0.0.1:8787:8787"
+
+volumes:
+  kurdmart_data:

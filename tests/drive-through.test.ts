@@ -8,6 +8,8 @@ import {
 } from '../src/game/systems/DriveThroughSystem';
 import { GameEngine } from '../src/game/systems/GameEngine';
 import { validateSave } from '../src/game/systems/SaveSystem';
+import { applyUpgradeEffects } from '../src/game/systems/UpgradeSystem';
+import type { DriveThroughOrder } from '../src/game/types';
 
 function advance(engine: GameEngine, duration: number): void {
   for (let elapsed = 0; elapsed < duration; elapsed += 50)
@@ -26,6 +28,114 @@ function waitForOrder(engine: GameEngine): void {
 }
 
 describe('drive-through service', () => {
+  it('rotates requests through every unlocked product with no more than three types per order', () => {
+    const engine = new GameEngine();
+    Object.assign(engine.state.upgrades, {
+      expansion: 4,
+      corn: 1,
+      pasteMachine: 1,
+      coffeeMachine: 1,
+      dairyMachine: 1,
+      driveThrough: 1,
+    });
+    applyUpgradeEffects(engine.state);
+    const seen = new Set<string>();
+    for (let index = 0; index < PRODUCTS.length * 2; index += 1) {
+      engine.state.driveThroughSpawnElapsed = GAME_CONFIG.driveThroughSpawnInterval;
+      engine.driveThrough.update(50);
+      expect(engine.state.driveThroughOrders).toHaveLength(1);
+      const order = engine.state.driveThroughOrders[0];
+      const requested = PRODUCTS.filter(({ id }) => order.requested[id] > 0);
+      expect(driveThroughTotal(order.requested)).toBeGreaterThanOrEqual(2);
+      expect(driveThroughTotal(order.requested)).toBeLessThanOrEqual(4);
+      expect(requested.length).toBeLessThanOrEqual(3);
+      for (const product of requested) seen.add(product.id);
+      engine.state.driveThroughOrders.length = 0;
+    }
+    expect([...seen].sort()).toEqual(engine.state.unlockedProducts.slice().sort());
+
+    const locked = new GameEngine();
+    locked.state.upgrades.driveThrough = 1;
+    locked.state.driveThroughSpawnElapsed = GAME_CONFIG.driveThroughSpawnInterval;
+    locked.driveThrough.update(50);
+    expect(
+      PRODUCTS.filter(({ id }) => locked.state.driveThroughOrders[0].requested[id] > 0)
+        .map(({ id }) => id)
+        .every((id) => locked.state.unlockedProducts.includes(id)),
+    ).toBe(true);
+  });
+
+  it('continues the product rotation after a save without active vehicles', () => {
+    const engine = new GameEngine();
+    Object.assign(engine.state.upgrades, { expansion: 4, dairyMachine: 1, driveThrough: 1 });
+    applyUpgradeEffects(engine.state);
+    engine.state.driveThroughServed = 5;
+    const resumed = new GameEngine(validateSave(engine.snapshot())!);
+    resumed.state.driveThroughSpawnElapsed = GAME_CONFIG.driveThroughSpawnInterval;
+    resumed.driveThrough.update(50);
+    const order = resumed.state.driveThroughOrders[0];
+    expect(order.id).toBe(6);
+    expect(
+      PRODUCTS.filter(({ id }) => order.requested[id] > 0).some(({ id }) => id === 'cheese'),
+    ).toBe(true);
+  });
+
+  it('lets a late-unlocked dairy order be loaded item by item and paid exactly once', () => {
+    const engine = new GameEngine();
+    Object.assign(engine.state.upgrades, { expansion: 4, dairyMachine: 1, driveThrough: 1 });
+    applyUpgradeEffects(engine.state);
+    let order: DriveThroughOrder | undefined = engine.state.driveThroughOrders[0];
+    for (let index = 0; index < PRODUCTS.length && !order; index += 1) {
+      engine.state.driveThroughSpawnElapsed = GAME_CONFIG.driveThroughSpawnInterval;
+      engine.driveThrough.update(50);
+      order = engine.state.driveThroughOrders[0];
+      if (order.requested.cheese === 0) {
+        engine.state.driveThroughOrders.length = 0;
+        order = undefined;
+      }
+    }
+    expect(order?.requested.cheese).toBeGreaterThan(0);
+    while (order?.state === 'ARRIVING') engine.driveThrough.update(50);
+    engine.state.inventory = { ...order!.requested };
+    engine.state.player = { ...GAME_CONFIG.driveThroughPlayerSpot };
+    const before = engine.state.money;
+    const units = driveThroughTotal(order!.requested);
+    for (let index = 1; index <= units; index += 1) {
+      advance(engine, GAME_CONFIG.driveThroughHandoffTime);
+      expect(driveThroughTotal(order!.delivered)).toBe(index);
+    }
+    advance(engine, GAME_CONFIG.driveThroughCheckoutTime);
+    expect(order!.state).toBe('LEAVING');
+    expect(engine.state.money).toBe(before + driveThroughValue(order!));
+    advance(engine, GAME_CONFIG.driveThroughCheckoutTime);
+    expect(engine.state.money).toBe(before + driveThroughValue(order!));
+  });
+
+  it('departing vehicles continue forward without reversing through the queue', () => {
+    const engine = new GameEngine();
+    engine.economy.earn(10_000);
+    engine.purchaseUpgrade('driveThrough');
+    waitForOrder(engine);
+    const departing = engine.state.driveThroughOrders[0];
+    departing.delivered = { ...departing.requested };
+    departing.state = 'LEAVING';
+    const waiting = {
+      ...departing,
+      id: departing.id + 1,
+      state: 'ARRIVING' as const,
+      x: departing.x + 105,
+      delivered: emptyItems(),
+    };
+    engine.state.driveThroughOrders.push(waiting);
+    const startingX = departing.x;
+    advance(engine, 500);
+    expect(departing.x).toBeLessThan(startingX);
+    expect(waiting.x).toBe(startingX + 105);
+    advance(engine, 3000);
+    expect(engine.state.driveThroughOrders.some(({ id }) => id === departing.id)).toBe(false);
+    expect(waiting.x).toBe(GAME_CONFIG.driveThroughVehicleSpot.x);
+    expect(waiting.state).toBe('WAITING_FOR_ITEMS');
+  });
   it('starts locked and exposes three separate purchases', () => {
     const engine = new GameEngine();
     advance(engine, GAME_CONFIG.driveThroughSpawnInterval * 2);
@@ -103,11 +213,13 @@ describe('drive-through service', () => {
     const order = engine.state.driveThroughOrders[0];
     const first = PRODUCTS.find(({ id }) => order.requested[id] > 0)!;
     order.delivered[first.id] = 1;
+    order.y = 875; // A save from the old lane beside the office.
     engine.state.driveThroughHandoffProgress = 300;
     const restored = validateSave(engine.snapshot())!;
     expect(restored.driveThroughOrders).toHaveLength(1);
     expect(restored.driveThroughOrders[0].requested).toEqual(order.requested);
     expect(restored.driveThroughOrders[0].delivered).toEqual(order.delivered);
+    expect(restored.driveThroughOrders[0].y).toBe(GAME_CONFIG.driveThroughVehicleSpot.y);
     expect(restored.driveThroughHandoffProgress).toBe(300);
 
     const locked = engine.snapshot();

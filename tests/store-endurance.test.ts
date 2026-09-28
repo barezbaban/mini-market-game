@@ -62,15 +62,17 @@ function establishStore(marketing: number, speed: number, capacity: number): Gam
   const engine = new GameEngine();
   engine.economy.earn(1_000_000);
   const levels: Partial<Record<UpgradeId, number>> = {
-    expansion: 3,
+    expansion: 4,
     corn: 1,
     tomatoPlots: 4,
     eggPlots: 4,
     cornPlots: 4,
     coffeePlots: 4,
     carrotPlots: 7,
+    cowPlots: 4,
     pasteMachine: 4,
     coffeeMachine: 4,
+    dairyMachine: 4,
     helpers: 3,
     helperSpeed: speed,
     helperCapacity: capacity,
@@ -197,7 +199,7 @@ describe('expanded store endurance through real production', () => {
         engine.drainEvents();
       }
       expect(reloaded).toBe(true);
-      expect([...everStocked].sort(), 'helpers eventually stock all seven products').toEqual(
+      expect([...everStocked].sort(), 'helpers eventually stock all nine products').toEqual(
         PRODUCTS.map(({ id }) => id).sort(),
       );
       expect(

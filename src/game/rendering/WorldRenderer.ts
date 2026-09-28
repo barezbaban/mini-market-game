@@ -24,7 +24,7 @@ import { driveThroughRemaining } from '../systems/DriveThroughSystem';
 import { createCharacter, createProduce, createTree } from './Models';
 import { StoreDisplays } from './world/StoreDisplays';
 import type { CharacterModel } from './Models';
-import { block, crate, disc, label, PALETTE as C, ring, sphere } from './world/WorldKit';
+import { block, crate, disc, label, material, PALETTE as C, ring, sphere } from './world/WorldKit';
 import type { WorldLabel } from './world/WorldKit';
 
 interface CustomerVisual {
@@ -213,8 +213,8 @@ export class WorldRenderer {
     for (let index = 0; index < GAME_CONFIG.customerMax; index += 1) {
       const model = createCharacter('customer');
       const cart = createShoppingCart(`customer:${index}:cart`);
-      cart.group.scale.setScalar(0.6);
-      cart.group.position.z = 0.29;
+      cart.group.scale.setScalar(0.42);
+      cart.group.position.z = 0.25;
       model.group.add(cart.group);
       model.group.visible = false;
       this.scene.add(model.group);
@@ -395,6 +395,7 @@ export class WorldRenderer {
     this.driveCashier.group.visible = driveOpen && state.upgrades.driveCashier > 0;
     this.driveRunner.animate(timeMs, state.driveThroughHandoffProgress > 0);
     this.driveCashier.animate(timeMs, state.driveThroughCheckoutProgress > 0);
+    const activeDrive = state.driveThroughOrders.find((order) => order.state !== 'LEAVING');
     this.driveVehicles.forEach((visual, index) => {
       const order = state.driveThroughOrders[index];
       visual.group.visible = driveOpen && Boolean(order);
@@ -403,12 +404,17 @@ export class WorldRenderer {
       visual.group.position.copy(toWorld(order));
       visual.car.visible = order.vehicle === 'car';
       visual.bike.visible = order.vehicle === 'bike';
-      if (visual.id !== order.id) visual.id = order.id;
-      if (order.state !== 'LEAVING') {
+      if (visual.id !== order.id) {
+        visual.id = order.id;
+        visual.car.traverse((part) => {
+          if (part instanceof Mesh && part.userData.paint) part.material = material(order.color);
+        });
+      }
+      // Only the vehicle at the window needs a detailed order card. Queued
+      // vehicles stay visible instead of being buried under overlapping panels.
+      if (driveOpen && order === activeDrive && order.state !== 'ARRIVING') {
         visual.board.visible = true;
-        visual.board.position.copy(
-          toWorld({ x: order.x + 52, y: order.y + 24 }, 1.45 + Math.sin(timeMs / 500) * 0.025),
-        );
+        visual.board.position.copy(toWorld({ x: order.x + 20, y: order.y + 12 }, 1.32));
         visual.board.quaternion.copy(this.camera.quaternion);
         const products = PRODUCTS.filter(({ id }) => order.requested[id] > 0).slice(0, 3);
         visual.slots.forEach((slot, slotIndex) => {
@@ -431,7 +437,6 @@ export class WorldRenderer {
         );
       }
     });
-    const activeDrive = state.driveThroughOrders.find((order) => order.state !== 'LEAVING');
     const drivePaying = activeDrive && ['READY_TO_PAY', 'PAYING'].includes(activeDrive.state);
     const driveProgress = drivePaying
       ? state.driveThroughCheckoutProgress / GAME_CONFIG.driveThroughCheckoutTime
@@ -440,7 +445,13 @@ export class WorldRenderer {
     this.driveProgress.geometry.setDrawRange(0, Math.floor(Math.min(1, driveProgress) * 64) * 6);
     (this.driveProgress.material as MeshBasicMaterial).color.set(drivePaying ? C.gold : C.green);
     this.driveStatus.setText(
-      drivePaying ? 'COLLECT PAYMENT' : 'LOAD ORDER',
+      !activeDrive
+        ? 'OPEN'
+        : activeDrive.state === 'ARRIVING'
+          ? 'ARRIVING'
+          : drivePaying
+            ? 'PAYMENT'
+            : 'LOAD',
       '#ffffff',
       drivePaying ? '#c77e26' : '#168a65',
     );
@@ -529,6 +540,21 @@ export class WorldRenderer {
           0,
           player.z * 0.75 - 0.1,
         );
+    if (
+      this.lastState?.upgrades.driveThrough &&
+      Math.hypot(
+        this.lastState.player.x - GAME_CONFIG.driveThroughPlayerSpot.x,
+        this.lastState.player.y - GAME_CONFIG.driveThroughPlayerSpot.y,
+      ) < 120
+    ) {
+      // Keep the pickup window and its order above the HUD on small screens.
+      target.copy(
+        toWorld(
+          { x: GAME_CONFIG.driveThroughWindow.x + 50, y: GAME_CONFIG.driveThroughWindow.y },
+          0.25,
+        ),
+      );
+    }
     if (!this.initialized) {
       this.cameraTarget.copy(target);
       this.initialized = true;
@@ -568,12 +594,12 @@ export class WorldRenderer {
 
   private drawEnvironment(): void {
     block(this.scene, 0, -0.14, 0, 80, 0.2, 80, C.grass, false);
-    block(this.scene, 18.55, -0.02, 0, 2.5, 0.05, 50, 0xbfc5aa, false);
-    block(this.scene, 17.17, -0.005, 0, 0.25, 0.08, 50, C.cream, false);
+    block(this.scene, 23.15, -0.02, 0, 2.5, 0.05, 50, 0xbfc5aa, false);
+    block(this.scene, 21.77, -0.005, 0, 0.25, 0.08, 50, C.cream, false);
     for (let z = -18; z < 20; z += 1.3)
-      block(this.scene, 18.55, 0.012, z, 0.08, 0.018, 0.65, C.cream);
-    block(this.scene, 5.2, -0.005, 0.46, 22.8, 0.055, 0.66, 0xe7dcc1);
-    for (let x = -6; x < 16.4; x += 0.55)
+      block(this.scene, 23.15, 0.012, z, 0.08, 0.018, 0.65, C.cream);
+    block(this.scene, 7.5, -0.005, 0.46, 27.4, 0.055, 0.66, 0xe7dcc1);
+    for (let x = -6; x < 21; x += 0.55)
       block(this.scene, x, 0.026, 0.46, 0.5, 0.016, 0.53, 0xf4eacf);
     block(this.scene, 4.96, -0.008, 0.45, 1.58, 0.065, 6.35, 0xadd789);
     block(this.scene, -1.62, -0.009, 3.13, 7.45, 0.065, 4.6, 0xa1d67d);
@@ -584,15 +610,15 @@ export class WorldRenderer {
       [-6.1, -3.6, 1.2],
       [-7, -1, 0.95],
       [-6.5, 2, 0.95],
-      [-5.8, 6.6, 1.1],
-      [-3, 6.5, 1.15],
-      [0.4, 6.6, 1],
-      [3.2, 6.7, 1.15],
+      [-5.8, 8.4, 1.1],
+      [-3, 8.3, 1.15],
+      [0.4, 8.4, 1],
+      [3.0, 8.5, 1.15],
       [5.6, -3.7, 1.1],
       [1.8, -4.6, 1.05],
       [-2.2, -4.5, 1.2],
-      [17.5, -3.9, 1.5],
-      [17.5, 6.4, 1.15],
+      [22.1, -3.9, 1.5],
+      [22.1, 6.4, 1.15],
     ].forEach(([x, z, scale]) => {
       const tree = createTree();
       tree.position.set(x, 0, z);
@@ -602,7 +628,11 @@ export class WorldRenderer {
     for (let index = 0; index < 55; index += 1) {
       const x = Math.sin(index * 29.7) * 9.5;
       const z = Math.cos(index * 17.4) * 7;
-      if ((x > -5.8 && x < 16.3 && z > -3.1 && z < 6.1) || x > 6.1) continue;
+      if (
+        (x > -5.8 && x < 20.9 && z > -3.1 && z < 6.1) ||
+        (x > -1.6 && x < 14.8 && z > 5.9 && z < 7.5) ||
+        x > 6.1
+      ) continue;
       const grass = block(this.scene, x, 0.05, z, 0.07, 0.15, 0.035, C.darkGrass);
       grass.rotation.z = index % 2 ? -0.3 : 0.3;
       if (index % 3 === 0)
@@ -726,10 +756,10 @@ export class WorldRenderer {
       border: false,
     });
     title.object.position.set(0, 0.4, 0.274);
-    const outline = ring(bin, 0.47, C.white, 0.035);
-    outline.position.y = 0.045;
+    const outline = ring(bin, 0.47, C.gold, 0.035);
+    outline.position.y = 0.095;
     const progress = ring(bin, 0.4, C.peach, 0.065);
-    progress.position.y = 0.052;
+    progress.position.y = 0.102;
     progress.visible = false;
     return progress;
   }
@@ -780,7 +810,7 @@ export class WorldRenderer {
     count.object.position.set(0, 0.64, -0.348);
     const carts = Array.from({ length: GAME_CONFIG.customerMax }, (_, index) => {
       const cart = createShoppingCart(`cart-station:${index}`).group;
-      cart.scale.setScalar(0.43);
+      cart.scale.setScalar(0.3);
       cart.position.set(-0.47 + (index % 5) * 0.235, 0.025, -0.11 + Math.floor(index / 5) * 0.28);
       station.add(cart);
       return cart;
@@ -800,15 +830,40 @@ export class WorldRenderer {
     area.position.copy(toWorld(GAME_CONFIG.driveThroughWindow));
     area.name = 'drive-through';
     this.scene.add(area);
-    block(area, 0.62, 0.025, 0, 2.25, 0.05, 1.25, 0xbfc5aa);
-    [-0.48, 0.02, 0.52, 1.02, 1.52].forEach((x) =>
-      block(area, x, 0.055, 0, 0.28, 0.018, 0.055, C.cream),
+    const laneZ = (GAME_CONFIG.driveThroughVehicleSpot.y - GAME_CONFIG.driveThroughWindow.y) / 100;
+    // Continue beyond the camera on both sides so cars enter and leave on a road,
+    // rather than appearing on the ends of a small floating asphalt slab.
+    const roadStart = 500;
+    const roadEnd = 2100;
+    const roadCenter = (roadStart + roadEnd - 2 * GAME_CONFIG.driveThroughWindow.x) / 200;
+    const roadLength = (roadEnd - roadStart) / 100;
+    block(area, roadCenter, 0.009, laneZ, roadLength, 0.025, 1.48, 0xb5c5ac).name =
+      'drive-through:shoulder';
+    block(area, roadCenter, 0.031, laneZ, roadLength, 0.05, 1.2, 0x62726c).name =
+      'drive-through:lane';
+    block(area, roadCenter, 0.066, laneZ - 0.61, roadLength, 0.07, 0.08, C.cream).name =
+      'drive-through:curb';
+    block(area, roadCenter, 0.059, laneZ + 0.56, roadLength, 0.014, 0.035, C.cream);
+    // A marked pickup bay aligns with the only place where a vehicle stops.
+    [laneZ - 0.47, laneZ + 0.47].forEach((edge) =>
+      block(area, 1.16, 0.061, edge, 1.08, 0.016, 0.035, C.gold),
     );
+    block(area, 0.61, 0.062, laneZ, 0.045, 0.018, 0.94, C.cream);
+    // Sparse painted arrows show the one-way flow without adding more signs.
+    [3.35, 6.15].forEach((x) => {
+      block(area, x + 0.06, 0.062, laneZ, 0.42, 0.016, 0.045, C.cream);
+      const upper = block(area, x - 0.15, 0.062, laneZ - 0.085, 0.27, 0.016, 0.045, C.cream);
+      const lower = block(area, x - 0.15, 0.062, laneZ + 0.085, 0.27, 0.016, 0.045, C.cream);
+      upper.rotation.y = 0.58;
+      lower.rotation.y = -0.58;
+    });
+    block(area, -0.08, 0.025, -0.13, 1.15, 0.05, 1.2, C.tile);
     block(area, 0, 0.44, 0, 0.54, 0.82, 0.76, C.green);
     block(area, 0, 0.88, 0, 0.66, 0.09, 0.86, C.cream);
     block(area, 0.05, 0.92, -0.17, 0.3, 0.1, 0.26, 0x656e61);
-    block(area, 0, 1.22, -0.25, 1.38, 0.33, 0.07, C.green);
-    const title = label(area, 'DRIVE-THROUGH', 1.23, 0.27, {
+    block(area, 0, 1.22, -0.25, 1.38, 0.33, 0.07, C.green).name = 'drive-through:sign';
+    [-0.52, 0.52].forEach((x) => block(area, x, 0.99, -0.25, 0.045, 0.3, 0.045, C.green));
+    const title = label(area, 'DRIVE-THRU', 1.23, 0.27, {
       id: 'drive-through:title',
       kind: 'area',
       foreground: '#ffffff',
@@ -816,8 +871,9 @@ export class WorldRenderer {
       mount: 'surface',
       border: false,
     });
-    title.object.position.set(0, 1.22, 0.43);
-    const status = label(area, 'LOAD ORDER', 1.1, 0.25, {
+    title.object.position.set(0, 1.22, -0.209);
+    block(area, 0, 0.57, 0.397, 1.0, 0.28, 0.04, C.green);
+    const status = label(area, 'OPEN', 0.95, 0.25, {
       id: 'drive-through:status',
       kind: 'action',
       foreground: '#ffffff',
@@ -825,22 +881,28 @@ export class WorldRenderer {
       mount: 'surface',
       border: false,
     });
-    status.object.position.set(-0.02, 0.72, 0.43);
+    status.object.position.set(0, 0.57, 0.423);
     const playerSpot = new Group();
     playerSpot.position.copy(toWorld(GAME_CONFIG.driveThroughPlayerSpot));
     this.scene.add(playerSpot);
-    const outline = ring(playerSpot, 0.36, C.white, 0.04);
+    const outline = ring(playerSpot, 0.36, C.gold, 0.04);
     outline.name = 'drive-through-player-spot';
+    outline.position.y = 0.095;
     const progress = ring(playerSpot, 0.43, C.green, 0.065);
+    progress.position.y = 0.102;
     progress.visible = false;
     const runner = createCharacter('cashier', 0x659ec0);
-    runner.group.position.copy(toWorld({ x: 1050, y: 830 }));
+    runner.group.position.copy(
+      toWorld({ x: GAME_CONFIG.driveThroughWindow.x - 80, y: GAME_CONFIG.driveThroughWindow.y }),
+    );
     runner.group.visible = false;
     runner.setFacing(1, 0);
     runner.group.name = 'drive-through-runner';
     this.scene.add(runner.group);
     const cashier = createCharacter('cashier', C.peach);
-    cashier.group.position.copy(toWorld({ x: 1130, y: 830 }));
+    cashier.group.position.copy(
+      toWorld({ x: GAME_CONFIG.driveThroughWindow.x, y: GAME_CONFIG.driveThroughWindow.y - 55 }),
+    );
     cashier.group.visible = false;
     cashier.setFacing(1, 0);
     cashier.group.name = 'drive-through-cashier';
@@ -854,17 +916,24 @@ export class WorldRenderer {
     const group = new Group();
     group.name = `drive:${index}:vehicle`;
     group.visible = false;
+    group.scale.setScalar(0.82);
     this.scene.add(group);
     const car = new Group();
     car.name = `drive:${index}:car`;
     group.add(car);
-    block(car, 0, 0.32, 0, 1.05, 0.38, 0.62, 0xe7775e);
-    block(car, -0.05, 0.59, 0, 0.58, 0.25, 0.54, 0xe7775e);
-    block(car, -0.05, 0.61, -0.28, 0.42, 0.16, 0.03, 0xb9e2df);
-    [-0.35, 0.35].forEach((x) => {
-      const wheel = disc(car, x, 0.16, -0.3, 0.14, 0.08, 0x48534c);
-      wheel.rotation.x = Math.PI / 2;
+    block(car, 0, 0.32, 0, 1.05, 0.38, 0.62, 0xe7775e).userData.paint = true;
+    block(car, -0.05, 0.59, 0, 0.58, 0.25, 0.54, 0xe7775e).userData.paint = true;
+    [-0.28, 0.28].forEach((z) => {
+      block(car, -0.05, 0.61, z, 0.42, 0.16, 0.025, 0xb9e2df);
+      block(car, -0.06, 0.61, z, 0.025, 0.17, 0.03, 0x48534c);
+      [-0.35, 0.35].forEach((x) => {
+        const wheel = disc(car, x, 0.16, z * 1.14, 0.14, 0.08, 0x48534c);
+        wheel.rotation.x = Math.PI / 2;
+      });
     });
+    [-0.2, 0.2].forEach((z) => block(car, -0.53, 0.36, z, 0.025, 0.09, 0.12, C.cream));
+    block(car, 0.248, 0.6, 0, 0.025, 0.15, 0.42, 0xb9e2df);
+    block(car, -0.347, 0.6, 0, 0.025, 0.15, 0.42, 0xb9e2df);
     const bike = new Group();
     bike.name = `drive:${index}:bike`;
     group.add(bike);
@@ -874,7 +943,10 @@ export class WorldRenderer {
     });
     block(bike, 0, 0.3, 0, 0.62, 0.08, 0.08, 0x5f9fc4);
     block(bike, 0.12, 0.48, 0, 0.12, 0.34, 0.12, 0x5f9fc4);
-    sphere(bike, 0.08, 0.78, 0, 0.12, C.cream);
+    block(bike, 0.08, 0.6, 0, 0.2, 0.27, 0.22, C.peach);
+    block(bike, -0.22, 0.48, 0, 0.045, 0.2, 0.27, 0x48534c);
+    sphere(bike, 0.08, 0.83, 0, 0.12, C.cream);
+    sphere(bike, 0.08, 0.9, 0, 0.125, 0x5f9fc4);
     const board = new Group();
     board.name = `drive:${index}:order`;
     block(board, 0, 0, 0, 1.34, 0.67, 0.055, C.white);
@@ -982,7 +1054,9 @@ export class WorldRenderer {
     spot.position.copy(toWorld(GAME_CONFIG.cashierSpot));
     this.scene.add(spot);
     const highlight = ring(spot, 0.34, C.gold, 0.045);
+    highlight.position.y = 0.095;
     const progress = ring(spot, 0.4, C.green, 0.064);
+    progress.position.y = 0.102;
     for (let index = 0; index < 5; index += 1) {
       const point = toWorld({
         x: GAME_CONFIG.queueStart.x,

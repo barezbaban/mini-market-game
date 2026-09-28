@@ -123,7 +123,9 @@ describe('checkout queue routing regressions', () => {
       let lastSale = 0;
       let reloaded = false;
       for (let time = 0; time < 300000; time += frameMs) {
-        for (const product of PRODUCTS) {
+        for (const product of PRODUCTS.filter((entry) =>
+          engine.state.unlockedProducts.includes(entry.id),
+        )) {
           const added = 12 - engine.state.shelves[product.id];
           engine.state.shelves[product.id] += added;
           supplied += added * product.sellingPrice;

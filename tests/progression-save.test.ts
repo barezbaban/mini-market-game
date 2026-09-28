@@ -18,6 +18,8 @@ describe('expanded market progression and compatibility', () => {
     engine.economy.earn(10000);
     engine.purchaseUpgrade('expansion');
     engine.purchaseUpgrade('expansion');
+    engine.purchaseUpgrade('expansion');
+    engine.purchaseUpgrade('expansion');
     for (const machine of MACHINES) {
       engine.state.player = { ...machine.position };
       expect(engine.purchaseUpgrade(machine.upgrade)).toBe(true);
@@ -57,7 +59,26 @@ describe('expanded market progression and compatibility', () => {
     expect(Object.values(state.shelfCapacities)).toEqual(PRODUCTS.map(() => 12));
   });
 
-  it('gates new products and walking bounds behind three consecutive area purchases', () => {
+  it('restores purchased cows, milk stock, and an unfinished cheese batch', () => {
+    const engine = new GameEngine();
+    engine.economy.earn(20_000);
+    for (let area = 0; area < 4; area += 1) expect(engine.purchaseUpgrade('expansion')).toBe(true);
+    expect(engine.purchaseUpgrade('cowPlots')).toBe(true);
+    expect(engine.purchaseUpgrade('dairyMachine')).toBe(true);
+    engine.state.farms.milk.plots[0].ready = 6;
+    engine.state.farms.milk.plots[1].ready = 4;
+    engine.state.shelves.milk = 8;
+    engine.state.machines.dairy = { input: 3, processing: 2, output: 1, elapsed: 3500 };
+    const restored = validateSave(engine.snapshot())!;
+    expect(plotCount(restored, 'milk')).toBe(2);
+    expect(restored.farms.milk.ready).toBe(10);
+    expect(restored.shelves.milk).toBe(8);
+    expect(restored.machines.dairy).toEqual(engine.state.machines.dairy);
+    advance(new GameEngine(restored), 3500);
+    expect(restored.machines.dairy.output).toBeGreaterThanOrEqual(3);
+  });
+
+  it('gates new products and walking bounds behind four consecutive area purchases', () => {
     const engine = new GameEngine();
     engine.economy.earn(10000);
     engine.state.player = { x: 1205, y: 460 };
@@ -77,6 +98,13 @@ describe('expanded market progression and compatibility', () => {
     expect(engine.purchaseUpgrade('carrotPlots')).toBe(false);
     expect(engine.purchaseUpgrade('expansion')).toBe(true);
     expect(engine.state.unlockedProducts).toContain('carrot');
+    expect(engine.state.unlockedProducts).not.toContain('milk');
+    expect(engine.purchaseUpgrade('cowPlots')).toBe(false);
+    expect(engine.purchaseUpgrade('dairyMachine')).toBe(false);
+    expect(engine.purchaseUpgrade('expansion')).toBe(true);
+    expect(engine.state.unlockedProducts).toContain('milk');
+    expect(engine.purchaseUpgrade('dairyMachine')).toBe(true);
+    expect(engine.state.unlockedProducts).toContain('cheese');
     expect(engine.purchaseUpgrade('expansion')).toBe(false);
   });
 

@@ -4,6 +4,7 @@ import type { GameEngine } from '../src/game/systems/GameEngine';
 import type { SaveSystem } from '../src/game/systems/SaveSystem';
 import type { GameState } from '../src/game/types';
 import { GAME_CONFIG } from '../src/game/data/gameConfig';
+import type { Mesh, MeshBasicMaterial } from 'three';
 import stuckQueue from '../tests/fixtures/stuck-queue.json' with { type: 'json' };
 
 declare global {
@@ -85,6 +86,57 @@ async function expectStopped(page: Page): Promise<void> {
   const after = (await state(page)).player;
   expect(Math.hypot(after.x - stopped.x, after.y - stopped.y)).toBeLessThan(0.5);
 }
+
+test('actionable farm, shelf, and machine spots show a floor target that confirms player range', async ({
+  page,
+}) => {
+  await openGame(page);
+  const markers = await page.evaluate(() => {
+    const { engine, world, setPaused } = window.__MARKET__;
+    setPaused(true);
+    const farm = world.scene.getObjectByName('stand-spot-farm-tomato-0')!;
+    const shelf = world.scene.getObjectByName('stand-spot-shelf-tomato')!;
+    const machine = world.scene.getObjectByName('stand-spot-machine-paste')!;
+    const color = (name: string) =>
+      (
+        (world.scene.getObjectByName(`${name}:outline`) as Mesh).material as MeshBasicMaterial
+      ).color.getHex();
+    engine.state.farms.tomato.plots[0].ready = 3;
+    engine.state.player = { x: 265, y: 490 };
+    world.update(engine.state, 0, 0);
+    const farmAvailable = farm.visible;
+    const farmFarColor = color(farm.name);
+    engine.state.player = { x: 265, y: 548 };
+    world.update(engine.state, 0, 0);
+    const farmNearColor = color(farm.name);
+    engine.state.inventory.tomato = 1;
+    engine.state.player = { x: 265, y: 297 };
+    world.update(engine.state, 0, 0);
+    const shelfAvailable = shelf.visible;
+    const shelfNearColor = color(shelf.name);
+    engine.state.upgrades.expansion = 1;
+    engine.state.upgrades.pasteMachine = 1;
+    engine.state.player = { x: 1320, y: 632 };
+    world.update(engine.state, 0, 0);
+    return {
+      farmAvailable,
+      farmFarColor,
+      farmNearColor,
+      shelfAvailable,
+      shelfNearColor,
+      machineAvailable: machine.visible,
+      machineNearColor: color(machine.name),
+      shadowsEnabled: world.renderer.shadowMap.enabled,
+    };
+  });
+  expect(markers.farmAvailable).toBe(true);
+  expect(markers.farmFarColor).not.toBe(markers.farmNearColor);
+  expect(markers.shelfAvailable).toBe(true);
+  expect(markers.shelfNearColor).toBe(markers.farmNearColor);
+  expect(markers.machineAvailable).toBe(true);
+  expect(markers.machineNearColor).toBe(markers.farmNearColor);
+  expect(markers.shadowsEnabled).toBe(false);
+});
 
 test('keyboard harvest, shelf stocking, customer payment, and reload persistence', async ({
   page,
@@ -296,44 +348,53 @@ test('drive-through vehicle shows its item list and accepts one item at a time',
   page,
 }) => {
   await openGame(page);
-  await page.evaluate((playerSpot) => {
-    const { engine, world } = window.__MARKET__;
-    window.__MARKET__.setPaused(true);
-    engine.economy.earn(2_000);
-    engine.purchaseUpgrade('driveThrough');
-    engine.state.driveThroughOrders = [
-      {
-        id: 41,
-        vehicle: 'car',
-        state: 'WAITING_FOR_ITEMS',
-        x: 1245,
-        y: 875,
-        color: 0xe7775e,
-        requested: {
-          tomato: 2,
-          egg: 1,
-          corn: 0,
-          coffee: 0,
-          carrot: 0,
-          tomatoPaste: 0,
-          groundCoffee: 0,
+  await page.evaluate(
+    ({ playerSpot, vehicleSpot }) => {
+      const { engine, world } = window.__MARKET__;
+      window.__MARKET__.setPaused(true);
+      engine.economy.earn(2_000);
+      engine.purchaseUpgrade('driveThrough');
+      engine.state.driveThroughOrders = [
+        {
+          id: 41,
+          vehicle: 'car',
+          state: 'WAITING_FOR_ITEMS',
+          ...vehicleSpot,
+          color: 0xe7775e,
+          requested: {
+            tomato: 2,
+            egg: 1,
+            corn: 0,
+            coffee: 0,
+            carrot: 0,
+            milk: 0,
+            tomatoPaste: 0,
+            groundCoffee: 0,
+            cheese: 0,
+          },
+          delivered: {
+            tomato: 0,
+            egg: 0,
+            corn: 0,
+            coffee: 0,
+            carrot: 0,
+            milk: 0,
+            tomatoPaste: 0,
+            groundCoffee: 0,
+            cheese: 0,
+          },
         },
-        delivered: {
-          tomato: 0,
-          egg: 0,
-          corn: 0,
-          coffee: 0,
-          carrot: 0,
-          tomatoPaste: 0,
-          groundCoffee: 0,
-        },
-      },
-    ];
-    engine.state.inventory.tomato = 2;
-    engine.state.inventory.egg = 1;
-    engine.state.player = { ...playerSpot };
-    world.update(engine.state, engine.state.elapsed, 0);
-  }, GAME_CONFIG.driveThroughPlayerSpot);
+      ];
+      engine.state.inventory.tomato = 2;
+      engine.state.inventory.egg = 1;
+      engine.state.player = { ...playerSpot };
+      world.update(engine.state, engine.state.elapsed, 0);
+    },
+    {
+      playerSpot: GAME_CONFIG.driveThroughPlayerSpot,
+      vehicleSpot: GAME_CONFIG.driveThroughVehicleSpot,
+    },
+  );
 
   const display = () =>
     page.evaluate(() => {
@@ -346,6 +407,9 @@ test('drive-through vehicle shows its item list and accepts one item at a time',
       };
       return {
         lane: visible('drive-through'),
+        shoulder: visible('drive-through:shoulder'),
+        curb: visible('drive-through:curb'),
+        roadLength: world.scene.getObjectByName('drive-through:lane')!.scale.x,
         vehicle: visible('drive:0:vehicle'),
         car: visible('drive:0:car'),
         bike: visible('drive:0:bike'),
@@ -360,6 +424,9 @@ test('drive-through vehicle shows its item list and accepts one item at a time',
     });
   await expect.poll(display).toEqual({
     lane: true,
+    shoulder: true,
+    curb: true,
+    roadLength: 16,
     vehicle: true,
     car: true,
     bike: false,

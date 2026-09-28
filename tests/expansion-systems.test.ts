@@ -106,6 +106,28 @@ describe('individual farm plots', () => {
       state.farms.tomato.plots.slice(1).every((plot) => plot.ready === 0 && plot.elapsed === 0),
     ).toBe(true);
     expect(state.farms.coffee.ready + state.farms.carrot.ready + state.farms.corn.ready).toBe(0);
+    expect(state.farms.milk.ready).toBe(0);
+  });
+
+  it('unlocks one cow, then produces independently from each of five purchased cows', () => {
+    const state = fixture({ expansion: 4 });
+    const farming = new FarmingSystem(state);
+    farming.update(5000);
+    expect(plotCount(state, 'milk')).toBe(1);
+    expect(state.farms.milk.ready).toBe(2);
+    state.money = 10_000;
+    const upgrades = new UpgradeSystem(state, new EconomySystem(state));
+    for (let count = 2; count <= 5; count += 1) {
+      expect(upgrades.purchase('cowPlots')).toBe(true);
+      expect(plotCount(state, 'milk')).toBe(count);
+    }
+    expect(upgrades.purchase('cowPlots')).toBe(false);
+    farming.update(5000);
+    expect(state.farms.milk.plots.map((plot) => plot.ready)).toEqual([4, 2, 2, 2, 2]);
+    const inventory = new InventorySystem(state);
+    expect(inventory.harvest('milk', 2, 4)).toBe(2);
+    expect(state.inventory.milk).toBe(2);
+    expect(state.farms.milk.plots[4].ready).toBe(0);
   });
 });
 
@@ -181,6 +203,20 @@ describe('processing machines', () => {
     expect(actor.tomato).toBe(8);
     expect(state.machines.paste.input).toBe(0);
   });
+
+  it('turns milk into cheese in level-based batches without losing bottles', () => {
+    const state = fixture({ expansion: 4, dairyMachine: 2 });
+    const actor = { ...emptyItems(), milk: 5 };
+    const machine = new MachineSystem(state);
+    expect(machine.supply('dairy', actor, 5)).toBe(5);
+    machine.update(7000);
+    expect(state.machines.dairy).toEqual({ input: 1, processing: 0, output: 4, elapsed: 0 });
+    machine.update(7000);
+    expect(state.machines.dairy.output).toBe(5);
+    expect(machine.collect('dairy', actor, 8, 5)).toBe(5);
+    expect(actor.cheese).toBe(5);
+    expect(actor.milk).toBe(0);
+  });
 });
 
 describe('multi-level upgrade rules', () => {
@@ -192,14 +228,16 @@ describe('multi-level upgrade rules', () => {
       'cornPlots',
       'coffeePlots',
       'carrotPlots',
+      'cowPlots',
       'pasteMachine',
       'coffeeMachine',
+      'dairyMachine',
       'helperCapacity',
     ] as const)
       expect(upgrades.purchase(id)).toBe(false);
     expect(upgrades.purchase('shelf')).toBe(false);
     expect(state.money).toBe(10_000);
-    for (let level = 0; level < 3; level += 1) {
+    for (let level = 0; level < 4; level += 1) {
       const cost = upgradeCost(state, 'expansion');
       const before = state.money;
       expect(upgrades.purchase('expansion')).toBe(true);
@@ -364,7 +402,11 @@ describe('autonomous helper flow', () => {
         );
       });
     }
-    expect(PRODUCTS.map((product) => state.shelves[product.id])).toEqual(Array(7).fill(12));
+    expect(
+      PRODUCTS.filter((product) => state.unlockedProducts.includes(product.id)).map(
+        (product) => state.shelves[product.id],
+      ),
+    ).toEqual(Array(7).fill(12));
     expect(greatestBasket).toBeLessThanOrEqual(6);
     expect(greatestStep).toBeLessThanOrEqual(helperSpeed(state) * 0.05 + 1e-6);
     expect(totalUnits(state)).toBe(initial);
@@ -425,7 +467,11 @@ describe('autonomous helper flow', () => {
         }
       }
     }
-    expect([...sold].sort()).toEqual(PRODUCTS.map((product) => product.id).sort());
+    expect([...sold].sort()).toEqual(
+      PRODUCTS.filter((product) => state.unlockedProducts.includes(product.id))
+        .map((product) => product.id)
+        .sort(),
+    );
     expect(state.totalServed).toBeGreaterThan(20);
     expect(state.money).toBe(paid);
     expect(state.totalEarned).toBe(paid);

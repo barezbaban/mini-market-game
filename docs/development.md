@@ -18,6 +18,8 @@ Use Node.js 22.17.1 or newer in the Node 22 release line to match the developmen
 
 Open the URL printed by Vite. The repository base path is `/mini-market-game/`, including during local previews.
 
+The active game code uses the unsuffixed files in `src/game/`. Old, untracked `* 2.ts` copies are preserved in the workspace but explicitly excluded from TypeScript and ESLint; they are not part of the game build. Earlier `FloatingText 2.ts` and `MobileControls 2.ts` copies are preserved under `backups/pre-3d-duplicates/`.
+
 ## npm cache permissions
 
 The development Mac had an npm cache containing files created by an earlier root-owned operation. If `npm install` or `npm ci` reports `EACCES`, `EPERM`, or a root-owned cache file, choose a writable cache for this command:
@@ -108,9 +110,10 @@ Start a new game in a separate browser profile or confirm Reset Game in Settings
 12. Use the fixed joystick and drag an open part of the world; test pointer release, orientation changes, and confirm touch movement does not scroll the page.
 13. Check the original 3D characters and carried stacks, crop readiness, shelf counts, checkout spot, and floating rewards. Confirm the market has no upgrade pads or upgrade-price signs. Ensure important labels and the player remain readable in desktop, tablet, and phone layouts.
 14. Open Manage and visit all four tabs. Check prerequisites, unaffordable buttons, the included 12-item shelf capacity, shopping-cart levels from 3 through 10, next-level prices, and capped upgrades. Confirm the simulation pauses and resumes with keyboard focus restored when the dialog closes.
-15. Expand through the production wing, coffee corner, and carrot garden. Add farm units through their caps and verify independent growth. Supply both machines and check their 2/4/6/8-item batch levels, inventory transfer, and save/reload behavior.
+15. Expand through the production wing, coffee corner, carrot garden, and dairy meadow. Add farm units through their caps and verify independent growth. Supply all three machines and check their 2/4/6/8-item batch levels, inventory transfer, and save/reload behavior.
 16. Hire three helpers, upgrade carrying capacity and speed, then watch them harvest, supply, collect, and stock without duplication. Upgrade marketing, cashier, and accountant through their limits; verify arrival rate, service timing, passive XP, and the player level meter.
-17. Open the Basket drawer to inspect all seven products. Check management tabs, card scrolling, inventory previews, and close controls on portrait and landscape screens. Confirm a purchase saves without closing the management dialog.
+17. Open the Basket drawer to inspect all nine products. Check management tabs, card scrolling, inventory previews, and close controls on portrait and landscape screens. Confirm a purchase saves without closing the management dialog.
+18. Open the drive-through and observe several orders after each expansion. Confirm later goods such as coffee, milk, and cheese can appear, with two to four total units and no more than three product types per order.
 
 Target desktop viewports include 1920×1080, 1440×900, and 1366×768. Also check an iPad-sized viewport, phone landscape, and phone portrait. Target current Chrome, Safari, Edge, and Firefox; device emulation is useful but does not replace testing a physical touch device.
 

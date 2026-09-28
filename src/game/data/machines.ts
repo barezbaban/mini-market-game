@@ -22,4 +22,15 @@ export const MACHINES: MachineDefinition[] = [
     bufferCapacity: 24,
     area: 2,
   },
+  {
+    id: 'dairy',
+    name: 'Dairy kitchen',
+    input: 'milk',
+    output: 'cheese',
+    position: { x: 2570, y: 610 },
+    upgrade: 'dairyMachine',
+    batchMs: 7000,
+    bufferCapacity: 24,
+    area: 4,
+  },
 ];

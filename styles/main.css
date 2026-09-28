@@ -526,6 +526,136 @@ kbd {
   padding-left: 5px;
   margin-bottom: 8px;
 }
+.account-dialog {
+  width: min(430px, calc(100% - 28px));
+  padding: 30px;
+}
+.account-dialog h2 {
+  margin: 14px 0 6px;
+  font: 700 28px/1.15 'Outfit', sans-serif;
+  letter-spacing: -0.6px;
+}
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #4d7547;
+  font: 700 13px 'Outfit', sans-serif;
+  letter-spacing: 0.3px;
+}
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  margin: 22px 0 18px;
+  padding: 4px;
+  border-radius: 13px;
+  background: #eef2df;
+}
+.auth-tabs button {
+  border: 0;
+  border-radius: 10px;
+  padding: 10px;
+  background: transparent;
+  color: #778568;
+  font-size: 12px;
+  font-weight: 700;
+}
+.auth-tabs button[aria-selected='true'] {
+  color: #3f6741;
+  background: #fffef7;
+  box-shadow: 0 2px 7px #35502d18;
+}
+.auth-form {
+  display: grid;
+  gap: 14px;
+}
+.auth-form label {
+  display: grid;
+  gap: 6px;
+  color: #617456;
+  font-size: 11px;
+  font-weight: 700;
+}
+.auth-form input {
+  width: 100%;
+  border: 1px solid #dce4ce;
+  border-radius: 12px;
+  background: #fffef9;
+  color: #304c39;
+  padding: 12px 13px;
+  font: 500 14px 'DM Sans', sans-serif;
+}
+.auth-form input:focus {
+  border-color: #7e9d62;
+  outline: 3px solid #dfeab7;
+}
+.auth-help {
+  margin: -6px 1px 2px !important;
+  line-height: 1.45;
+}
+.auth-wide {
+  width: 100%;
+  margin-top: 5px;
+}
+.auth-guest-link {
+  width: 100%;
+  margin-top: 18px;
+  border: 0;
+  background: transparent;
+  color: #6f835f;
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.auth-message,
+.auth-notice {
+  border-radius: 11px;
+  padding: 10px 12px;
+  background: #f8eadc;
+  color: #9b5d41;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.auth-notice {
+  margin: 19px 0 16px;
+  background: #eef2df;
+  color: #677958;
+}
+.account-card {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 15px;
+  border: 1px solid #e0e7d3;
+  border-radius: 15px;
+  background: #f7f8ed;
+}
+.account-card div {
+  min-width: 0;
+}
+.account-card strong,
+.account-card small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-avatar {
+  display: grid;
+  flex: 0 0 42px;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  color: #fffced;
+  background: #719450;
+  font: 700 18px 'Outfit', sans-serif;
+}
+#account-button.signed-in {
+  color: #fffdf2;
+  background: #719450;
+}
 .debug-panel {
   position: absolute;
   left: 16px;

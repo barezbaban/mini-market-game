@@ -133,7 +133,7 @@ try {
         vehicle: 'car',
         state: 'WAITING_FOR_ITEMS',
         x: 1245,
-        y: 875,
+        y: 1060,
         color: 0xe7775e,
         requested: {
           tomato: 2,
@@ -160,7 +160,7 @@ try {
     engine.state.inventory.egg = 1;
     engine.state.driveThroughHandoffProgress = 0;
     engine.state.driveThroughCheckoutProgress = 0;
-    engine.state.player = { x: 1080, y: 875 };
+    engine.state.player = { x: 1080, y: 920 };
     document.querySelector('#debug-panel').hidden = true;
     setPaused(false);
   });

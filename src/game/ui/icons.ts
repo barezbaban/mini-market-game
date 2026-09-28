@@ -23,6 +23,7 @@ const paths: Record<string, string> = {
   check: '<path d="m5 12 4 4L19 6"/>',
   lock: '<rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/>',
   car: '<path d="M3 15V9l3-4h11l4 5v5H3Zm3 0v3m12-3v3M7 11h10M8 8h8"/><circle cx="7" cy="15" r="2"/><circle cx="17" cy="15" r="2"/>',
+  account: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/>',
 };
 
 export function icon(name: string, size = 20): string {
@@ -43,6 +44,9 @@ export function productIcon(id: string): string {
       '<path d="M5 5h14v15c0 3-14 3-14 0V5Z" fill="#bbc7bc"/><path d="M5 8h14v11H5Z" fill="#e87960"/><ellipse cx="12" cy="5" rx="7" ry="3" fill="#e6e9db"/><ellipse cx="12" cy="5" rx="5" ry="1.5" fill="#b1bfae"/><circle cx="12" cy="14" r="4" fill="#fff0d1"/><circle cx="12" cy="14" r="2.7" fill="#d9614b"/><path d="m12 12-2-2 3 1 1-2" stroke="#5b9751" stroke-width="1.1" fill="none"/>',
     groundCoffee:
       '<path d="M6 2h12l-1 5 4 13c0 3-18 3-18 0L7 7 6 2Z" fill="#c79963"/><path d="M6 2h12v3H6Z" fill="#92704a"/><path d="M5 10h14v8H5Z" fill="#f8eacb"/><ellipse cx="12" cy="14" rx="2.8" ry="4" transform="rotate(25 12 14)" fill="#85553d"/><path d="m13 11-2 6" stroke="#d4ab7d" stroke-width="1"/>',
+    milk: '<path d="M8 4h8v3l2 2v12H6V9l2-2V4Z" fill="#f5f8f1" stroke="#83b9ca" stroke-width="1.2"/><path d="M8 3h8v3H8Z" fill="#69abc0"/><path d="M6 12h12v5H6Z" fill="#91c9d8"/>',
+    cheese:
+      '<path d="M3 10 15 4l6 5v10H3V10Z" fill="#f7ca58"/><path d="M3 10h18M8 14h2m5 2h2" stroke="#dda942" stroke-width="1.5"/><circle cx="12" cy="12" r="1.3" fill="#e3af43"/>',
   };
   const drawing = drawings[id] ?? drawings.tomato;
   return `<svg class="produce-icon" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">${drawing}</svg>`;

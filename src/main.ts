@@ -1,4 +1,6 @@
 import '../styles/main.css';
+import { AccountController } from './auth/AccountController';
+import { AuthClient } from './auth/AuthClient';
 import { GAME_CONFIG } from './game/data/gameConfig';
 import { MACHINES } from './game/data/machines';
 import { plotCount, PRODUCTS } from './game/data/products';
@@ -32,7 +34,10 @@ let managementWasPaused = false;
 let managementSessionActive = false;
 let managementCategory: UpgradeDefinition['category'] = 'store';
 let managementMessage = '';
+let accountController: AccountController | undefined;
+let accountWasPaused = false;
 const hud = new Hud(document.querySelector('#app')!, {
+  account: () => accountController?.open(),
   sound: toggleSound,
   pause: () => setPaused(!paused),
   settings: () => showDialog('settings'),
@@ -51,6 +56,22 @@ try {
     '<strong>The 3D market needs WebGL 2.</strong><p>Try an updated browser with hardware acceleration enabled. Your saved market is safe.</p><button class="primary-button" id="retry-game">Try again</button>';
   document.querySelector('#retry-game')!.addEventListener('click', () => location.reload());
 }
+
+accountController = new AccountController(
+  document.querySelector<HTMLDialogElement>('#account-dialog')!,
+  document.querySelector<HTMLButtonElement>('#account-button')!,
+  new AuthClient(import.meta.env.VITE_API_URL ?? ''),
+  {
+    opened: () => {
+      accountWasPaused = paused;
+      setPaused(true);
+    },
+    closed: () => {
+      if (!accountWasPaused) setPaused(false);
+    },
+  },
+);
+void accountController.initialize();
 
 function setPaused(value: boolean): void {
   if (!ready) return;
@@ -85,7 +106,10 @@ function showDialog(kind: 'settings' | 'help'): void {
   dialog.innerHTML =
     `<div class="dialog-heading"><h2>${kind === 'settings' ? 'Make yourself at home.' : 'Small steps. Fresh starts.'}</h2><button class="icon-button" id="dialog-close" aria-label="Close dialog">${icon('close')}</button></div>` +
     (kind === 'help'
-      ? `<p>Your farm, your shelves, your growing team.</p><ol><li>Move with <strong>WASD, arrow keys, the joystick, or dragging the world.</strong></li><li>Stand near ripe farm plots to collect produce, then carry it to a matching shelf. Every shelf holds 12 items.</li><li>Customers take a cart outside, walk through the sliding entrance, and show what they need in a thought cloud. Their selected products appear inside the cart.</li><li>Your store starts with three carts. Add one cart per level in Manage so more customers can shop at the same time.</li><li>Take unwanted carried items to the <strong>trash bin</strong> beside the team office. Stay close for one second to empty your basket.</li><li>Stand beside checkout to serve customers and earn money plus 5 XP per sale.</li><li>Buy the <strong>drive-through service</strong> in Manage. Cars and bikes show an order list; bring each requested item to the drive window one at a time, then stay to collect payment.</li><li>The drive-through runner loads requested stock from shelves. The separate drive-through cashier collects completed payments. Neither works until hired.</li><li>Open <strong>Manage</strong> to expand the store, add farm plots, build machines, hire staff, and purchase every upgrade.</li><li>Carry tomatoes to the cannery or coffee beans to the grinder. Stand close to supply raw produce and collect finished cans or coffee bags when your basket has room.</li><li>Helpers harvest, supply machines, collect finished goods, and restock shelves. Upgrade their baskets and speed to keep things moving.</li></ol><p>The production wing opens first, then the coffee corner, then the carrot garden. Your market saves automatically on this device.</p>`
+      ? '<p>Gold footprint circles show a place to stand. They turn green when you are close enough to collect, stock, or load items.</p>'
+      : '') +
+    (kind === 'help'
+      ? `<p>Your farm, your shelves, your growing team.</p><ol><li>Move with <strong>WASD, arrow keys, the joystick, or dragging the world.</strong></li><li>Stand near ripe farm plots to collect produce, then carry it to a matching shelf. Every shelf holds 12 items.</li><li>Customers take a cart outside, walk through the sliding entrance, and show what they need in a thought cloud. Their selected products appear inside the cart.</li><li>Your store starts with three carts. Add one cart per level in Manage so more customers can shop at the same time.</li><li>Take unwanted carried items to the <strong>trash bin</strong> beside the team office. Stay close for one second to empty your basket.</li><li>Stand beside checkout to serve customers and earn money plus 5 XP per sale.</li><li>Buy the <strong>drive-through service</strong> in Manage. Cars and bikes show an order list; bring each requested item to the drive window one at a time, then stay to collect payment.</li><li>The drive-through runner loads requested stock from shelves. The separate drive-through cashier collects completed payments. Neither works until hired.</li><li>Open <strong>Manage</strong> to expand the store, add farm plots, build machines, hire staff, and purchase every upgrade.</li><li>Carry tomatoes to the cannery, coffee beans to the grinder, or milk to the dairy kitchen. Stand close to supply ingredients and collect finished products when your basket has room.</li><li>Helpers harvest, supply machines, collect finished goods, and restock shelves. Upgrade their baskets and speed to keep things moving.</li></ol><p>The production wing opens first, then the coffee corner, carrot garden, and dairy meadow. Your market saves automatically on this device.</p>`
       : `<div class="setting-row"><span>Market sounds<small>Original melodies & little rewards</small></span><button id="dialog-sound" class="secondary-button">${engine.state.soundEnabled ? 'Sound on' : 'Sound off'}</button></div><div class="setting-row"><span>Your little business<small>${engine.state.totalServed} customers · $${engine.state.totalEarned} lifetime earned</small></span>${icon('leaf')}</div><div class="setting-row"><span>A fresh beginning<small>Erase this device’s market progress</small></span><button id="reset-button" class="danger-button">Reset game</button></div><p>Your market is saved automatically in this browser. Clearing browser data also clears your save.</p>`);
   dialog.querySelector('#dialog-close')!.addEventListener('click', () => dialog.close());
   dialog.querySelector('#dialog-sound')?.addEventListener('click', () => {
@@ -167,11 +191,13 @@ function upgradePresentation(upgrade: UpgradeDefinition): {
     const unit =
       farm.id === 'egg'
         ? 'nests'
-        : farm.id === 'carrot'
-          ? 'beds'
-          : farm.id === 'corn'
-            ? 'plots'
-            : 'plants';
+        : farm.id === 'milk'
+          ? 'cows'
+          : farm.id === 'carrot'
+            ? 'beds'
+            : farm.id === 'corn'
+              ? 'plots'
+              : 'plants';
     const nextPlots = Math.min(farm.maxPlots, plots + 1);
     result.current = `${plots} ${plots === 1 ? unit.slice(0, -1) : unit}`;
     result.next = `${nextPlots} ${nextPlots === 1 ? unit.slice(0, -1) : unit}`;
@@ -200,7 +226,13 @@ function upgradePresentation(upgrade: UpgradeDefinition): {
         'Every shopper needs a cart before entering. Each level adds one cart, allowing one more customer to shop at the same time.';
       break;
     case 'expansion': {
-      const areas = ['Original market', 'Production wing', 'Coffee corner', 'Carrot garden'];
+      const areas = [
+        'Original market',
+        'Production wing',
+        'Coffee corner',
+        'Carrot garden',
+        'Dairy meadow',
+      ];
       result.current = areas[level];
       result.next = areas[next];
       result.detail =
@@ -210,7 +242,9 @@ function upgradePresentation(upgrade: UpgradeDefinition): {
             ? 'Add the first coffee plant, a bean shelf, and room to build a coffee grinder.'
             : level === 2
               ? 'Open a carrot garden with its first bed and a carrot shelf. Grow up to eight beds.'
-              : 'All three new areas are open. Keep improving your farms, machines, and staff.';
+              : level === 3
+                ? 'Open the dairy meadow with one cow and a milk shelf. Add cows or build the dairy kitchen for cheese.'
+                : 'All four new areas are open. Keep improving your farms, machines, and staff.';
       break;
     }
     case 'corn':
@@ -220,12 +254,14 @@ function upgradePresentation(upgrade: UpgradeDefinition): {
       result.detail = 'The first plot grows 2 corn every 5s. Add more with the Corn plots upgrade.';
       break;
     case 'pasteMachine':
-    case 'coffeeMachine': {
+    case 'coffeeMachine':
+    case 'dairyMachine': {
       const machine = MACHINES.find((entry) => entry.upgrade === upgrade.id)!;
-      const output = upgrade.id === 'pasteMachine' ? 'cans' : 'bags';
+      const output =
+        upgrade.id === 'pasteMachine' ? 'cans' : upgrade.id === 'coffeeMachine' ? 'bags' : 'cheese';
       result.current = level ? `Up to ${2 * level} ${output}` : 'Not built';
       result.next = `Up to ${2 * next} ${output} / batch`;
-      result.detail = `${upgrade.id === 'pasteMachine' ? '1 tomato makes 1 can' : '1 coffee bean makes 1 bag'}. A batch takes ${machine.batchMs / 1000}s and starts with available input. Upgrade its limit from 2 to 4, 6, then 8 ingredients.`;
+      result.detail = `${upgrade.id === 'pasteMachine' ? '1 tomato makes 1 can' : upgrade.id === 'coffeeMachine' ? '1 coffee bean makes 1 bag' : '1 milk bottle makes 1 cheese'}. A batch takes ${machine.batchMs / 1000}s and starts with available input. Upgrade its limit from 2 to 4, 6, then 8 ingredients.`;
       break;
     }
     case 'helpers':
@@ -300,6 +336,7 @@ function upgradeRequirement(upgrade: UpgradeDefinition): string {
           'the production wing',
           'the coffee corner',
           'the carrot garden',
+          'the dairy meadow',
         ][level!];
       if (id === 'helpers') return 'at least one harvest helper';
       if (id === 'driveThrough') return 'the drive-through service';

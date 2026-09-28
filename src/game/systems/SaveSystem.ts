@@ -57,6 +57,7 @@ export function createInitialState(): GameState {
     machines: {
       paste: { input: 0, output: 0, processing: 0, elapsed: 0 },
       coffee: { input: 0, output: 0, processing: 0, elapsed: 0 },
+      dairy: { input: 0, output: 0, processing: 0, elapsed: 0 },
     },
     workers: [],
     xp: 0,
@@ -311,6 +312,8 @@ export function validateSave(value: unknown): GameState | null {
         vehicle: stored.vehicle === 'bike' ? 'bike' : 'car',
         state: driveState,
         ...position,
+        // Keep existing orders and deliveries when the vehicle lane is relocated.
+        y: GAME_CONFIG.driveThroughVehicleSpot.y,
         color: integer(stored.color, 0xe7775e, 0xffffff),
         requested,
         delivered,

@@ -5,6 +5,7 @@ import type { GameState } from '../types';
 import { icon, productIcon } from './icons';
 
 export interface HudActions {
+  account(): void;
   sound(): void;
   pause(): void;
   settings(): void;
@@ -39,6 +40,7 @@ export class Hud {
             <div class="hud-right">
               <div class="basket-card"><button class="basket-heading" id="inventory-toggle" aria-label="Show basket contents" aria-expanded="false" aria-controls="inventory-detail"><span>${icon('basket', 17)} Basket</span><span id="basket-count">0 / 8</span>${icon('chevron', 12)}</button><div id="inventory-items" class="inventory-items"></div><div id="inventory-detail" class="inventory-detail" hidden></div></div>
               <nav class="toolbar" aria-label="Game controls">
+                <button class="icon-button" id="account-button" aria-label="Open player account" title="Player account">${icon('account')}</button>
                 <button class="icon-button" id="help-button" aria-label="How to play" title="How to play">${icon('help')}</button>
                 <button class="icon-button" id="sound-button" aria-label="Turn sound off" title="Sound on">${icon('sound')}</button>
                 <button class="icon-button" id="pause-button" aria-label="Pause game" title="Pause">${icon('pause')}</button>
@@ -55,6 +57,7 @@ export class Hud {
           <span id="save-label" class="save-label">● Saved on this device</span>
       </main>
       <dialog id="settings-dialog" class="game-dialog"></dialog>
+      <dialog id="account-dialog" class="game-dialog account-dialog" aria-label="Player account"></dialog>
       <dialog id="management-dialog" class="game-dialog management-dialog" aria-label="Manage market"></dialog>
       <div class="sr-only" id="announcements" aria-live="polite" role="status"></div>
     `;
@@ -70,6 +73,7 @@ export class Hud {
     this.xpFill = root.querySelector('#xp-fill')!;
     this.inventoryDetail = root.querySelector('#inventory-detail')!;
     this.soundButton.addEventListener('click', actions.sound);
+    root.querySelector('#account-button')!.addEventListener('click', actions.account);
     this.pauseButton.addEventListener('click', actions.pause);
     root.querySelector('#resume-button')!.addEventListener('click', actions.pause);
     root.querySelector('#settings-button')!.addEventListener('click', actions.settings);
@@ -170,6 +174,9 @@ export class Hud {
       if (!order)
         this.hint.innerHTML =
           '<strong>Drive-through is ready</strong><span>The next car or bike is on its way.</span>';
+      else if (order.state === 'ARRIVING')
+        this.hint.innerHTML =
+          '<strong>Vehicle approaching</strong><span>Wait for it to stop at the pickup window.</span>';
       else if (['READY_TO_PAY', 'PAYING'].includes(order.state))
         this.hint.innerHTML = state.upgrades.driveCashier
           ? '<strong>Drive-through payment</strong><span>Your dedicated cashier is collecting it.</span>'

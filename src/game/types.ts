@@ -1,6 +1,14 @@
 export type ProductId =
-  'tomato' | 'egg' | 'corn' | 'coffee' | 'carrot' | 'tomatoPaste' | 'groundCoffee';
-export type MachineId = 'paste' | 'coffee';
+  | 'tomato'
+  | 'egg'
+  | 'corn'
+  | 'coffee'
+  | 'carrot'
+  | 'milk'
+  | 'tomatoPaste'
+  | 'groundCoffee'
+  | 'cheese';
+export type MachineId = 'paste' | 'coffee' | 'dairy';
 export type UpgradeId =
   | 'shelf'
   | 'inventory'
@@ -14,8 +22,10 @@ export type UpgradeId =
   | 'cornPlots'
   | 'coffeePlots'
   | 'carrotPlots'
+  | 'cowPlots'
   | 'pasteMachine'
   | 'coffeeMachine'
+  | 'dairyMachine'
   | 'helpers'
   | 'helperCapacity'
   | 'helperSpeed'

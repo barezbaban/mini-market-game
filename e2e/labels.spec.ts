@@ -1,4 +1,144 @@
 import { expect, test, type Page } from '@playwright/test';
+import { GAME_CONFIG } from '../src/game/data/gameConfig';
+
+test('drive-through has one mounted title and one active order, even with a full queue', async ({
+  page,
+}) => {
+  await openGame(page);
+  await page.evaluate((vehicleSpot) => {
+    const { engine } = window.__MARKET__;
+    engine.economy.earn(100000);
+    for (const upgrade of [
+      'expansion',
+      'corn',
+      'driveThrough',
+      'driveRunner',
+      'driveCashier',
+      'customers',
+      'accountant',
+    ] as const)
+      engine.purchaseUpgrade(upgrade);
+    engine.drainEvents();
+    const empty = {
+      tomato: 0,
+      egg: 0,
+      corn: 0,
+      coffee: 0,
+      carrot: 0,
+      milk: 0,
+      tomatoPaste: 0,
+      groundCoffee: 0,
+      cheese: 0,
+    };
+    engine.state.driveThroughOrders = [0, 1, 2].map((index) => ({
+      id: 41 + index,
+      vehicle: index === 1 ? 'bike' : 'car',
+      state: index === 0 ? 'WAITING_FOR_ITEMS' : 'ARRIVING',
+      x: vehicleSpot.x + index * 105,
+      y: vehicleSpot.y,
+      color: index === 2 ? 0x5f9fc4 : 0xe7775e,
+      requested: { ...empty, tomato: 2, egg: 1, corn: 1 },
+      delivered: { ...empty, tomato: 1 },
+    }));
+    document.querySelector<HTMLElement>('#debug-panel')!.hidden = true;
+    document.querySelector<HTMLElement>('#pause-overlay')!.style.display = 'none';
+  }, GAME_CONFIG.driveThroughVehicleSpot);
+
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 844, height: 390 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await focusCamera(page, GAME_CONFIG.driveThroughPlayerSpot);
+    // Let the actual HUD refresh after positioning the player, then freeze the
+    // fixture again before deliveries can advance.
+    await page.evaluate(async () => {
+      window.__MARKET__.setPaused(false);
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      );
+      window.__MARKET__.setPaused(true);
+      document.querySelector<HTMLElement>('#pause-overlay')!.style.display = 'none';
+    });
+    const snapshot = await labels(page);
+    expect(
+      snapshot
+        .filter(({ id, visible }) => /^drive:\d+:status$/.test(id) && visible)
+        .map(({ id }) => id),
+    ).toEqual(['drive:0:status']);
+    const bounds = await labelBounds(page);
+    const drive = [
+      'drive-through:title',
+      'drive-through:status',
+      'drive:0:status',
+      'drive:0:quantity:0',
+      'drive:0:quantity:1',
+      'drive:0:quantity:2',
+    ].map((id) => expectContained(bounds, id, viewport));
+    const nearby = bounds.filter(
+      ({ id, visible }) => visible && (id.startsWith('office:') || id === 'trash:title'),
+    );
+    const hint = await page.locator('.objective').boundingBox();
+    expect(hint).not.toBeNull();
+    for (const entry of drive)
+      expect(entry.bottom, `${entry.id} stays above the help panel`).toBeLessThan(hint!.y);
+    for (let first = 0; first < drive.length; first += 1) {
+      for (const other of [...drive.slice(first + 1), ...nearby])
+        expect(
+          polygonsOverlap(drive[first], other),
+          `${drive[first].id} overlaps ${other.id}`,
+        ).toBe(false);
+    }
+    await page.screenshot({ path: `test-results/drive-through-${viewport.width}.png` });
+  }
+  expect(
+    await page.evaluate(() => {
+      const { scene } = window.__MARKET__.world;
+      const sign = scene.getObjectByName('drive-through:sign')!;
+      const title = scene.getObjectByName('label:drive-through:title')!;
+      return Math.abs(title.position.z - (sign.position.z + sign.scale.z / 2));
+    }),
+  ).toBeLessThan(0.01);
+
+  await page.evaluate(() => {
+    const { engine } = window.__MARKET__;
+    const order = engine.state.driveThroughOrders[0];
+    order.delivered = { ...order.requested };
+    order.state = 'READY_TO_PAY';
+  });
+  expect((await labels(page)).find(({ id }) => id === 'drive-through:status')?.text).toBe(
+    'PAYMENT',
+  );
+  await page.evaluate(() => {
+    const { engine } = window.__MARKET__;
+    engine.state.driveThroughOrders.shift();
+  });
+  expect((await labels(page)).find(({ id }) => id === 'drive-through:status')?.text).toBe(
+    'ARRIVING',
+  );
+  expect(
+    (await labels(page)).filter(({ id, visible }) => /^drive:\d+:status$/.test(id) && visible),
+  ).toHaveLength(0);
+  await page.evaluate((vehicleSpot) => {
+    const { engine } = window.__MARKET__;
+    Object.assign(engine.state.driveThroughOrders[0], vehicleSpot, { state: 'WAITING_FOR_ITEMS' });
+  }, GAME_CONFIG.driveThroughVehicleSpot);
+  expect((await labels(page)).find(({ id }) => id === 'drive:0:status')).toMatchObject({
+    text: 'ORDER',
+    visible: true,
+  });
+  await page.evaluate(() => {
+    window.__MARKET__.engine.state.upgrades.driveThrough = 0;
+  });
+  expect(
+    (await labels(page)).filter(({ id, visible }) => /^drive:\d+:status$/.test(id) && visible),
+  ).toHaveLength(0);
+  await page.evaluate(() => {
+    window.__MARKET__.engine.state.driveThroughOrders = [];
+  });
+  expect((await labels(page)).find(({ id }) => id === 'drive-through:status')?.text).toBe('OPEN');
+});
 
 async function openGame(page: Page): Promise<void> {
   await page.goto('./?debug=true');

@@ -176,6 +176,18 @@ export function createProduce(id: ProductId): Group {
     at(produce, roundedBox(0.08, 0.087, 0.009, 0.012, 0xffefd1), 0, 0, 0.045);
     const bean = at(produce, ball(0.019, 0.028, 0.006, 0x795039), 0, 0, 0.052);
     bean.rotation.z = 0.3;
+  } else if (id === 'milk') {
+    at(produce, roundedBox(0.115, 0.18, 0.105, 0.025, 0xf8f8e9), 0, 0, 0);
+    at(produce, box(0.075, 0.035, 0.075, 0x79b9cb), 0, 0.107, 0);
+    at(produce, box(0.119, 0.065, 0.008, 0x86c8da), 0, -0.018, 0.056);
+  } else if (id === 'cheese') {
+    at(produce, roundedBox(0.17, 0.12, 0.13, 0.018, 0xf6c854), 0, 0, 0);
+    for (const [x, y] of [
+      [-0.045, 0.02],
+      [0.04, -0.015],
+      [0.055, 0.035],
+    ])
+      at(produce, ball(0.015, 0.012, 0.005, 0xd8a945), x, y, 0.068);
   }
   return produce;
 }
@@ -214,6 +226,28 @@ export function createChicken(): Group {
   const tail = at(chicken, leaf(0.056, 0.135, 0xf2e1bf), 0, 0.218, -0.151);
   tail.rotation.x = -0.7;
   return chicken;
+}
+
+/** A compact black-and-white cow for each owned dairy plot. */
+export function createCow(): Group {
+  const cow = new Group();
+  cow.name = 'dairy-cow';
+  at(cow, ball(0.27, 0.19, 0.17, 0xf8f5e9), 0, 0.38, -0.03);
+  at(cow, ball(0.15, 0.145, 0.14, 0xf8f5e9), 0, 0.48, 0.19);
+  at(cow, ball(0.12, 0.06, 0.085, 0xe7acaa), 0, 0.405, 0.29);
+  for (const side of [-1, 1]) {
+    at(cow, tube(0.037, 0.27, 0xf1efe6), side * 0.17, 0.15, side < 0 ? -0.12 : 0.1);
+    at(cow, ball(0.055, 0.028, 0.06, 0x454748), side * 0.17, 0.018, side < 0 ? -0.12 : 0.1);
+    at(cow, ball(0.055, 0.042, 0.07, 0x383b3b), side * 0.13, 0.54, 0.31);
+    at(cow, ball(0.055, 0.032, 0.065, 0xf1eadd), side * 0.17, 0.59, 0.12);
+    at(cow, ball(0.012, 0.012, 0.008, 0x303b3b), side * 0.06, 0.505, 0.326);
+    at(cow, ball(0.014, 0.01, 0.008, 0xa96f70), side * 0.058, 0.408, 0.367);
+  }
+  at(cow, ball(0.12, 0.09, 0.025, 0x404445), -0.08, 0.49, 0.103).rotation.z = 0.24;
+  at(cow, ball(0.08, 0.095, 0.025, 0x404445), 0.115, 0.39, -0.14).rotation.z = -0.3;
+  at(cow, ball(0.065, 0.045, 0.065, 0xe7acaa), 0, 0.22, 0.015);
+  at(cow, tube(0.018, 0.22, 0x4c4a46), 0.025, 0.36, -0.23).rotation.x = -0.45;
+  return cow;
 }
 
 export interface CharacterModel {

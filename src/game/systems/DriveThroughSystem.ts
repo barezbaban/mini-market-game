@@ -41,7 +41,11 @@ export class DriveThroughSystem {
     private readonly economy: EconomySystem,
     private readonly emit: (event: GameEvent) => void = () => {},
   ) {
-    this.nextId = Math.max(1, ...state.driveThroughOrders.map((order) => order.id + 1));
+    this.nextId = Math.max(
+      1,
+      state.driveThroughServed + 1,
+      ...state.driveThroughOrders.map((order) => order.id + 1),
+    );
   }
 
   private spawn(): void {
@@ -52,8 +56,11 @@ export class DriveThroughSystem {
     const requested = emptyItems();
     const units = 2 + (id % 3);
     const productCount = Math.min(3, choices.length, units);
+    const firstProduct = (id - 1) % choices.length;
     for (let index = 0; index < units; index += 1) {
-      const product = choices[(id + index) % productCount];
+      // Rotate through the whole unlocked catalog, while limiting any one
+      // order to three distinct items so its card stays readable.
+      const product = choices[(firstProduct + (index % productCount)) % choices.length];
       requested[product] += 1;
     }
     this.state.driveThroughOrders.push({
@@ -158,12 +165,12 @@ export class DriveThroughSystem {
     }
     const waiting = this.state.driveThroughOrders.filter((order) => order.state !== 'LEAVING');
     const departureInLane = this.state.driveThroughOrders.some(
-      (order) => order.state === 'LEAVING' && order.x < 1505,
+      (order) => order.state === 'LEAVING' && order.x > GAME_CONFIG.driveThroughVehicleSpot.x - 105,
     );
     waiting.forEach((order, index) => {
       // Let the departing vehicle clear the single lane before the next order advances.
       const target =
-        GAME_CONFIG.driveThroughVehicleSpot.x + (index + (departureInLane ? 2 : 0)) * 105;
+        GAME_CONFIG.driveThroughVehicleSpot.x + (index + (departureInLane ? 1 : 0)) * 105;
       if (moveX(order, target, deltaMs) && index === 0 && order.state === 'ARRIVING')
         order.state = 'WAITING_FOR_ITEMS';
     });
@@ -175,10 +182,10 @@ export class DriveThroughSystem {
     }
     if (active?.x === GAME_CONFIG.driveThroughVehicleSpot.x) this.updateService(active, deltaMs);
     for (const order of this.state.driveThroughOrders) {
-      if (order.state === 'LEAVING') moveX(order, 1510, deltaMs);
+      if (order.state === 'LEAVING') moveX(order, GAME_CONFIG.driveThroughExitX, deltaMs);
     }
     this.state.driveThroughOrders = this.state.driveThroughOrders.filter(
-      (order) => order.state !== 'LEAVING' || order.x < 1505,
+      (order) => order.state !== 'LEAVING' || order.x > GAME_CONFIG.driveThroughExitX,
     );
   }
 }

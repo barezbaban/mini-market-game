@@ -135,6 +135,44 @@ export const PRODUCTS: ProductDefinition[] = [
     maxPlots: 8,
     plotUpgrade: 'carrotPlots',
   },
+  {
+    id: 'milk',
+    name: 'Milk',
+    plural: 'Milk bottles',
+    icon: 'milk',
+    productionTime: 5000,
+    yieldPerPlot: 2,
+    sellingPrice: 14,
+    shelfCapacity: 12,
+    unlockCost: 0,
+    sprite: 'milk',
+    color: 0xb6dceb,
+    shelf: { x: 2350, y: 240 },
+    farm: { x: 2350, y: 620 },
+    kind: 'farm',
+    area: 4,
+    maxPlots: 5,
+    plotUpgrade: 'cowPlots',
+  },
+  {
+    id: 'cheese',
+    name: 'Cheese',
+    plural: 'Cheese',
+    icon: 'cheese',
+    productionTime: 7000,
+    yieldPerPlot: 0,
+    sellingPrice: 29,
+    shelfCapacity: 12,
+    unlockCost: 420,
+    sprite: 'cheese',
+    color: 0xf5c96b,
+    shelf: { x: 2570, y: 240 },
+    farm: { x: 2570, y: 610 },
+    kind: 'processed',
+    area: 4,
+    maxPlots: 0,
+    unlockUpgrade: 'dairyMachine',
+  },
 ];
 export const FARM_PRODUCTS = PRODUCTS.filter((product) => product.kind === 'farm');
 export const productById = (id: string): ProductDefinition | undefined =>
@@ -147,6 +185,8 @@ export const emptyItems = (): ItemCounts => ({
   carrot: 0,
   tomatoPaste: 0,
   groundCoffee: 0,
+  milk: 0,
+  cheese: 0,
 });
 export function plotCount(state: GameState, id: ProductId): number {
   const product = productById(id)!;
