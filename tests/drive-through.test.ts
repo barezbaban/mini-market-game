@@ -28,6 +28,15 @@ function waitForOrder(engine: GameEngine): void {
 }
 
 describe('drive-through service', () => {
+  it('keeps the one-way road beyond both vehicle transition points', () => {
+    expect(GAME_CONFIG.driveThroughRoadStartX).toBeLessThan(GAME_CONFIG.driveThroughExitX);
+    expect(GAME_CONFIG.driveThroughExitX).toBeLessThan(GAME_CONFIG.driveThroughVehicleSpot.x);
+    expect(GAME_CONFIG.driveThroughVehicleSpot.x).toBeLessThan(GAME_CONFIG.driveThroughSpawnX);
+    expect(GAME_CONFIG.driveThroughSpawnX).toBeLessThan(GAME_CONFIG.driveThroughRoadEndX);
+    expect(GAME_CONFIG.driveThroughRoadStartX).toBeLessThan(GAME_CONFIG.bounds.left);
+    expect(GAME_CONFIG.driveThroughRoadEndX).toBeGreaterThan(GAME_CONFIG.width);
+  });
+
   it('rotates requests through every unlocked product with no more than three types per order', () => {
     const engine = new GameEngine();
     Object.assign(engine.state.upgrades, {
@@ -131,7 +140,12 @@ describe('drive-through service', () => {
     advance(engine, 500);
     expect(departing.x).toBeLessThan(startingX);
     expect(waiting.x).toBe(startingX + 105);
-    advance(engine, 3000);
+    const remainingTravel = Math.ceil(
+      ((departing.x - GAME_CONFIG.driveThroughExitX) /
+        GAME_CONFIG.driveThroughVehicleSpeed) *
+        1000,
+    );
+    advance(engine, remainingTravel + 50);
     expect(engine.state.driveThroughOrders.some(({ id }) => id === departing.id)).toBe(false);
     expect(waiting.x).toBe(GAME_CONFIG.driveThroughVehicleSpot.x);
     expect(waiting.state).toBe('WAITING_FOR_ITEMS');

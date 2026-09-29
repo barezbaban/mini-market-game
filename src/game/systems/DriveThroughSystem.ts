@@ -67,7 +67,7 @@ export class DriveThroughSystem {
       id,
       vehicle: id % 3 === 0 ? 'bike' : 'car',
       state: 'ARRIVING',
-      x: 1480,
+      x: GAME_CONFIG.driveThroughSpawnX,
       y: GAME_CONFIG.driveThroughVehicleSpot.y,
       color: VEHICLE_COLORS[(id - 1) % VEHICLE_COLORS.length],
       requested,

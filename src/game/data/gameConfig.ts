@@ -43,5 +43,8 @@ export const GAME_CONFIG = {
   driveThroughWindow: { x: 1130, y: 960 },
   driveThroughPlayerSpot: { x: 1080, y: 920 },
   driveThroughVehicleSpot: { x: 1245, y: 1060 },
-  driveThroughExitX: 1000,
+  driveThroughRoadStartX: -800,
+  driveThroughRoadEndX: 3600,
+  driveThroughSpawnX: 1800,
+  driveThroughExitX: 400,
 } as const;

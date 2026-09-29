@@ -618,7 +618,7 @@ export class WorldRenderer {
       [1.8, -4.6, 1.05],
       [-2.2, -4.5, 1.2],
       [22.1, -3.9, 1.5],
-      [22.1, 6.4, 1.15],
+      [22.1, 8.5, 1.15],
     ].forEach(([x, z, scale]) => {
       const tree = createTree();
       tree.position.set(x, 0, z);
@@ -630,7 +630,7 @@ export class WorldRenderer {
       const z = Math.cos(index * 17.4) * 7;
       if (
         (x > -5.8 && x < 20.9 && z > -3.1 && z < 6.1) ||
-        (x > -1.6 && x < 14.8 && z > 5.9 && z < 7.5) ||
+        (z > 5.9 && z < 7.5) ||
         x > 6.1
       ) continue;
       const grass = block(this.scene, x, 0.05, z, 0.07, 0.15, 0.035, C.darkGrass);
@@ -833,8 +833,8 @@ export class WorldRenderer {
     const laneZ = (GAME_CONFIG.driveThroughVehicleSpot.y - GAME_CONFIG.driveThroughWindow.y) / 100;
     // Continue beyond the camera on both sides so cars enter and leave on a road,
     // rather than appearing on the ends of a small floating asphalt slab.
-    const roadStart = 500;
-    const roadEnd = 2100;
+    const roadStart = GAME_CONFIG.driveThroughRoadStartX;
+    const roadEnd = GAME_CONFIG.driveThroughRoadEndX;
     const roadCenter = (roadStart + roadEnd - 2 * GAME_CONFIG.driveThroughWindow.x) / 200;
     const roadLength = (roadEnd - roadStart) / 100;
     block(area, roadCenter, 0.009, laneZ, roadLength, 0.025, 1.48, 0xb5c5ac).name =
