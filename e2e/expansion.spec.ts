@@ -12,7 +12,8 @@ test('management buys every expansion with real costs, caps levels, and preserve
   await open(page);
   await page.evaluate(() => {
     // Isolated browser fixture funds, never applied to a player's saved game.
-    window.__MARKET__.engine.economy.earn(100000);
+    window.__MARKET__.engine.economy.earn(1_000_000);
+    window.__MARKET__.engine.state.xp = 43_500; // Player level 30, all milestone tiers available.
   });
   await page.locator('#manage-button').click();
   const dialog = page.locator('#management-dialog');
@@ -27,6 +28,7 @@ test('management buys every expansion with real costs, caps levels, and preserve
     'expansion',
     'corn',
     'inventory',
+    'shelf',
     'carts',
     'cashier',
     'customers',
@@ -41,8 +43,10 @@ test('management buys every expansion with real costs, caps levels, and preserve
     'carrotPlots',
     'pasteMachine',
     'coffeeMachine',
+    'cowPlots',
+    'dairyMachine',
   ];
-  let expectedMoney = 100000;
+  let expectedMoney = 1_000_000;
   for (const id of order) {
     const upgrade = UPGRADES.find((entry) => entry.id === id)!;
     await page.locator(`#management-tab-${upgrade.category}`).click();
@@ -56,8 +60,8 @@ test('management buys every expansion with real costs, caps levels, and preserve
   expect(await page.evaluate(() => window.__MARKET__.engine.state.elapsed)).toBe(pausedAt);
   const before = await page.evaluate(() => window.__MARKET__.engine.snapshot());
   expect(before.workers).toHaveLength(3);
-  expect(before.unlockedProducts).toHaveLength(7);
-  expect(Object.values(before.shelfCapacities)).toEqual(Array(7).fill(12));
+  expect(before.unlockedProducts).toHaveLength(9);
+  expect(Object.values(before.shelfCapacities)).toEqual(Array(9).fill(24));
   expect(before.upgrades.helperCapacity).toBe(4);
   expect(before.upgrades.helperSpeed).toBe(9);
   await page.reload();
@@ -94,6 +98,8 @@ test('fully staffed expanded store earns money and XP with no player harvesting'
       'carrotPlots',
       'pasteMachine',
       'coffeeMachine',
+      'cowPlots',
+      'dairyMachine',
       'accountant',
     ] as const) {
       while (engine.purchaseUpgrade(id)) {
@@ -125,10 +131,12 @@ test('fully staffed expanded store earns money and XP with no player harvesting'
   expect(result.state.xp).toBeGreaterThan(1000);
   expect(result.sold.sort()).toEqual([
     'carrot',
+    'cheese',
     'coffee',
     'corn',
     'egg',
     'groundCoffee',
+    'milk',
     'tomato',
     'tomatoPaste',
   ]);

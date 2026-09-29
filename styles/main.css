@@ -532,7 +532,9 @@ kbd {
 }
 .account-dialog h2 {
   margin: 14px 0 6px;
-  font: 700 28px/1.15 'Outfit', sans-serif;
+  font:
+    700 28px/1.15 'Outfit',
+    sans-serif;
   letter-spacing: -0.6px;
 }
 .auth-brand {
@@ -540,7 +542,9 @@ kbd {
   align-items: center;
   gap: 10px;
   color: #4d7547;
-  font: 700 13px 'Outfit', sans-serif;
+  font:
+    700 13px 'Outfit',
+    sans-serif;
   letter-spacing: 0.3px;
 }
 .auth-tabs {
@@ -584,7 +588,9 @@ kbd {
   background: #fffef9;
   color: #304c39;
   padding: 12px 13px;
-  font: 500 14px 'DM Sans', sans-serif;
+  font:
+    500 14px 'DM Sans',
+    sans-serif;
 }
 .auth-form input:focus {
   border-color: #7e9d62;
@@ -650,7 +656,9 @@ kbd {
   border-radius: 50%;
   color: #fffced;
   background: #719450;
-  font: 700 18px 'Outfit', sans-serif;
+  font:
+    700 18px 'Outfit',
+    sans-serif;
 }
 #account-button.signed-in {
   color: #fffdf2;
@@ -1100,6 +1108,46 @@ button.basket-heading > span:first-child {
   font:
     700 18px 'Outfit',
     sans-serif;
+}
+.progression-overview {
+  padding: 15px 17px;
+  border: 1px solid #d9e5c8;
+  border-radius: 15px;
+  background: #f1f6e7;
+  color: #365b43;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.progression-overview > strong {
+  display: block;
+  font-size: 14px;
+}
+.progression-overview p {
+  margin: 6px 0;
+}
+.progression-overview summary {
+  cursor: pointer;
+  font-weight: 700;
+  padding-top: 4px;
+}
+.milestone-list {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+}
+.milestone-list li {
+  display: grid;
+  grid-template-columns: 115px 1fr;
+  gap: 12px;
+  padding: 9px 0;
+  border-top: 1px solid #d9e5c8;
+}
+.milestone-list small {
+  display: block;
+  font-size: 10px;
+}
+.milestone-list .unlocked {
+  color: #17694b;
 }
 .management-tabs {
   flex-shrink: 0;

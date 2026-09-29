@@ -8,19 +8,21 @@ export const UPGRADES: UpgradeDefinition[] = [
     cost: 100,
     costGrowth: 1.65,
     type: 'capacity',
-    maxLevel: 5,
+    maxLevel: 8,
+    playerLevels: { 6: 20, 7: 25, 8: 30 },
     position: { x: 1138, y: 230 },
     icon: 'basket',
     category: 'store',
   },
   {
     id: 'shelf',
-    name: 'Display upgrade',
-    description: 'Legacy shelf upgrade retained; all shelves now hold 12',
-    cost: 120,
-    costGrowth: 1,
+    name: 'Shelf rows',
+    description: 'Add a row of 4 spaces to every shelf, up to 6 rows and 24 items',
+    cost: 180,
+    costGrowth: 2.2,
     type: 'shelf',
-    maxLevel: 1,
+    maxLevel: 3,
+    playerLevels: { 1: 3, 2: 10, 3: 20 },
     position: { x: 1138, y: 337 },
     icon: 'shelf',
     category: 'store',
@@ -28,11 +30,12 @@ export const UPGRADES: UpgradeDefinition[] = [
   {
     id: 'carts',
     name: 'Shopping carts',
-    description: 'Start with 3 carts; add 1 cart per level, up to 10',
+    description: 'Add 1 cart per purchase; grow beyond 10 carts starting at player level 20',
     cost: 125,
     costGrowth: 1.45,
     type: 'capacity',
-    maxLevel: 7,
+    maxLevel: 12,
+    playerLevels: { 8: 20, 9: 22, 10: 24, 11: 26, 12: 28 },
     position: { ...GAME_CONFIG.cartStation },
     icon: 'basket',
     category: 'store',
@@ -44,7 +47,8 @@ export const UPGRADES: UpgradeDefinition[] = [
     cost: 90,
     costGrowth: 1.45,
     type: 'spawn',
-    maxLevel: 10,
+    maxLevel: 13,
+    playerLevels: { 11: 20, 12: 25, 13: 30 },
     position: { x: 1138, y: 444 },
     icon: 'heart',
     category: 'staff',
@@ -68,7 +72,8 @@ export const UPGRADES: UpgradeDefinition[] = [
     cost: 300,
     costGrowth: 1.5,
     type: 'worker',
-    maxLevel: 5,
+    maxLevel: 8,
+    playerLevels: { 6: 20, 7: 25, 8: 30 },
     position: { x: 1138, y: 658 },
     icon: 'worker',
     category: 'staff',
@@ -295,13 +300,32 @@ export const upgradeCost = (state: GameState, id: UpgradeId): number => {
   const upgrade = upgradeById(id);
   return Math.ceil(upgrade.cost * upgrade.costGrowth ** state.upgrades[id]);
 };
-export const upgradeAvailable = (state: GameState, id: UpgradeId): boolean =>
+export const upgradePrerequisitesMet = (state: GameState, id: UpgradeId): boolean =>
   Object.entries(upgradeById(id).requires ?? {}).every(
     ([key, level]) => state.upgrades[key as UpgradeId] >= level!,
   );
+export const requiredPlayerLevel = (state: GameState, id: UpgradeId): number =>
+  upgradeById(id).playerLevels?.[state.upgrades[id] + 1] ?? 1;
+export const upgradeAvailable = (state: GameState, id: UpgradeId): boolean =>
+  upgradePrerequisitesMet(state, id) && playerLevel(state.xp) >= requiredPlayerLevel(state, id);
 export const playerLevel = (xp: number): number =>
   Math.max(1, Math.floor((1 + Math.sqrt(1 + (8 * Math.max(0, xp)) / 100)) / 2));
 export const xpForLevel = (level: number): number => (level - 1) * level * 50;
+export const shelfRows = (upgradeLevel: number): number => 3 + upgradeLevel;
+export const SHELF_COLUMNS = 4;
+/** Derived from purchase rules so the roadmap cannot drift from actual unlocks. */
+export const LEVEL_MILESTONES = [
+  ...new Set(UPGRADES.flatMap((upgrade) => Object.values(upgrade.playerLevels ?? {}))),
+]
+  .sort((a, b) => a - b)
+  .map((level) => ({
+    level,
+    rewards: UPGRADES.flatMap((upgrade) =>
+      Object.entries(upgrade.playerLevels ?? {})
+        .filter(([, required]) => required === level)
+        .map(([tier]) => ({ id: upgrade.id, tier: Number(tier) })),
+    ),
+  }));
 export const checkoutDuration = (state: GameState): number =>
   1000 / 1.25 ** Math.max(0, state.upgrades.cashier - 1);
 export const cartCapacity = (state: GameState): number =>

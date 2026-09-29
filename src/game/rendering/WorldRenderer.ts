@@ -210,7 +210,14 @@ export class WorldRenderer {
       this.scene.add(model.group);
       this.workers.push({ model, previous: { x: 0, y: 0 } });
     });
-    for (let index = 0; index < GAME_CONFIG.customerMax; index += 1) {
+    for (let index = 0; index < GAME_CONFIG.driveThroughMax; index += 1)
+      this.driveVehicles.push(this.createDriveVehicle(index));
+    this.resize();
+  }
+
+  // Extra carts must not increase every new player's initial graphics/memory load.
+  private ensureCustomerVisuals(count: number): void {
+    for (let index = this.customers.length; index < count; index += 1) {
       const model = createCharacter('customer');
       const cart = createShoppingCart(`customer:${index}:cart`);
       cart.group.scale.setScalar(0.42);
@@ -258,9 +265,6 @@ export class WorldRenderer {
         quantity,
       });
     }
-    for (let index = 0; index < GAME_CONFIG.driveThroughMax; index += 1)
-      this.driveVehicles.push(this.createDriveVehicle(index));
-    this.resize();
   }
 
   resize(): void {
@@ -313,6 +317,7 @@ export class WorldRenderer {
     marker.position.set(this.player.group.position.x, 0.079, this.player.group.position.z);
     this.cashier.group.visible = state.cashier;
     this.cashier.animate(timeMs, false);
+    this.ensureCustomerVisuals(state.customers.length);
     this.customers.forEach((visual, index) => {
       const customer = state.customers[index];
       visual.model.group.visible = Boolean(customer);
@@ -346,6 +351,11 @@ export class WorldRenderer {
     });
     const totalCarts = cartCapacity(state);
     const availableCarts = Math.max(0, totalCarts - state.customers.length);
+    if (this.parkedCarts.length < totalCarts) {
+      const station = this.scene.getObjectByName('cart-station')!;
+      while (this.parkedCarts.length < totalCarts)
+        this.parkedCarts.push(this.createParkedCart(station, this.parkedCarts.length));
+    }
     this.cartStationLabel.setText(
       `CARTS ${availableCarts}/${totalCarts}`,
       availableCarts ? '#17694b' : '#ffffff',
@@ -628,11 +638,8 @@ export class WorldRenderer {
     for (let index = 0; index < 55; index += 1) {
       const x = Math.sin(index * 29.7) * 9.5;
       const z = Math.cos(index * 17.4) * 7;
-      if (
-        (x > -5.8 && x < 20.9 && z > -3.1 && z < 6.1) ||
-        (z > 5.9 && z < 7.5) ||
-        x > 6.1
-      ) continue;
+      if ((x > -5.8 && x < 20.9 && z > -3.1 && z < 6.1) || (z > 5.9 && z < 7.5) || x > 6.1)
+        continue;
       const grass = block(this.scene, x, 0.05, z, 0.07, 0.15, 0.035, C.darkGrass);
       grass.rotation.z = index % 2 ? -0.3 : 0.3;
       if (index % 3 === 0)
@@ -808,14 +815,18 @@ export class WorldRenderer {
       border: false,
     });
     count.object.position.set(0, 0.64, -0.348);
-    const carts = Array.from({ length: GAME_CONFIG.customerMax }, (_, index) => {
-      const cart = createShoppingCart(`cart-station:${index}`).group;
-      cart.scale.setScalar(0.3);
-      cart.position.set(-0.47 + (index % 5) * 0.235, 0.025, -0.11 + Math.floor(index / 5) * 0.28);
-      station.add(cart);
-      return cart;
-    });
+    const carts = Array.from({ length: GAME_CONFIG.customerStartCarts }, (_, index) =>
+      this.createParkedCart(station, index),
+    );
     return { label: count, carts };
+  }
+
+  private createParkedCart(station: import('three').Object3D, index: number): Group {
+    const cart = createShoppingCart(`cart-station:${index}`).group;
+    cart.scale.setScalar(0.3);
+    cart.position.set(-0.47 + (index % 5) * 0.235, 0.025, -0.24 + Math.floor(index / 5) * 0.24);
+    station.add(cart);
+    return cart;
   }
 
   private drawDriveThrough(): {

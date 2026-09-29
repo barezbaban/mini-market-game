@@ -4,7 +4,7 @@ import type { DriveThroughOrder, GameEvent, GameState, ItemCounts, ProductId } f
 import { EconomySystem } from './EconomySystem';
 import { distance } from './CustomerSystem';
 import { InventorySystem } from './InventorySystem';
-import { awardXp } from './ProgressionSystem';
+import { awardSaleXp } from './ProgressionSystem';
 
 const VEHICLE_COLORS = [0xe7775e, 0x5f9fc4, 0xe4b84d, 0x8c73ae, 0x62a276];
 
@@ -145,9 +145,13 @@ export class DriveThroughSystem {
     this.state.driveThroughCheckoutProgress = 0;
     this.state.driveThroughServed += 1;
     this.state.totalServed += 1;
-    awardXp(this.state, 5, this.emit);
+    const earnedXp = awardSaleXp(this.state, driveThroughTotal(order.requested), this.emit);
     order.state = 'LEAVING';
-    this.emit({ type: 'money', text: `+$${amount}`, ...GAME_CONFIG.driveThroughWindow });
+    this.emit({
+      type: 'money',
+      text: `+$${amount} · +${earnedXp} XP`,
+      ...GAME_CONFIG.driveThroughWindow,
+    });
     this.emit({ type: 'checkout', text: 'Drive-through served!', x: order.x, y: order.y });
   }
 

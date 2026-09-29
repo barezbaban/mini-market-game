@@ -102,14 +102,16 @@ function trackSimulation(engine: GameEngine) {
 
 describe('checkout queue routing regressions', () => {
   it.each([
-    { frameMs: 16, marketing: 0 },
-    { frameMs: 33, marketing: 5 },
-    { frameMs: 50, marketing: 10 },
+    { frameMs: 16, marketing: 0, carts: 7, stall: 0 },
+    { frameMs: 33, marketing: 5, carts: 7, stall: 0 },
+    { frameMs: 50, marketing: 10, carts: 7, stall: 0 },
+    { frameMs: 50, marketing: 13, carts: 12, stall: 65000 },
   ])(
     'serves all seven expanded aisles with marketing $marketing and $frameMs ms frames across reload',
-    ({ frameMs, marketing }) => {
+    ({ frameMs, marketing, carts, stall }) => {
       let engine = new GameEngine();
-      engine.state.upgrades.carts = 7;
+      engine.state.upgrades.carts = carts;
+      if (carts > 7) engine.state.xp = 43500;
       engine.economy.earn(100000);
       for (const id of ['expansion', 'corn', 'pasteMachine', 'coffeeMachine', 'cashier'] as const)
         while (engine.purchaseUpgrade(id)) {
@@ -123,6 +125,7 @@ describe('checkout queue routing regressions', () => {
       let lastSale = 0;
       let reloaded = false;
       for (let time = 0; time < 300000; time += frameMs) {
+        engine.state.cashier = time >= stall;
         for (const product of PRODUCTS.filter((entry) =>
           engine.state.unlockedProducts.includes(entry.id),
         )) {

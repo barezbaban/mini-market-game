@@ -8,7 +8,7 @@ export const GAME_CONFIG = {
   customerSpeed: 82,
   customerExteriorSpeedMultiplier: 3,
   customerSpawnInterval: 5000,
-  customerMax: 10,
+  customerMax: 15,
   customerStartCarts: 3,
   checkoutTime: 1000,
   trashHoldTime: 1000,

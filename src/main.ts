@@ -10,6 +10,11 @@ import {
   upgradeAvailable,
   upgradeById,
   upgradeCost,
+  requiredPlayerLevel,
+  LEVEL_MILESTONES,
+  SHELF_COLUMNS,
+  shelfRows,
+  xpForLevel,
 } from './game/data/upgrades';
 import { GameRuntime } from './game/GameRuntime';
 import { AudioManager } from './game/managers/AudioManager';
@@ -108,7 +113,7 @@ function showDialog(kind: 'settings' | 'help'): void {
       ? '<p>Gold footprint circles show a place to stand. They turn green when you are close enough to collect, stock, or load items.</p>'
       : '') +
     (kind === 'help'
-      ? `<p>Your farm, your shelves, your growing team.</p><ol><li>Move with <strong>WASD, arrow keys, the joystick, or dragging the world.</strong></li><li>Stand near ripe farm plots to collect produce, then carry it to a matching shelf. Every shelf holds 12 items.</li><li>Customers take a cart outside, walk through the sliding entrance, and show what they need in a thought cloud. Their selected products appear inside the cart.</li><li>Your store starts with three carts. Add one cart per level in Manage so more customers can shop at the same time.</li><li>Take unwanted carried items to the <strong>trash bin</strong> beside the team office. Stay close for one second to empty your basket.</li><li>Stand beside checkout to serve customers and earn money plus 5 XP per sale.</li><li>Buy the <strong>drive-through service</strong> in Manage. Cars and bikes show an order list; bring each requested item to the drive window one at a time, then stay to collect payment.</li><li>The drive-through runner loads requested stock from shelves. The separate drive-through cashier collects completed payments. Neither works until hired.</li><li>Open <strong>Manage</strong> to expand the store, add farm plots, build machines, hire staff, and purchase every upgrade.</li><li>Carry tomatoes to the cannery, coffee beans to the grinder, or milk to the dairy kitchen. Stand close to supply ingredients and collect finished products when your basket has room.</li><li>Helpers harvest, supply machines, collect finished goods, and restock shelves. Upgrade their baskets and speed to keep things moving.</li></ol><p>The production wing opens first, then the coffee corner, carrot garden, and dairy meadow. Your market saves automatically on this device.</p>`
+      ? `<p>Your farm, your shelves, your growing team.</p><ol><li>Move with <strong>WASD, arrow keys, the joystick, or dragging the world.</strong></li><li>Stand near ripe farm plots to collect produce, then carry it to a matching shelf. Shelves start with 3 rows and 12 spaces. Buy extra rows in Manage at player levels 3, 10, and 20 to reach 24 spaces.</li><li>Customers take a cart outside, walk through the sliding entrance, and show what they need in a thought cloud. Their selected products appear inside the cart.</li><li>Your store starts with three carts. Each cart upgrade adds one cart. Grow to 10, then unlock five more at player levels 20, 22, 24, 26, and 28.</li><li>Take unwanted carried items to the <strong>trash bin</strong> beside the team office. Stay close for one second to empty your basket.</li><li>Stand beside checkout to serve customers and earn money plus 5 XP for the customer and 2 XP per item sold. Drive-through orders earn XP the same way.</li><li>Buy the <strong>drive-through service</strong> in Manage. Cars and bikes show an order list; bring each requested item to the drive window one at a time, then stay to collect payment.</li><li>The drive-through runner loads requested stock from shelves. The separate drive-through cashier collects completed payments. Neither works until hired.</li><li>Open <strong>Manage</strong> to expand the store, add farm plots, build machines, hire staff, and purchase every upgrade. The level roadmap shows future unlocks; reaching a level makes upgrades available to buy, not free.</li><li>Carry tomatoes to the cannery, coffee beans to the grinder, or milk to the dairy kitchen. Stand close to supply ingredients and collect finished products when your basket has room.</li><li>Helpers harvest, supply machines, collect finished goods, and restock shelves. Upgrade their baskets and speed to keep things moving.</li></ol><p>The production wing opens first, then the coffee corner, carrot garden, and dairy meadow. Your market saves automatically on this device.</p>`
       : `<div class="setting-row"><span>Market sounds<small>Original melodies & little rewards</small></span><button id="dialog-sound" class="secondary-button">${engine.state.soundEnabled ? 'Sound on' : 'Sound off'}</button></div><div class="setting-row"><span>Your little business<small>${engine.state.totalServed} customers · $${engine.state.totalEarned} lifetime earned</small></span>${icon('leaf')}</div><div class="setting-row"><span>A fresh beginning<small>Erase this device’s market progress</small></span><button id="reset-button" class="danger-button">Reset game</button></div><p>Your market is saved automatically in this browser. Clearing browser data also clears your save.</p>`);
   dialog.querySelector('#dialog-close')!.addEventListener('click', () => dialog.close());
   dialog.querySelector('#dialog-sound')?.addEventListener('click', () => {
@@ -212,17 +217,16 @@ function upgradePresentation(upgrade: UpgradeDefinition): {
         'Four more spaces in your own basket. Carry any mix of raw and finished products.';
       break;
     case 'shelf':
-      result.current = '12 items per shelf';
-      result.next = 'Already included';
-      result.level = 'INCLUDED';
+      result.current = `${shelfRows(level)} rows · ${shelfRows(level) * SHELF_COLUMNS} items`;
+      result.next = `${shelfRows(next)} rows · ${shelfRows(next) * SHELF_COLUMNS} items`;
       result.detail =
-        'Every product shelf holds 12 items. This capacity is included with your market.';
+        'Add one visible row of four spaces to every shelf, including future shelves. Buy extra rows at player levels 3, 10, and 20. Your current stock stays in place.';
       break;
     case 'carts':
       result.current = `${GAME_CONFIG.customerStartCarts + level} carts`;
       result.next = `${GAME_CONFIG.customerStartCarts + next} carts`;
       result.detail =
-        'Every shopper needs a cart before entering. Each level adds one cart, allowing one more customer to shop at the same time.';
+        'Each purchase adds one cart and space for one more shopper. Grow from 3 to 10 carts, then unlock carts 11–15 at player levels 20, 22, 24, 26, and 28. More carts help marketing turn arrivals into sales.';
       break;
     case 'expansion': {
       const areas = [
@@ -292,7 +296,7 @@ function upgradePresentation(upgrade: UpgradeDefinition): {
       result.current = level ? `+${level * 20}% arrivals` : 'Not hired';
       result.next = `+${next * 20}% arrivals`;
       result.detail =
-        'Hire a marketing director, then grow customer arrival rate by 20% of the base rate per level, up to +200%.';
+        'Increase arrival rate by 20% of the base rate per upgrade. More arrivals need free carts and stocked shelves; only completed sales earn XP. Advanced tiers open at player levels 20, 25, and 30.';
       break;
     case 'accountant':
       result.current = level ? `${level * 5} XP / 10s` : 'Not hired';
@@ -326,7 +330,7 @@ function upgradePresentation(upgrade: UpgradeDefinition): {
 }
 
 function upgradeRequirement(upgrade: UpgradeDefinition): string {
-  return Object.entries(upgrade.requires ?? {})
+  const requirements = Object.entries(upgrade.requires ?? {})
     .filter(([id, level]) => engine.state.upgrades[id as UpgradeId] < level!)
     .map(([id, level]) => {
       if (id === 'expansion')
@@ -340,8 +344,29 @@ function upgradeRequirement(upgrade: UpgradeDefinition): string {
       if (id === 'helpers') return 'at least one harvest helper';
       if (id === 'driveThrough') return 'the drive-through service';
       return `${upgradeById(id as UpgradeId).name} level ${level}`;
-    })
-    .join(' and ');
+    });
+  const level = requiredPlayerLevel(engine.state, upgrade.id);
+  if (playerLevel(engine.state.xp) < level) requirements.unshift(`player level ${level}`);
+  return requirements.join(' and ');
+}
+
+function milestoneReward(id: UpgradeId, tier: number): string {
+  if (id === 'carts') return `${GAME_CONFIG.customerStartCarts + tier} carts`;
+  if (id === 'shelf')
+    return `${shelfRows(tier)} shelf rows (${shelfRows(tier) * SHELF_COLUMNS} items)`;
+  if (id === 'inventory') return `${GAME_CONFIG.playerStartCapacity + tier * 4}-item basket`;
+  return `${upgradeById(id).name} tier ${tier}`;
+}
+
+function progressionOverview(): string {
+  const state = engine.state;
+  const level = playerLevel(state.xp);
+  const next = LEVEL_MILESTONES.find((milestone) => milestone.level > level);
+  const remaining = xpForLevel(level + 1) - state.xp;
+  const headline = next
+    ? `Level ${next.level} unlocks ${next.rewards.map(({ id, tier }) => milestoneReward(id, tier)).join(' · ')}`
+    : 'All milestone tiers unlocked — finish your upgrades in Manage.';
+  return `<section class="progression-overview" aria-label="Player progression"><strong>${headline}</strong><p>${remaining.toLocaleString()} XP to level ${level + 1} · ${state.totalServed.toLocaleString()} customers served</p><p>Every paid order: <b>5 XP for the customer + 2 XP per item.</b> Store and drive-through sales both count. Reaching a level unlocks upgrades to buy with money.</p><details><summary>View level rewards</summary><ol class="milestone-list">${LEVEL_MILESTONES.map((milestone) => `<li class="${milestone.level <= level ? 'unlocked' : ''}"><span>Level ${milestone.level}<small>${milestone.level <= level ? 'Unlocked' : `${Math.max(0, xpForLevel(milestone.level) - state.xp).toLocaleString()} XP away`}</small></span><span>${milestone.rewards.map(({ id, tier }) => milestoneReward(id, tier)).join(' · ')}</span></li>`).join('')}</ol></details></section>`;
 }
 
 function renderManagement(): void {
@@ -355,23 +380,22 @@ function renderManagement(): void {
   dialog.innerHTML = `<div class="management-header"><div><span class="eyebrow">YOUR LITTLE BUSINESS</span><h2>Make room to grow.</h2></div><button class="icon-button" id="management-close" aria-label="Close management">${icon('close')}</button></div>
     <div class="management-summary"><span>${icon('coin', 18)} <strong id="management-money">$${state.money.toLocaleString()}</strong></span><span>${icon('star', 16)} Level ${playerLevel(state.xp)} · ${state.xp.toLocaleString()} XP</span><span>${state.workers.length} ${state.workers.length === 1 ? 'helper' : 'helpers'} working</span></div>
     <div class="management-tabs" role="tablist" aria-label="Management categories">${managementTabs.map((entry) => `<button id="management-tab-${entry.id}" role="tab" aria-selected="${entry.id === managementCategory}" aria-controls="management-panel" tabindex="${entry.id === managementCategory ? 0 : -1}" data-category="${entry.id}">${icon(entry.icon, 18)}${entry.title}</button>`).join('')}</div>
-    <div class="management-content" id="management-panel" role="tabpanel" aria-labelledby="management-tab-${managementCategory}" tabindex="0"><p class="management-intro">${tab.subtitle}</p><div class="upgrade-grid">${UPGRADES.filter(
+    <div class="management-content" id="management-panel" role="tabpanel" aria-labelledby="management-tab-${managementCategory}" tabindex="0">${progressionOverview()}<p class="management-intro">${tab.subtitle}</p><div class="upgrade-grid">${UPGRADES.filter(
       (upgrade) => upgrade.category === managementCategory,
     )
       .map((upgrade) => {
         const presentation = upgradePresentation(upgrade);
-        const included = upgrade.id === 'shelf';
-        const maxed = included || state.upgrades[upgrade.id] >= upgrade.maxLevel;
+        const maxed = state.upgrades[upgrade.id] >= upgrade.maxLevel;
         const available = upgradeAvailable(state, upgrade.id);
         const cost = upgradeCost(state, upgrade.id);
         const affordable = state.money >= cost;
         const product = PRODUCTS.find((entry) => entry.id === upgrade.icon);
         const buttonLabel = maxed
-          ? included
-            ? 'Included'
-            : 'Fully upgraded'
+          ? 'Fully upgraded'
           : !available
-            ? 'Unlock first'
+            ? playerLevel(state.xp) < requiredPlayerLevel(state, upgrade.id)
+              ? `Player level ${requiredPlayerLevel(state, upgrade.id)}`
+              : 'Unlock first'
             : !affordable
               ? `Need $${(cost - state.money).toLocaleString()} more`
               : state.upgrades[upgrade.id] === 0 &&
@@ -385,7 +409,7 @@ function renderManagement(): void {
                   ].includes(upgrade.id)
                 ? `Hire · $${cost.toLocaleString()}`
                 : `Buy · $${cost.toLocaleString()}`;
-        return `<article class="upgrade-card ${maxed ? 'maxed' : ''} ${available ? '' : 'unavailable'}" data-upgrade="${upgrade.id}"><div class="upgrade-card-heading"><span class="upgrade-symbol">${product ? productIcon(product.id) : icon(upgrade.icon, 25)}</span><div><small>${presentation.level}</small><h3>${upgrade.name}</h3></div></div><div class="upgrade-effect"><span>${presentation.current}</span>${maxed ? icon('check', 16) : `${icon('arrow', 16)}<strong>${presentation.next}</strong>`}</div><p>${presentation.detail}</p>${!available && !maxed ? `<div class="upgrade-requirement">${icon('lock', 13)} Requires ${upgradeRequirement(upgrade)}</div>` : ''}<div class="upgrade-purchase"><span class="upgrade-cost">${maxed ? 'All set' : `$${cost.toLocaleString()}`}</span><button id="buy-${upgrade.id}" class="upgrade-buy" data-buy-upgrade="${upgrade.id}" ${maxed || !available || !affordable ? 'disabled' : ''} aria-label="${maxed ? `${upgrade.name}: ${included ? 'included' : 'fully upgraded'}` : `Buy ${upgrade.name} for $${cost}`}">${buttonLabel}</button></div></article>`;
+        return `<article class="upgrade-card ${maxed ? 'maxed' : ''} ${available ? '' : 'unavailable'}" data-upgrade="${upgrade.id}"><div class="upgrade-card-heading"><span class="upgrade-symbol">${product ? productIcon(product.id) : icon(upgrade.icon, 25)}</span><div><small>${presentation.level}</small><h3>${upgrade.name}</h3></div></div><div class="upgrade-effect"><span>${presentation.current}</span>${maxed ? icon('check', 16) : `${icon('arrow', 16)}<strong>${presentation.next}</strong>`}</div><p>${presentation.detail}</p>${!available && !maxed ? `<div class="upgrade-requirement">${icon('lock', 13)} Requires ${upgradeRequirement(upgrade)}</div>` : ''}<div class="upgrade-purchase"><span class="upgrade-cost">${maxed ? 'All set' : `$${cost.toLocaleString()}`}</span><button id="buy-${upgrade.id}" class="upgrade-buy" data-buy-upgrade="${upgrade.id}" ${maxed || !available || !affordable ? 'disabled' : ''} aria-label="${maxed ? `${upgrade.name}: fully upgraded` : `Buy ${upgrade.name} for $${cost}`}">${buttonLabel}</button></div></article>`;
       })
       .join(
         '',

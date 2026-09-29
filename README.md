@@ -10,7 +10,7 @@ Start with **$0**, a basket that holds **8 items**, a tomato patch, and a chicke
 
 Grow → harvest → process → carry → stock → serve → earn → upgrade.
 
-The market occupies the top of the map; the farms and processing areas sit below it. Customers arrive from outside, take a shopping cart, walk through the labeled sliding entrance, find available products, form a checkout line, pay, return the cart, and continue off-screen before leaving the simulation. Products collected by each shopper appear inside that shopper's cart. The store starts with **3 carts**; the Shopping carts upgrade adds one per level, up to **10**, and shoppers wait outside when every cart is in use. Open **Manage** to inspect and purchase every upgrade. Keeping progression in this dedicated screen leaves the market floor clear and easy to read. The management window pauses the simulation while you plan.
+The market occupies the top of the map; the farms and processing areas sit below it. Customers arrive from outside, take a shopping cart, walk through the labeled sliding entrance, find available products, form a checkout line, pay, return the cart, and continue off-screen before leaving the simulation. Products collected by each shopper appear inside that shopper's cart. The store starts with **3 carts**; each Shopping carts purchase adds one, initially up to **10**. Player levels **20, 22, 24, 26, and 28** unlock carts 11–15. Shoppers need a free cart to enter. Open **Manage** to inspect and purchase every upgrade. Keeping progression in this dedicated screen leaves the market floor clear and easy to read. The management window pauses the simulation while you plan.
 
 | Product       | Production                       | Sale price | Availability                |
 | ------------- | -------------------------------- | ---------- | --------------------------- |
@@ -21,12 +21,14 @@ The market occupies the top of the map; the farms and processing areas sit below
 | Coffee beans  | 2 per plant / 4 seconds          | $12        | Coffee corner               |
 | Ground coffee | 1 bean → 1 bag; 8-second batch   | $24        | Coffee corner and grinder   |
 | Carrots       | 1 per bed / 2 seconds            | $8         | Carrot garden               |
+| Milk          | 2 per cow / 5 seconds            | $14        | Dairy meadow                |
+| Cheese        | 1 milk → 1 cheese; 7-second batch | $29       | Dairy meadow and kitchen    |
 
-All seven shelves hold **12 items**. Add up to five tomato plants, nests, corn plots, and coffee plants; the carrot garden supports eight beds. Every plot has its own production timer. Machines process **up to** 2, 4, 6, or 8 ingredients per batch as they are upgraded, and start a smaller batch when less input is available. Stand near a machine while carrying its raw ingredient to supply it, then collect the finished products when your basket has room.
+All shelves start with **3 rows × 4 spaces = 12 items**. At player levels **3, 10, and 20**, buy an extra visible row for every shelf, including future shelves: **16 → 20 → 24 items**. Existing stock is preserved. Add up to five tomato plants, nests, corn plots, coffee plants, and cows; the carrot garden supports eight beds. Every plot has its own production timer. Machines process **up to** 2, 4, 6, or 8 ingredients per batch as they are upgraded, and start a smaller batch when less input is available. Stand near a machine while carrying its raw ingredient to supply it, then collect the finished products when your basket has room.
 
-Expand eastward in three stages: **production wing ($250)**, **coffee corner ($500)**, and **carrot garden ($1,000)**. The management cards show current capacity, the next effect, the exact next price, and any prerequisite. Most repeated upgrades grow more expensive; the carrot-bed price increases by 20% each time.
+Expand eastward in four stages: **production wing ($250)**, **coffee corner ($500)**, **carrot garden ($1,000)**, and **dairy meadow ($2,000)**. The management cards show current capacity, the next effect, the exact next price, and any prerequisite. Most repeated upgrades grow more expensive; the carrot-bed price increases by 20% each time.
 
-Hire up to **three helpers** to harvest, operate machines, and stock shelves. Their baskets grow **2 → 3 → 4 → 5 → 6** items; ten speed levels multiply walking speed by **1.10** at each upgrade. A cashier has five levels, with checkout time divided by 1.25 at each level after hiring. A marketing director has ten levels, each adding 20% of the base customer arrival rate. An accountant has five levels and earns **5 XP per level every 10 seconds** while the market runs. Sales also award **5 XP**. The compact HUD shows your player level and progress toward the next level.
+Hire up to **three helpers** to harvest, operate machines, and stock shelves. Their baskets grow **2 → 3 → 4 → 5 → 6** items; ten speed levels multiply walking speed by **1.10** at each upgrade. The cashier starts with five purchasable tiers and marketing with ten. Player levels **20, 25, and 30** unlock three additional tiers for the cashier, marketing director, and player basket (up to 40 carried items). Each cashier tier after hiring divides checkout time by 1.25; each marketing tier adds 20% of the base arrival rate. Every paid store or drive-through order earns **5 customer XP + 2 XP per item sold** (7 XP for one item, 9 XP for two). Picking up goods and unpaid orders do not earn sales XP. The accountant still earns **5 XP per tier every 10 seconds**. Manage shows the next unlock, XP remaining, and a complete level roadmap. Unlocks are permission to buy with game money, not automatic purchases; existing saves keep owned upgrades and XP.
 
 The **drive-through service** is available to purchase from the beginning. Cars and bikes queue in a separate lane below the office and farms. Only the vehicle at the pickup window displays its two-to-four-item order, with delivered/requested quantities; waiting vehicles stay unobstructed. Carry each requested product to the drive window one at a time, then remain there to collect payment. The counter shows OPEN, ARRIVING, LOAD or PAYMENT as appropriate. The drive-through runner and drive-through cashier are separate hires: the runner takes requested stock from shelves, while the cashier handles only completed payments. Paid vehicles continue forward out of the lane instead of reversing through the queue.
 
@@ -35,10 +37,10 @@ The **drive-through service** is available to purchase from the beginning. Cars 
 - Original low-poly 3D world, rounded characters, produce models, and shop branding.
 - Full-screen game presentation with clear lighting, no world shadows, and a compact HUD.
 - Automatic harvesting, stocking, and checkout; no interaction button needed.
-- Seven products, independently growing farm plots, and two processing machines.
+- Nine products, independently growing farm plots, and three processing machines.
 - Customer state machines, visible product-filled shopping carts, an animated entrance, an orderly checkout queue, and a hireable cashier.
 - Purchasable car-and-bike drive-through orders with separate runner and cashier automation.
-- Three store expansions and management tabs for Store, Farms, Machines, and Staff.
+- Four store expansions, level milestones, growing shelf rows, and management tabs for Store, Farms, Machines, and Staff.
 - Upgradeable helpers, cashier, marketing director, and accountant; player XP and levels.
 - Floating feedback, carried products, stock indicators, and a short first-time tutorial.
 - Desktop movement and a virtual joystick for touch screens.

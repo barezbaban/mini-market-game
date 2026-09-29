@@ -389,7 +389,7 @@ test('labels stay concise through upgrades and compact layouts hide decorative h
   expect(snapshot.some(({ id }) => id.startsWith('upgrade:'))).toBe(false);
   expect(snapshot.some(({ id }) => /plot:.*:action/.test(id))).toBe(false);
   expect(byId.get('machine:paste:level')?.text).toBe('LV4 · 8/BATCH');
-  expect(byId.get('machine:paste:status')?.text).toBe('ADD TOMATOES');
+  expect(byId.get('machine:paste:status')?.text).toBe('ADD TOMATO');
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.evaluate(() => window.__MARKET__.world.resize());

@@ -1,5 +1,5 @@
 import { GAME_CONFIG } from '../data/gameConfig';
-import { playerLevel } from '../data/upgrades';
+import { LEVEL_MILESTONES, playerLevel } from '../data/upgrades';
 import type { GameEvent, GameState } from '../types';
 
 export function awardXp(
@@ -11,7 +11,26 @@ export function awardXp(
   const before = playerLevel(state.xp);
   state.xp = Math.min(Number.MAX_SAFE_INTEGER, state.xp + amount);
   const after = playerLevel(state.xp);
-  if (after > before) emit({ type: 'upgrade', text: `Market level ${after}!`, ...state.player });
+  if (after > before) {
+    const unlocked = LEVEL_MILESTONES.some(({ level }) => level > before && level <= after);
+    emit({
+      type: 'upgrade',
+      text: `Market level ${after}!${unlocked ? ' New upgrades in Manage' : ''}`,
+      ...state.player,
+    });
+  }
+}
+
+/** Only call after a successful payment, before clearing the paid basket. */
+export function awardSaleXp(
+  state: GameState,
+  itemsSold: number,
+  emit: (event: GameEvent) => void = () => {},
+): number {
+  if (!Number.isSafeInteger(itemsSold) || itemsSold < 1) return 0;
+  const amount = 5 + itemsSold * 2;
+  awardXp(state, amount, emit);
+  return amount;
 }
 
 export class ProgressionSystem {

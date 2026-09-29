@@ -1,6 +1,13 @@
 import { GAME_CONFIG } from '../data/gameConfig';
 import { PRODUCTS, emptyItems } from '../data/products';
-import { UPGRADES, upgradeAvailable, upgradeCost } from '../data/upgrades';
+import {
+  UPGRADES,
+  upgradeAvailable,
+  upgradeCost,
+  requiredPlayerLevel,
+  playerLevel,
+  SHELF_COLUMNS,
+} from '../data/upgrades';
 import type { GameEvent, GameState, UpgradeId, WorkerData } from '../types';
 import { EconomySystem } from './EconomySystem';
 import { refreshFarmTotals } from './FarmingSystem';
@@ -30,7 +37,9 @@ export function syncWorkers(state: GameState): void {
 
 export function applyUpgradeEffects(state: GameState): void {
   state.inventoryCapacity = GAME_CONFIG.playerStartCapacity + state.upgrades.inventory * 4;
-  for (const product of PRODUCTS) state.shelfCapacities[product.id] = product.shelfCapacity;
+  for (const product of PRODUCTS)
+    state.shelfCapacities[product.id] =
+      product.shelfCapacity + state.upgrades.shelf * SHELF_COLUMNS;
   state.unlockedProducts = PRODUCTS.filter(
     (product) =>
       product.area <= state.upgrades.expansion &&
@@ -50,11 +59,14 @@ export class UpgradeSystem {
 
   purchase(id: UpgradeId): boolean {
     const upgrade = UPGRADES.find((entry) => entry.id === id);
-    if (!upgrade || id === 'shelf' || this.state.upgrades[id] >= upgrade.maxLevel) return false;
+    if (!upgrade || this.state.upgrades[id] >= upgrade.maxLevel) return false;
     if (!upgradeAvailable(this.state, id)) {
       this.emit({
         type: 'notice',
-        text: 'Unlock the required area or staff first',
+        text:
+          playerLevel(this.state.xp) < requiredPlayerLevel(this.state, id)
+            ? `Reach player level ${requiredPlayerLevel(this.state, id)} to unlock this upgrade`
+            : 'Unlock the required area or staff first',
         ...upgrade.position,
       });
       return false;

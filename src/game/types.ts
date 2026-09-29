@@ -70,6 +70,8 @@ export interface UpgradeDefinition {
   category: 'farms' | 'machines' | 'staff' | 'store';
   costGrowth: number;
   requires?: Partial<Record<UpgradeId, number>>;
+  /** Purchased upgrade level → minimum player level. Omitted tiers are available from level 1. */
+  playerLevels?: Record<number, number>;
 }
 export interface FarmPlotState {
   ready: number;

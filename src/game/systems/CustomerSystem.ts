@@ -20,6 +20,9 @@ export const remainingCustomerNeed = (customer: CustomerData): number =>
   );
 export function queuePosition(index: number): Vec2 {
   const safe = Math.max(0, Math.min(GAME_CONFIG.customerMax - 1, index));
+  // The late-game overflow lane begins below the corn display, not inside it.
+  if (safe >= 10)
+    return { x: GAME_CONFIG.queueStart.x - 100, y: 310 + (safe - 10) * GAME_CONFIG.queueSpacing };
   return safe < 5
     ? { x: GAME_CONFIG.queueStart.x, y: GAME_CONFIG.queueStart.y + safe * GAME_CONFIG.queueSpacing }
     : {
@@ -199,10 +202,11 @@ export class CustomerSystem {
     const target = queuePosition(index);
     // Join each row from its outside aisle. A later arrival can reach its slot
     // first without occupying an earlier shopper's route through the line.
-    const approachX = index < 5 ? 880 : 765;
+    const approachX = index < 5 ? 880 : index < 10 ? 765 : 710;
+    const aisleY = index < 10 ? 450 : 490;
     customer.path = [
-      { x: customer.x, y: 450 },
-      { x: approachX, y: 450 },
+      { x: customer.x, y: aisleY },
+      { x: approachX, y: aisleY },
       { x: approachX, y: target.y },
       target,
     ];

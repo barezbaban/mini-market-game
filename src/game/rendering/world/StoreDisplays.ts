@@ -3,6 +3,7 @@ import type { Scene } from 'three';
 import { GAME_CONFIG } from '../../data/gameConfig';
 import { PRODUCTS, plotCount, plotPosition } from '../../data/products';
 import { MACHINES } from '../../data/machines';
+import { SHELF_COLUMNS, shelfRows } from '../../data/upgrades';
 import {
   farmStandSpot,
   machineStandSpot,
@@ -46,6 +47,12 @@ interface ProductVisual {
   stand: StandVisual;
   items: Group[];
   count: WorldLabel;
+  title: WorldLabel;
+  rows: Group[];
+  back: Mesh;
+  header: Mesh;
+  sides: Mesh[];
+  rowCount: number;
   farmSign?: Group;
   plots: PlotVisual[];
 }
@@ -96,6 +103,7 @@ export class StoreDisplays {
       const areaOpen = state.upgrades.expansion >= product.area;
       const unlocked = state.unlockedProducts.includes(product.id);
       visual.shelf.visible = areaOpen;
+      if (areaOpen) this.resizeShelf(visual, product, shelfRows(state.upgrades.shelf));
       this.updateStand(
         visual.stand,
         areaOpen &&
@@ -110,7 +118,7 @@ export class StoreDisplays {
         item.visible = unlocked && index < state.shelves[product.id];
       });
       visual.count.setText(
-        unlocked ? `${state.shelves[product.id]}/12` : 'LOCKED',
+        unlocked ? `${state.shelves[product.id]}/${state.shelfCapacities[product.id]}` : 'LOCKED',
         unlocked ? '#ffffff' : '#59675e',
         unlocked ? '#168a65' : '#f0f2e6',
       );
@@ -233,22 +241,12 @@ export class StoreDisplays {
     this.scene.add(shelf);
     const stand = this.createStand(`shelf-${product.id}`, shelfStandSpot(product));
     block(shelf, 0, 0.14, 0, 1.46, 0.2, 0.72, C.green);
-    block(shelf, 0, 0.54, -0.4, 1.44, 0.9, 0.075, C.cream);
-    [-0.68, 0.68].forEach((x) => block(shelf, x, 0.49, -0.015, 0.075, 0.84, 0.81, C.cream));
+    const back = block(shelf, 0, 0.54, -0.4, 1.44, 0.9, 0.075, C.cream);
+    const header = block(shelf, 0, 1.14, -0.4, 1.44, 0.28, 0.075, C.cream);
+    const sides = [-0.68, 0.68].map((x) =>
+      block(shelf, x, 0.49, -0.015, 0.075, 0.84, 0.81, C.cream),
+    );
     const items: Group[] = [];
-    for (let row = 0; row < 3; row += 1) {
-      const y = 0.27 + row * 0.24;
-      const z = 0.25 - row * 0.25;
-      block(shelf, 0, y, z, 1.44, 0.07, 0.27, C.wood);
-      block(shelf, 0, y - 0.023, z + 0.145, 1.44, 0.075, 0.025, product.color);
-      for (let column = 0; column < 4; column += 1) {
-        const produce = createProduce(product.id);
-        produce.position.set(-0.47 + column * 0.315, y + 0.13, z);
-        produce.scale.setScalar(1.05);
-        shelf.add(produce);
-        items.push(produce);
-      }
-    }
     const name = label(shelf, product.plural.toUpperCase(), 1.4, 0.27, {
       id: `shelf:${product.id}:title`,
       kind: 'object',
@@ -256,8 +254,14 @@ export class StoreDisplays {
       foreground: '#246b50',
       background: '#fff9e7',
     });
-    name.object.position.set(0, 0.89, -0.355);
-    const count = label(shelf, '0/12', 0.76, 0.27, {
+    name.object.position.set(0, 1.14, -0.355);
+    // A forward, angled stock plate stays readable from the overhead camera.
+    const stockPlate = new Group();
+    stockPlate.position.set(0, 0.19, 0.53);
+    stockPlate.rotation.x = -0.55;
+    shelf.add(stockPlate);
+    block(stockPlate, 0, 0, 0, 0.85, 0.28, 0.025, C.green);
+    const count = label(stockPlate, '0/12', 0.76, 0.25, {
       id: `shelf:${product.id}:count`,
       kind: 'status',
       mount: 'surface',
@@ -265,7 +269,7 @@ export class StoreDisplays {
       background: '#168a65',
       border: false,
     });
-    count.object.position.set(0, 0.15, 0.38);
+    count.object.position.set(0, 0, 0.016);
     let farmSign: Group | undefined;
     const plots: PlotVisual[] = [];
     if (product.kind === 'farm') {
@@ -300,7 +304,56 @@ export class StoreDisplays {
       for (let index = 0; index < product.maxPlots; index += 1)
         plots.push(this.createPlot(product, index));
     }
-    this.products.set(product.id, { shelf, stand, items, count, plots, farmSign });
+    const visual: ProductVisual = {
+      shelf,
+      stand,
+      items,
+      count,
+      plots,
+      farmSign,
+      title: name,
+      back,
+      header,
+      sides,
+      rows: [],
+      rowCount: 0,
+    };
+    this.resizeShelf(visual, product, 3);
+    this.products.set(product.id, visual);
+  }
+
+  /** Add rows only when purchased, reusing the same footprint, models, and labels. */
+  private resizeShelf(visual: ProductVisual, product: ProductDefinition, count: number): void {
+    if (visual.rowCount === count) return;
+    while (visual.rows.length < count) {
+      const row = new Group();
+      row.name = `shelf-${product.id}:row-${visual.rows.length + 1}`;
+      block(row, 0, 0, 0, 1.44, 0.07, 0.27, C.wood);
+      block(row, 0, -0.023, 0.145, 1.44, 0.075, 0.025, product.color);
+      for (let column = 0; column < SHELF_COLUMNS; column++) {
+        const produce = createProduce(product.id);
+        produce.position.set(-0.47 + column * 0.315, 0.13, 0);
+        produce.scale.setScalar(1.05);
+        row.add(produce);
+        visual.items.push(produce);
+      }
+      visual.rows.push(row);
+      visual.shelf.add(row);
+    }
+    visual.rows.forEach((row, index) => {
+      row.visible = index < count;
+      row.position.set(0, 0.27 + index * 0.24, 0.25 - index * (0.5 / (count - 1)));
+    });
+    const extraHeight = (count - 3) * 0.24;
+    visual.back.scale.y = 1.03 + extraHeight;
+    visual.back.position.y = 0.605 + extraHeight / 2;
+    visual.sides.forEach((side) => {
+      side.scale.y = 0.84 + extraHeight;
+      side.position.y = 0.49 + extraHeight / 2;
+    });
+    visual.title.object.position.y = 1.14 + extraHeight;
+    visual.header.position.y = 1.14 + extraHeight;
+    visual.rowCount = count;
   }
 
   private createPlot(product: ProductDefinition, index: number): PlotVisual {

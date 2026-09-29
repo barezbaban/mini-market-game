@@ -4,7 +4,8 @@ import type { GameEvent, GameState } from '../types';
 import { distance, orderedQueue } from './CustomerSystem';
 import { EconomySystem } from './EconomySystem';
 import { checkoutDuration } from '../data/upgrades';
-import { awardXp } from './ProgressionSystem';
+import { awardSaleXp } from './ProgressionSystem';
+import { itemCount } from './InventorySystem';
 
 export class CheckoutSystem {
   constructor(
@@ -40,7 +41,7 @@ export class CheckoutSystem {
       return;
     }
     this.state.totalServed += 1;
-    awardXp(this.state, 5, this.emit);
+    const earnedXp = awardSaleXp(this.state, itemCount(customer.basket), this.emit);
     this.state.tutorialStep = Math.max(this.state.tutorialStep, 5);
     this.state.checkoutProgress = 0;
     customer.state = 'LEAVING';
@@ -53,7 +54,7 @@ export class CheckoutSystem {
       { ...GAME_CONFIG.cartStation },
       { ...GAME_CONFIG.customerExit },
     ];
-    this.emit({ type: 'money', text: `+$${amount}`, ...GAME_CONFIG.checkout });
+    this.emit({ type: 'money', text: `+$${amount} · +${earnedXp} XP`, ...GAME_CONFIG.checkout });
     this.emit({ type: 'checkout', text: 'Thank you!', x: customer.x, y: customer.y });
   }
 }

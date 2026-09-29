@@ -1,7 +1,7 @@
 import { GAME_CONFIG } from '../data/gameConfig';
 import { PRODUCTS, emptyItems, plotCount } from '../data/products';
 import { MACHINES } from '../data/machines';
-import { UPGRADES, checkoutDuration, upgradeAvailable } from '../data/upgrades';
+import { UPGRADES, checkoutDuration, upgradePrerequisitesMet } from '../data/upgrades';
 import type {
   CustomerData,
   CustomerState,
@@ -115,7 +115,8 @@ export function validateSave(value: unknown): GameState | null {
     state.upgrades[upgrade.id] = integer(upgrades[upgrade.id], 0, upgrade.maxLevel);
   for (let pass = 0; pass < 2; pass++)
     for (const upgrade of UPGRADES)
-      if (!upgradeAvailable(state, upgrade.id)) state.upgrades[upgrade.id] = 0;
+      // Level gates apply to new purchases, never to upgrades already owned in a save.
+      if (!upgradePrerequisitesMet(state, upgrade.id)) state.upgrades[upgrade.id] = 0;
   applyUpgradeEffects(state);
   state.money = integer(raw.money);
   state.totalEarned = integer(raw.totalEarned);

@@ -141,9 +141,7 @@ describe('drive-through service', () => {
     expect(departing.x).toBeLessThan(startingX);
     expect(waiting.x).toBe(startingX + 105);
     const remainingTravel = Math.ceil(
-      ((departing.x - GAME_CONFIG.driveThroughExitX) /
-        GAME_CONFIG.driveThroughVehicleSpeed) *
-        1000,
+      ((departing.x - GAME_CONFIG.driveThroughExitX) / GAME_CONFIG.driveThroughVehicleSpeed) * 1000,
     );
     advance(engine, remainingTravel + 50);
     expect(engine.state.driveThroughOrders.some(({ id }) => id === departing.id)).toBe(false);
@@ -192,7 +190,9 @@ describe('drive-through service', () => {
     expect(engine.state.money).toBe(openingMoney + driveThroughValue(order));
     expect(engine.state.driveThroughServed).toBe(1);
     expect(engine.state.totalServed).toBe(1);
-    expect(engine.state.xp).toBe(5);
+    expect(engine.state.xp).toBe(5 + units * 2);
+    advance(engine, GAME_CONFIG.driveThroughCheckoutTime * 2);
+    expect(engine.state.xp).toBe(5 + units * 2);
   });
 
   it('keeps runner loading and cashier payment as independent jobs', () => {
