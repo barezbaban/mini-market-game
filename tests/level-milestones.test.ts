@@ -114,7 +114,8 @@ describe('level rewards and expandable store', () => {
     engine.checkout.update(1);
     expect(engine.state.xp).toBe(xpForLevel(3));
     expect(engine.state.totalServed).toBe(1);
-    expect(engine.state.money).toBe(10);
+    expect(engine.state.money).toBe(0);
+    expect(engine.state.cashStacks.store.amount).toBe(10);
     expect(engine.drainEvents()).toContainEqual(
       expect.objectContaining({ type: 'upgrade', text: 'Market level 3! New upgrades in Manage' }),
     );
@@ -167,7 +168,8 @@ describe('level rewards and expandable store', () => {
       }
     }
     expect(simulation.state.totalServed).toBe(15);
-    expect(simulation.state.money).toBe(75);
+    expect(simulation.state.money).toBe(0);
+    expect(simulation.state.cashStacks.store.amount).toBe(75);
     expect(simulation.state.xp).toBe(105);
   });
 });

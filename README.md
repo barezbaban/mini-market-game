@@ -6,23 +6,23 @@ A small farm, a friendly market, and room to grow. Mini Market Manager is an ori
 
 ## Gameplay
 
-Start with **$0**, a basket that holds **8 items**, a tomato patch, and a chicken area. Walk near ripe produce to collect it, carry it to the matching shelf, and wait at checkout to serve customers. All everyday interactions happen automatically when you are close enough.
+Start with **$0**, a basket that holds **8 items**, a tomato patch, and a chicken area. Walk near ripe produce to collect it, carry it to the matching shelf, and wait at checkout to serve customers. Payments stack beside the register: approach the gold cash circle to bank them, then step away before collecting the next batch.
 
 Grow → harvest → process → carry → stock → serve → earn → upgrade.
 
 The market occupies the top of the map; the farms and processing areas sit below it. Customers arrive from outside, take a shopping cart, walk through the labeled sliding entrance, find available products, form a checkout line, pay, return the cart, and continue off-screen before leaving the simulation. Products collected by each shopper appear inside that shopper's cart. The store starts with **3 carts**; each Shopping carts purchase adds one, initially up to **10**. Player levels **20, 22, 24, 26, and 28** unlock carts 11–15. Shoppers need a free cart to enter. Open **Manage** to inspect and purchase every upgrade. Keeping progression in this dedicated screen leaves the market floor clear and easy to read. The management window pauses the simulation while you plan.
 
-| Product       | Production                       | Sale price | Availability                |
-| ------------- | -------------------------------- | ---------- | --------------------------- |
-| Tomatoes      | 3 per plant / 3 seconds          | $5         | Available at the start      |
-| Eggs          | 1 per nest / 4 seconds           | $7         | Available at the start      |
-| Corn          | 2 per plot / 5 seconds           | $10        | Unlock for $150             |
-| Tomato paste  | 1 tomato → 1 can; 6-second batch | $15        | Production wing and cannery |
-| Coffee beans  | 2 per plant / 4 seconds          | $12        | Coffee corner               |
-| Ground coffee | 1 bean → 1 bag; 8-second batch   | $24        | Coffee corner and grinder   |
-| Carrots       | 1 per bed / 2 seconds            | $8         | Carrot garden               |
-| Milk          | 2 per cow / 5 seconds            | $14        | Dairy meadow                |
-| Cheese        | 1 milk → 1 cheese; 7-second batch | $29       | Dairy meadow and kitchen    |
+| Product       | Production                        | Sale price | Availability                |
+| ------------- | --------------------------------- | ---------- | --------------------------- |
+| Tomatoes      | 3 per plant / 3 seconds           | $5         | Available at the start      |
+| Eggs          | 1 per nest / 4 seconds            | $7         | Available at the start      |
+| Corn          | 2 per plot / 5 seconds            | $10        | Unlock for $150             |
+| Tomato paste  | 1 tomato → 1 can; 6-second batch  | $15        | Production wing and cannery |
+| Coffee beans  | 2 per plant / 4 seconds           | $12        | Coffee corner               |
+| Ground coffee | 1 bean → 1 bag; 8-second batch    | $24        | Coffee corner and grinder   |
+| Carrots       | 1 per bed / 2 seconds             | $8         | Carrot garden               |
+| Milk          | 2 per cow / 5 seconds             | $14        | Dairy meadow                |
+| Cheese        | 1 milk → 1 cheese; 7-second batch | $29        | Dairy meadow and kitchen    |
 
 All shelves start with **3 rows × 4 spaces = 12 items**. At player levels **3, 10, and 20**, buy an extra visible row for every shelf, including future shelves: **16 → 20 → 24 items**. Existing stock is preserved. Add up to five tomato plants, nests, corn plots, coffee plants, and cows; the carrot garden supports eight beds. Every plot has its own production timer. Machines process **up to** 2, 4, 6, or 8 ingredients per batch as they are upgraded, and start a smaller batch when less input is available. Stand near a machine while carrying its raw ingredient to supply it, then collect the finished products when your basket has room.
 
@@ -30,7 +30,11 @@ Expand eastward in four stages: **production wing ($250)**, **coffee corner ($50
 
 Hire up to **three helpers** to harvest, operate machines, and stock shelves. Their baskets grow **2 → 3 → 4 → 5 → 6** items; ten speed levels multiply walking speed by **1.10** at each upgrade. The cashier starts with five purchasable tiers and marketing with ten. Player levels **20, 25, and 30** unlock three additional tiers for the cashier, marketing director, and player basket (up to 40 carried items). Each cashier tier after hiring divides checkout time by 1.25; each marketing tier adds 20% of the base arrival rate. Every paid store or drive-through order earns **5 customer XP + 2 XP per item sold** (7 XP for one item, 9 XP for two). Picking up goods and unpaid orders do not earn sales XP. The accountant still earns **5 XP per tier every 10 seconds**. Manage shows the next unlock, XP remaining, and a complete level roadmap. Unlocks are permission to buy with game money, not automatic purchases; existing saves keep owned upgrades and XP.
 
-The **drive-through service** is available to purchase from the beginning. Cars and bikes queue in a separate lane below the office and farms. Only the vehicle at the pickup window displays its two-to-four-item order, with delivered/requested quantities; waiting vehicles stay unobstructed. Carry each requested product to the drive window one at a time, then remain there to collect payment. The counter shows OPEN, ARRIVING, LOAD or PAYMENT as appropriate. The drive-through runner and drive-through cashier are separate hires: the runner takes requested stock from shelves, while the cashier handles only completed payments. Paid vehicles continue forward out of the lane instead of reversing through the queue.
+The **drive-through service** is available to purchase from the beginning. Cars and bikes queue in a separate lane below the office and farms. Only the vehicle at the pickup window displays its two-to-four-item order, with delivered/requested quantities; waiting vehicles stay unobstructed. Carry each requested product to the drive window one at a time, then remain there to process payment. Collect the money from its separate cash pile. The counter shows OPEN, ARRIVING, LOAD, PAYMENT or FULL as appropriate. The drive-through runner and drive-through cashier are separate hires: the runner takes requested stock from shelves, while the cashier handles only completed payments. Paid vehicles continue forward out of the lane instead of reversing through the queue.
+
+Every register holds **$250**. A sale that would exceed that limit waits with its goods and XP unchanged until you collect. Helpers and cashiers never bank money for you; camping at a cash pile does not collect new payments. At **player level 20**, buy a **second staffed checkout** for **$1,500** after hiring the first cashier. Both draw from the same queue and share speed upgrades, but have independent cash limits.
+
+Cash left unattended for **three minutes** attracts a thief when you are away. They walk into the store, spend **six seconds** attempting theft, then flee with the pile. Hold **Shift** or the **Sprint** button while moving (four seconds of stamina, six seconds to refill). Get the thief inside your visible **net circle** to catch them and recover stolen cash once. A hired helper guards the netted thief until police arrive and walk them out; without helpers, the net holds them. Escaped cash is lost. Cash piles, collection readiness, and encounters survive reloads; paused or closed games do not advance theft timers.
 
 ## Features
 
@@ -49,16 +53,18 @@ The **drive-through service** is available to purchase from the beginning. Cars 
 
 ## Controls
 
-| Action              | Desktop                                                | Touch                              |
-| ------------------- | ------------------------------------------------------ | ---------------------------------- |
-| Move                | **WASD**, **arrow keys**, or drag the world            | Virtual joystick or drag the world |
-| Harvest or stock    | Stand near a farm or matching shelf                    | Same                               |
-| Serve checkout      | Stand beside the checkout counter                      | Same                               |
-| Serve drive-through | Bring listed items to its window, then collect payment | Same                               |
-| Buy an upgrade      | Open **Manage**                                        | Same                               |
-| See all inventory   | Open the **Basket** dropdown                           | Tap **Basket**                     |
-| Sound               | Use the speaker button in the toolbar                  | Tap the speaker button             |
-| Reset progress      | Open **Settings**                                      | Tap **Settings**                   |
+| Action               | Desktop                                                | Touch                              |
+| -------------------- | ------------------------------------------------------ | ---------------------------------- |
+| Move                 | **WASD**, **arrow keys**, or drag the world            | Virtual joystick or drag the world |
+| Harvest or stock     | Stand near a farm or matching shelf                    | Same                               |
+| Serve checkout       | Stand beside the checkout counter                      | Same                               |
+| Serve drive-through  | Bring listed items to its window, then process payment | Same                               |
+| Bank register cash   | Approach the gold cash circle; step away between trips | Same                               |
+| Sprint / catch thief | Hold Shift while moving; bring thief into net circle   | Hold Sprint while moving           |
+| Buy an upgrade       | Open **Manage**                                        | Same                               |
+| See all inventory    | Open the **Basket** dropdown                           | Tap **Basket**                     |
+| Sound                | Use the speaker button in the toolbar                  | Tap the speaker button             |
+| Reset progress       | Open **Settings**                                      | Tap **Settings**                   |
 
 The game fills the browser window. The camera and overlays adapt to desktop, tablet, phone landscape, and phone portrait. Touch movement does not scroll the page; drag an open part of the world to position a temporary joystick, or use the fixed touch joystick.
 
@@ -187,7 +193,7 @@ The world and characters are built from original procedural 3D meshes with share
 
 ### Phase 2 — A busier neighborhood market
 
-Additional recipes; a storage room; multiple checkout counters; richer customer patience; daily objectives and achievements.
+Additional recipes; a storage room; richer customer patience; daily objectives and achievements.
 
 ### Phase 3 — A growing business
 

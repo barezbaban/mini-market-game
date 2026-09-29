@@ -101,6 +101,15 @@ export class DriveThroughSystem {
   }
 
   private updateService(order: DriveThroughOrder, deltaMs: number): void {
+    const amount = driveThroughValue(order);
+    if (!this.economy.canDeposit('drive', amount)) {
+      this.state.cashStacks.drive.blocked = true;
+      this.state.driveThroughCheckoutProgress = 0;
+      this.state.driveThroughHandoffProgress = 0;
+      if (order.state === 'PAYING') order.state = 'READY_TO_PAY';
+      return;
+    }
+    this.state.cashStacks.drive.blocked = false;
     if (order.state === 'WAITING_FOR_ITEMS') {
       if (driveThroughComplete(order)) {
         order.state = 'READY_TO_PAY';
@@ -140,16 +149,15 @@ export class DriveThroughSystem {
     order.state = 'PAYING';
     this.state.driveThroughCheckoutProgress += deltaMs;
     if (this.state.driveThroughCheckoutProgress < GAME_CONFIG.driveThroughCheckoutTime) return;
-    const amount = driveThroughValue(order);
-    if (!this.economy.earn(amount)) return;
+    if (!this.economy.deposit('drive', amount)) return;
     this.state.driveThroughCheckoutProgress = 0;
     this.state.driveThroughServed += 1;
     this.state.totalServed += 1;
     const earnedXp = awardSaleXp(this.state, driveThroughTotal(order.requested), this.emit);
     order.state = 'LEAVING';
     this.emit({
-      type: 'money',
-      text: `+$${amount} · +${earnedXp} XP`,
+      type: 'checkout',
+      text: `$${amount} stacked · +${earnedXp} XP`,
       ...GAME_CONFIG.driveThroughWindow,
     });
     this.emit({ type: 'checkout', text: 'Drive-through served!', x: order.x, y: order.y });

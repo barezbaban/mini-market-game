@@ -1,7 +1,7 @@
 import { GAME_CONFIG } from '../data/gameConfig';
 import { PRODUCTS, plotCount, plotPosition, productById } from '../data/products';
 import { MACHINES } from '../data/machines';
-import type { GameEvent, GameState, UpgradeId, Vec2 } from '../types';
+import type { GameEvent, GameState, UpgradeId, Vec2, PlayerInput } from '../types';
 import { CheckoutSystem } from './CheckoutSystem';
 import { CustomerSystem, distance } from './CustomerSystem';
 import { EconomySystem } from './EconomySystem';
@@ -13,6 +13,8 @@ import { MachineSystem } from './MachineSystem';
 import { WorkerSystem } from './WorkerSystem';
 import { ProgressionSystem } from './ProgressionSystem';
 import { DriveThroughSystem } from './DriveThroughSystem';
+import { CashCollectionSystem } from './CashCollectionSystem';
+import { SecuritySystem } from './SecuritySystem';
 
 /** The renderer owns no game rules. This headless simulation runs in browser and tests. */
 export class GameEngine {
@@ -26,6 +28,8 @@ export class GameEngine {
   readonly workers: WorkerSystem;
   readonly progression: ProgressionSystem;
   readonly driveThrough: DriveThroughSystem;
+  readonly cashCollection: CashCollectionSystem;
+  readonly security: SecuritySystem;
   private events: GameEvent[] = [];
   private harvestElapsed: number = GAME_CONFIG.harvestInterval;
   private stockElapsed: number = GAME_CONFIG.stockInterval;
@@ -48,6 +52,18 @@ export class GameEngine {
     this.workers = new WorkerSystem(state, this.inventory, this.machines, emit);
     this.progression = new ProgressionSystem(state, emit);
     this.driveThrough = new DriveThroughSystem(state, this.inventory, this.economy, emit);
+    this.cashCollection = new CashCollectionSystem(state, this.economy, emit);
+    this.security = new SecuritySystem(state, this.economy, emit, (from, to) => {
+      for (let part = 0; part <= 8; part++)
+        if (
+          !this.canWalk({
+            x: from.x + ((to.x - from.x) * part) / 8,
+            y: from.y + ((to.y - from.y) * part) / 8,
+          })
+        )
+          return false;
+      return true;
+    });
   }
 
   purchaseUpgrade(id: UpgradeId): boolean {
@@ -75,6 +91,13 @@ export class GameEngine {
   }
 
   private canWalk(point: Vec2): boolean {
+    if (
+      this.state.upgrades.secondCashier &&
+      Math.abs(point.x - GAME_CONFIG.secondCheckout.x) < 37 &&
+      point.y > GAME_CONFIG.secondCheckout.y - 53 &&
+      point.y < GAME_CONFIG.secondCheckout.y + 35
+    )
+      return false;
     const bounds = GAME_CONFIG.bounds;
     if (
       point.x < bounds.left ||
@@ -130,10 +153,31 @@ export class GameEngine {
     });
   }
 
-  private movePlayer(deltaMs: number, input: Vec2): void {
+  private movePlayer(deltaMs: number, input: PlayerInput): void {
     const magnitude = Math.hypot(input.x, input.y);
+    const wantsSprint = Boolean(input.sprint) && Number.isFinite(magnitude) && magnitude > 0;
+    this.state.sprinting =
+      wantsSprint && !this.state.sprintExhausted && this.state.sprintEnergy > 0;
+    if (this.state.sprinting) {
+      this.state.sprintEnergy = Math.max(
+        0,
+        this.state.sprintEnergy - deltaMs / GAME_CONFIG.sprintDuration,
+      );
+      if (!this.state.sprintEnergy) this.state.sprintExhausted = true;
+    } else {
+      this.state.sprintEnergy = Math.min(
+        1,
+        this.state.sprintEnergy + deltaMs / GAME_CONFIG.sprintRecovery,
+      );
+      if (!wantsSprint && this.state.sprintEnergy >= 0.35) this.state.sprintExhausted = false;
+    }
     if (!Number.isFinite(magnitude) || magnitude === 0) return;
-    const scale = (GAME_CONFIG.playerSpeed * deltaMs) / 1000 / Math.max(1, magnitude);
+    const scale =
+      (GAME_CONFIG.playerSpeed *
+        (this.state.sprinting ? GAME_CONFIG.sprintMultiplier : 1) *
+        deltaMs) /
+      1000 /
+      Math.max(1, magnitude);
     const bounds = GAME_CONFIG.bounds;
     const x = Math.min(
       GAME_CONFIG.areaBounds[this.state.upgrades.expansion],
@@ -232,7 +276,7 @@ export class GameEngine {
     this.lastBlockedZone = blocked?.zone ?? null;
   }
 
-  update(deltaMs: number, input: Vec2 = { x: 0, y: 0 }): void {
+  update(deltaMs: number, input: PlayerInput = { x: 0, y: 0 }): void {
     if (!Number.isFinite(deltaMs) || deltaMs <= 0) return;
     // Bound catch-up after a suspended tab; tiny substeps prevent obstacle tunneling.
     let remaining = Math.min(deltaMs, 1000);
@@ -240,6 +284,7 @@ export class GameEngine {
       const step = Math.min(50, remaining);
       this.state.elapsed += step;
       this.movePlayer(step, input);
+      this.cashCollection.update(step);
       this.farming.update(step);
       this.interact(step);
       this.customers.update(step);
@@ -248,6 +293,7 @@ export class GameEngine {
       this.workers.update(step);
       this.progression.update(step);
       this.driveThrough.update(step);
+      this.security.update(step);
       remaining -= step;
     }
   }

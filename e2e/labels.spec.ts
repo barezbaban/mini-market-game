@@ -71,6 +71,7 @@ test('drive-through has one mounted title and one active order, even with a full
     const drive = [
       'drive-through:title',
       'drive-through:status',
+      'cash:drive:status',
       'drive:0:status',
       'drive:0:quantity:0',
       'drive:0:quantity:1',

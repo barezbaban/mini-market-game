@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { collectTakings } from './helpers/collectCash';
 import { GAME_CONFIG } from '../src/game/data/gameConfig';
 import { MACHINES } from '../src/game/data/machines';
 import { PRODUCTS, emptyItems, plotCount } from '../src/game/data/products';
@@ -162,6 +163,7 @@ describe('expanded store endurance through real production', () => {
         const servedBefore = engine.state.totalServed;
         const delta = Math.min(frames[frame++ % frames.length], duration - elapsed);
         engine.update(delta);
+        collectTakings(engine);
         elapsed += delta;
         let frameValue = 0;
         let frameSales = 0;

@@ -148,7 +148,8 @@ describe('expanded market progression and compatibility', () => {
         },
       ];
       engine.checkout.update(checkoutDuration(engine.state));
-      expect(engine.state.money).toBe(cash + 5);
+      expect(engine.state.money).toBe(cash);
+      expect(engine.state.cashStacks.store.amount).toBe(level * 5);
     }
     expect(engine.purchaseUpgrade('cashier')).toBe(false);
   });

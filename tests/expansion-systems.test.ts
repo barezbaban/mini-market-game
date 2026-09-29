@@ -12,6 +12,7 @@ import { createInitialState } from '../src/game/systems/SaveSystem';
 import { UpgradeSystem, applyUpgradeEffects } from '../src/game/systems/UpgradeSystem';
 import { WorkerSystem, helperCapacity, helperSpeed } from '../src/game/systems/WorkerSystem';
 import type { GameState, ProductId, UpgradeId } from '../src/game/types';
+import { collectTakings } from './helpers/collectCash';
 
 function fixture(upgrades: Partial<Record<UpgradeId, number>> = {}): GameState {
   const state = createInitialState();
@@ -419,7 +420,7 @@ describe('autonomous helper flow', () => {
     }
   });
 
-  it('turns helper-grown raw and processed stock into exact cashier payments without player assistance', () => {
+  it('turns helper-grown stock into exact payments while the player collects the cash', () => {
     const state = fixture({
       expansion: 3,
       corn: 1,
@@ -447,6 +448,7 @@ describe('autonomous helper flow', () => {
         ]),
       );
       engine.update(50);
+      collectTakings(engine);
       for (const customer of state.customers) {
         enteredSolid ||=
           (customer.x > 863 + 1e-5 &&

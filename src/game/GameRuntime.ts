@@ -20,6 +20,7 @@ export class GameRuntime {
   private readonly controls: MobileControls;
   private readonly floating: FloatingText;
   private readonly keys = new Set<string>();
+  private touchSprint = false;
   private readonly events = new AbortController();
   private readonly resizeObserver: ResizeObserver;
   private frame = 0;
@@ -44,6 +45,43 @@ export class GameRuntime {
     this.resizeObserver = new ResizeObserver(() => this.world.resize());
     this.resizeObserver.observe(host);
     const options = { signal: this.events.signal };
+    const sprintButton = document.querySelector<HTMLButtonElement>('#sprint-button')!;
+    sprintButton.addEventListener(
+      'pointerdown',
+      (event) => {
+        if (this.paused) return;
+        event.preventDefault();
+        sprintButton.setPointerCapture(event.pointerId);
+        this.touchSprint = true;
+        host.focus({ preventScroll: true });
+      },
+      options,
+    );
+    for (const name of ['pointerup', 'pointercancel', 'lostpointercapture'] as const)
+      sprintButton.addEventListener(
+        name,
+        () => {
+          this.touchSprint = false;
+        },
+        options,
+      );
+    sprintButton.addEventListener(
+      'keydown',
+      (event) => {
+        if (event.key === ' ' || event.key === 'Enter') {
+          event.preventDefault();
+          this.touchSprint = !this.paused;
+        }
+      },
+      options,
+    );
+    sprintButton.addEventListener(
+      'keyup',
+      () => {
+        this.touchSprint = false;
+      },
+      options,
+    );
     window.addEventListener(
       'keydown',
       (event) => {
@@ -90,6 +128,7 @@ export class GameRuntime {
     this.clearInput();
   }
   private clearInput(): void {
+    this.touchSprint = false;
     this.keys.clear();
     this.controls.reset();
   }
@@ -106,7 +145,10 @@ export class GameRuntime {
       const y =
         Number(this.keys.has('s') || this.keys.has('arrowdown')) -
         Number(this.keys.has('w') || this.keys.has('arrowup'));
-      engine.update(delta, this.world.screenToWorldInput(x || y ? { x, y } : this.controls.vector));
+      engine.update(delta, {
+        ...this.world.screenToWorldInput(x || y ? { x, y } : this.controls.vector),
+        sprint: this.keys.has('shift') || this.touchSprint,
+      });
       this.animationTime += delta;
       const events = engine.drainEvents();
       let important = false;
@@ -117,7 +159,8 @@ export class GameRuntime {
           audio.play(event.type);
           important = true;
         }
-        if (event.type === 'upgrade' || event.type === 'money') hud.announce(event.text);
+        if (event.type === 'upgrade' || event.type === 'money' || event.type === 'notice')
+          hud.announce(event.text);
       }
       audio.update(delta);
       this.saveTimer += delta;

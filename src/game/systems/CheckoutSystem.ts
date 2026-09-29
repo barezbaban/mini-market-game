@@ -1,6 +1,6 @@
 import { GAME_CONFIG } from '../data/gameConfig';
 import { PRODUCTS, emptyItems } from '../data/products';
-import type { GameEvent, GameState } from '../types';
+import type { CustomerData, GameEvent, GameState } from '../types';
 import { distance, orderedQueue } from './CustomerSystem';
 import { EconomySystem } from './EconomySystem';
 import { checkoutDuration } from '../data/upgrades';
@@ -15,46 +15,86 @@ export class CheckoutSystem {
   ) {}
 
   update(deltaMs: number): void {
-    const customer = orderedQueue(this.state)[0];
+    this.serve(orderedQueue(this.state)[0], deltaMs, false);
+    if (!this.state.upgrades.secondCashier) return;
+    const second = this.state.customers.find((customer) =>
+      ['MOVING_TO_SECOND_CHECKOUT', 'SECOND_QUEUEING', 'SECOND_PAYING'].includes(customer.state),
+    );
+    this.serve(second, deltaMs, true);
+    if (second) return;
+    const queue = orderedQueue(this.state);
+    const primaryCanWork =
+      !this.state.cashStacks.store.blocked &&
+      (this.state.cashier ||
+        distance(this.state.player, GAME_CONFIG.cashierSpot) <= GAME_CONFIG.interactionRadius);
+    const candidate = queue[primaryCanWork ? 1 : 0];
+    if (
+      !candidate ||
+      candidate.state !== 'QUEUEING' ||
+      candidate.path.length ||
+      this.state.cashStacks.second.blocked
+    )
+      return;
+    candidate.state = 'MOVING_TO_SECOND_CHECKOUT';
+    candidate.path = [
+      { x: 890, y: candidate.y },
+      { x: 890, y: 490 },
+      { x: GAME_CONFIG.secondQueueStart.x, y: 490 },
+      { ...GAME_CONFIG.secondQueueStart },
+    ];
+  }
+
+  private serve(customer: CustomerData | undefined, deltaMs: number, second: boolean): void {
+    const point = second ? GAME_CONFIG.secondQueueStart : GAME_CONFIG.queueStart;
+    const counter = second ? GAME_CONFIG.secondCheckout : GAME_CONFIG.checkout;
+    const id = second ? 'second' : 'store';
+    const progress = second ? 'secondCheckoutProgress' : 'checkoutProgress';
+    const queueState = second ? 'SECOND_QUEUEING' : 'QUEUEING';
+    const payingState = second ? 'SECOND_PAYING' : 'PAYING';
     const ready =
       customer &&
-      ['QUEUEING', 'PAYING'].includes(customer.state) &&
-      distance(customer, GAME_CONFIG.queueStart) < 3;
+      [queueState, payingState].includes(customer.state) &&
+      distance(customer, point) < 3;
     if (
       !ready ||
-      (!this.state.cashier &&
+      (!second &&
+        !this.state.cashier &&
         distance(this.state.player, GAME_CONFIG.cashierSpot) > GAME_CONFIG.interactionRadius)
     ) {
-      this.state.checkoutProgress = 0;
-      if (customer?.state === 'PAYING') customer.state = 'QUEUEING';
+      this.state[progress] = 0;
+      if (customer?.state === payingState) customer.state = queueState;
       return;
     }
-    customer.state = 'PAYING';
-    this.state.checkoutProgress += deltaMs;
-    if (this.state.checkoutProgress < checkoutDuration(this.state)) return;
     const amount = PRODUCTS.reduce(
       (sum, product) => sum + customer.basket[product.id] * product.sellingPrice,
       0,
     );
-    if (!this.economy.earn(amount)) {
-      this.state.checkoutProgress = 0;
+    if (!this.economy.canDeposit(id, amount)) {
+      this.state.cashStacks[id].blocked = true;
+      this.state[progress] = 0;
+      customer.state = queueState;
       return;
     }
+    this.state.cashStacks[id].blocked = false;
+    customer.state = payingState;
+    this.state[progress] += deltaMs;
+    if (this.state[progress] < checkoutDuration(this.state)) return;
+    if (!this.economy.deposit(id, amount)) return;
     this.state.totalServed += 1;
     const earnedXp = awardSaleXp(this.state, itemCount(customer.basket), this.emit);
     this.state.tutorialStep = Math.max(this.state.tutorialStep, 5);
-    this.state.checkoutProgress = 0;
+    this.state[progress] = 0;
     customer.state = 'LEAVING';
     customer.basket = emptyItems();
     customer.path = [
-      { x: 885, y: 302 },
+      ...(second ? [{ x: 1000, y: 360 }] : [{ x: 885, y: 302 }]),
       { x: 1010, y: 320 },
       { ...GAME_CONFIG.entrance },
       { ...GAME_CONFIG.entranceOutside },
       { ...GAME_CONFIG.cartStation },
       { ...GAME_CONFIG.customerExit },
     ];
-    this.emit({ type: 'money', text: `+$${amount} · +${earnedXp} XP`, ...GAME_CONFIG.checkout });
+    this.emit({ type: 'checkout', text: `$${amount} stacked · +${earnedXp} XP`, ...counter });
     this.emit({ type: 'checkout', text: 'Thank you!', x: customer.x, y: customer.y });
   }
 }

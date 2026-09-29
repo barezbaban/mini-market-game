@@ -23,6 +23,8 @@ import type { GameEvent, GameState, ItemCounts, ProductId, Vec2 } from '../types
 import { driveThroughRemaining } from '../systems/DriveThroughSystem';
 import { createCharacter, createProduce, createTree } from './Models';
 import { StoreDisplays } from './world/StoreDisplays';
+import { CashSecurityDisplays } from './world/CashSecurityDisplays';
+import { CASH_POINTS } from '../data/cashPoints';
 import type { CharacterModel } from './Models';
 import { block, crate, disc, label, material, PALETTE as C, ring, sphere } from './world/WorldKit';
 import type { WorldLabel } from './world/WorldKit';
@@ -114,6 +116,15 @@ export class WorldRenderer {
   private readonly cashier: CharacterModel;
   private readonly customers: CustomerVisual[] = [];
   private readonly displays: StoreDisplays;
+  private readonly cashDisplays: CashSecurityDisplays;
+  private secondCheckout?: {
+    counter: Group;
+    spot: Group;
+    ring: Mesh;
+    progress: Mesh;
+    label: WorldLabel;
+    cashier: CharacterModel;
+  };
   private readonly workers: { model: CharacterModel; previous: Vec2 }[] = [];
   private readonly officeStaff: { model: CharacterModel; upgrade: 'customers' | 'accountant' }[] =
     [];
@@ -197,6 +208,7 @@ export class WorldRenderer {
     this.player.group.scale.setScalar(1.2);
     this.player.group.position.copy(toWorld(GAME_CONFIG.playerStart));
     this.scene.add(this.player.group);
+    this.cashDisplays = new CashSecurityDisplays(this.scene, this.player.group);
     const playerMarker = ring(this.scene, 0.28, C.white, 0.03);
     playerMarker.name = 'player-marker';
     this.cashier = createCharacter('cashier', C.peach);
@@ -317,6 +329,33 @@ export class WorldRenderer {
     marker.position.set(this.player.group.position.x, 0.079, this.player.group.position.z);
     this.cashier.group.visible = state.cashier;
     this.cashier.animate(timeMs, false);
+    this.cashDisplays.update(state, timeMs);
+    if (state.upgrades.secondCashier && !this.secondCheckout) {
+      const checkout = this.drawCheckout(true);
+      const cashier = createCharacter('cashier', C.peach);
+      cashier.group.position.copy(toWorld(GAME_CONFIG.secondCashierSpot));
+      cashier.setFacing(-1, 0);
+      this.scene.add(cashier.group);
+      this.secondCheckout = { ...checkout, cashier };
+    }
+    if (this.secondCheckout) {
+      const checkout = this.secondCheckout;
+      checkout.counter.visible = checkout.cashier.group.visible = Boolean(
+        state.upgrades.secondCashier,
+      );
+      checkout.ring.visible = false;
+      checkout.progress.visible = state.secondCheckoutProgress > 0;
+      checkout.progress.geometry.setDrawRange(
+        0,
+        Math.floor(Math.min(1, state.secondCheckoutProgress / checkoutDuration(state)) * 64) * 6,
+      );
+      checkout.label.setText(
+        state.cashStacks.second.blocked ? 'FULL · COLLECT' : 'CHECKOUT 2',
+        '#ffffff',
+        state.cashStacks.second.blocked ? '#b7503d' : '#168a65',
+      );
+      checkout.cashier.animate(timeMs, false);
+    }
     this.ensureCustomerVisuals(state.customers.length);
     this.customers.forEach((visual, index) => {
       const customer = state.customers[index];
@@ -334,7 +373,8 @@ export class WorldRenderer {
       visual.model.group.position.copy(toWorld(customer));
       if (customerMoving) visual.model.setFacing(customerDx, customerDy);
       else if (customer.state === 'WAITING_FOR_PRODUCT') visual.model.setFacing(0, -1);
-      else if (customer.state === 'PAYING') visual.model.setFacing(1, 0);
+      else if (customer.state === 'PAYING' || customer.state === 'SECOND_PAYING')
+        visual.model.setFacing(1, 0);
       visual.model.setInventory({});
       visual.cart.setInventory(customer.basket);
       visual.model.animate(timeMs + customer.id * 131, customerMoving);
@@ -364,17 +404,23 @@ export class WorldRenderer {
     this.parkedCarts.forEach((cart, index) => {
       cart.visible = index < availableCarts;
     });
-    const doorNeeded = state.customers.some(
-      (customer) =>
-        ['ENTERING', 'LEAVING'].includes(customer.state) &&
-        Math.min(
-          Math.hypot(customer.x - GAME_CONFIG.entrance.x, customer.y - GAME_CONFIG.entrance.y),
-          Math.hypot(
-            customer.x - GAME_CONFIG.entranceOutside.x,
-            customer.y - GAME_CONFIG.entranceOutside.y,
-          ),
-        ) < 145,
-    );
+    const doorNeeded =
+      [state.security.thief, state.security.police].some(
+        (actor) =>
+          actor &&
+          Math.hypot(actor.x - GAME_CONFIG.entrance.x, actor.y - GAME_CONFIG.entrance.y) < 145,
+      ) ||
+      state.customers.some(
+        (customer) =>
+          ['ENTERING', 'LEAVING'].includes(customer.state) &&
+          Math.min(
+            Math.hypot(customer.x - GAME_CONFIG.entrance.x, customer.y - GAME_CONFIG.entrance.y),
+            Math.hypot(
+              customer.x - GAME_CONFIG.entranceOutside.x,
+              customer.y - GAME_CONFIG.entranceOutside.y,
+            ),
+          ) < 145,
+      );
     this.storeDoorOpen +=
       (Number(doorNeeded) - this.storeDoorOpen) *
       (1 - Math.exp(-Math.min(100, Math.max(0, deltaMs)) / 120));
@@ -455,15 +501,17 @@ export class WorldRenderer {
     this.driveProgress.geometry.setDrawRange(0, Math.floor(Math.min(1, driveProgress) * 64) * 6);
     (this.driveProgress.material as MeshBasicMaterial).color.set(drivePaying ? C.gold : C.green);
     this.driveStatus.setText(
-      !activeDrive
-        ? 'OPEN'
-        : activeDrive.state === 'ARRIVING'
-          ? 'ARRIVING'
-          : drivePaying
-            ? 'PAYMENT'
-            : 'LOAD',
+      state.cashStacks.drive.blocked
+        ? 'FULL · COLLECT'
+        : !activeDrive
+          ? 'OPEN'
+          : activeDrive.state === 'ARRIVING'
+            ? 'ARRIVING'
+            : drivePaying
+              ? 'PAYMENT'
+              : 'LOAD',
       '#ffffff',
-      drivePaying ? '#c77e26' : '#168a65',
+      state.cashStacks.drive.blocked ? '#b7503d' : drivePaying ? '#c77e26' : '#168a65',
     );
     const queue = state.customers.filter(
       (customer) => customer.state === 'QUEUEING' || customer.state === 'PAYING',
@@ -476,7 +524,11 @@ export class WorldRenderer {
       0,
       Math.floor(Math.min(1, state.checkoutProgress / checkoutDuration(state)) * 64) * 6,
     );
-    this.checkoutLabel.setText('CHECKOUT', '#ffffff', '#168a65');
+    this.checkoutLabel.setText(
+      state.cashStacks.store.blocked ? 'FULL · COLLECT' : 'CHECKOUT',
+      '#ffffff',
+      state.cashStacks.store.blocked ? '#b7503d' : '#168a65',
+    );
     this.trashProgress.visible = trashProgress > 0;
     this.trashProgress.geometry.setDrawRange(0, Math.floor(Math.min(1, trashProgress) * 64) * 6);
     this.updateTransfers(deltaMs);
@@ -595,6 +647,14 @@ export class WorldRenderer {
     else if (state.tutorialStep === 2)
       destination = { x: PRODUCTS[0].shelf.x, y: PRODUCTS[0].shelf.y + 61 };
     else if (state.tutorialStep <= 4) destination = GAME_CONFIG.cashierSpot;
+    const uncollected = CASH_POINTS.find(({ id }) => state.cashStacks[id].amount > 0);
+    if (uncollected && (state.tutorialStep === 5 || state.cashStacks[uncollected.id].blocked))
+      destination = uncollected.position;
+    if (
+      state.security.thief &&
+      ['APPROACHING', 'STEALING', 'FLEEING'].includes(state.security.thief.phase)
+    )
+      destination = state.security.thief;
     this.objective.visible = Boolean(destination);
     if (destination) {
       this.objective.position.copy(toWorld(destination, 1.25 + Math.sin(timeMs / 300) * 0.07));
@@ -1040,10 +1100,18 @@ export class WorldRenderer {
     });
   }
 
-  private drawCheckout(): { ring: Mesh; progress: Mesh; label: WorldLabel } {
+  private drawCheckout(second = false): {
+    ring: Mesh;
+    progress: Mesh;
+    label: WorldLabel;
+    counter: Group;
+    spot: Group;
+  } {
     const counter = new Group();
-    counter.position.copy(toWorld(GAME_CONFIG.checkout));
+    counter.name = second ? 'second-checkout' : 'checkout-counter';
+    counter.position.copy(toWorld(second ? GAME_CONFIG.secondCheckout : GAME_CONFIG.checkout));
     this.scene.add(counter);
+    if (second) block(counter, 0.22, 0.015, 0.45, 1.7, 0.06, 2.05, C.tile);
     block(counter, 0, 0.35, -0.08, 0.68, 0.69, 0.84, C.green);
     block(counter, 0, 0.74, -0.08, 0.81, 0.12, 0.95, C.cream);
     block(counter, 0, 0.812, 0.11, 0.56, 0.035, 0.43, 0x656e61);
@@ -1053,7 +1121,7 @@ export class WorldRenderer {
     block(counter, 0.185, 0.99, -0.33, 0.015, 0.16, 0.2, 0xb0f0bd);
     block(counter, 0, 1.22, -0.2, 1.14, 0.32, 0.07, C.green);
     const checkoutLabel = label(counter, 'CHECKOUT', 1, 0.27, {
-      id: 'checkout:title',
+      id: second ? 'checkout:second:title' : 'checkout:title',
       kind: 'object',
       foreground: '#ffffff',
       background: '#168a65',
@@ -1062,19 +1130,19 @@ export class WorldRenderer {
     });
     checkoutLabel.object.position.set(0, 1.22, -0.16);
     const spot = new Group();
-    spot.position.copy(toWorld(GAME_CONFIG.cashierSpot));
+    spot.position.copy(toWorld(second ? GAME_CONFIG.secondCashierSpot : GAME_CONFIG.cashierSpot));
     this.scene.add(spot);
     const highlight = ring(spot, 0.34, C.gold, 0.045);
     highlight.position.y = 0.095;
     const progress = ring(spot, 0.4, C.green, 0.064);
     progress.position.y = 0.102;
-    for (let index = 0; index < 5; index += 1) {
+    for (let index = 0; index < (second ? 0 : 5); index += 1) {
       const point = toWorld({
         x: GAME_CONFIG.queueStart.x,
         y: GAME_CONFIG.queueStart.y + index * GAME_CONFIG.queueSpacing,
       });
       block(this.scene, point.x, 0.077, point.z, 0.27, 0.012, 0.055, 0xd1c8ad);
     }
-    return { ring: highlight, progress, label: checkoutLabel };
+    return { ring: highlight, progress, label: checkoutLabel, counter, spot };
   }
 }

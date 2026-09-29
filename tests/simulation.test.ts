@@ -10,6 +10,7 @@ import { GameEngine } from '../src/game/systems/GameEngine';
 import { InventorySystem, itemCount } from '../src/game/systems/InventorySystem';
 import { createInitialState, SaveSystem } from '../src/game/systems/SaveSystem';
 import type { CustomerData, SaveRepository } from '../src/game/types';
+import { collectTakings } from './helpers/collectCash';
 
 const advance = (engine: GameEngine, milliseconds: number) => {
   for (let elapsed = 0; elapsed < milliseconds; elapsed += 50)
@@ -328,11 +329,13 @@ describe('customers and checkout', () => {
     checkout.update(999);
     expect(state.money).toBe(0);
     checkout.update(1);
-    expect(state.money).toBe(12);
+    expect(state.money).toBe(0);
+    expect(state.cashStacks.store.amount).toBe(12);
     expect(state.totalEarned).toBe(12);
     expect(state.totalServed).toBe(1);
     checkout.update(5000);
-    expect(state.money).toBe(12);
+    expect(state.money).toBe(0);
+    expect(state.cashStacks.store.amount).toBe(12);
     expect(state.customers[0].basket).toEqual(emptyItems());
   });
 
@@ -346,7 +349,8 @@ describe('customers and checkout', () => {
     advance(engine, 165000);
     expect(engine.state.totalServed).toBeGreaterThan(4);
     expect(engine.state.totalEarned).toBe(availableValue);
-    expect(engine.state.money).toBe(availableValue);
+    expect(engine.state.money).toBe(0);
+    expect(engine.state.cashStacks.store.amount).toBe(availableValue);
     expect(engine.state.customers.length).toBeLessThanOrEqual(GAME_CONFIG.customerMax);
     expect(engine.state.shelves.tomato + engine.state.shelves.egg).toBe(0);
   });
@@ -386,6 +390,7 @@ describe('customers and checkout', () => {
       engine.state.shelves.tomato = 8;
       engine.state.shelves.egg = 8;
       engine.update(50, { x: 0, y: 0 });
+      collectTakings(engine);
       const queue = engine.state.customers.filter((customer) =>
         ['MOVING_TO_CHECKOUT', 'QUEUEING', 'PAYING'].includes(customer.state),
       );
@@ -432,7 +437,8 @@ describe('save integrity and recovery', () => {
     const resumed = new GameEngine(restored);
     advance(resumed, 450);
     expect(resumed.state.totalServed).toBe(1);
-    expect(resumed.state.money).toBe(762);
+    expect(resumed.state.money).toBe(750);
+    expect(resumed.state.cashStacks.store.amount).toBe(12);
   });
 
   it('recovers malformed and unsupported saves, and reports unavailable storage', () => {

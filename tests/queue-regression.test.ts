@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { collectTakings } from './helpers/collectCash';
 import { GAME_CONFIG } from '../src/game/data/gameConfig';
 import { PRODUCTS, emptyItems } from '../src/game/data/products';
 import { isInQueue, orderedQueue } from '../src/game/systems/CustomerSystem';
@@ -47,6 +48,7 @@ function trackSimulation(engine: GameEngine) {
       const earned = engine.state.totalEarned;
       const served = engine.state.totalServed;
       engine.update(deltaMs);
+      collectTakings(engine);
       let frameValue = 0;
       let frameSales = 0;
       for (const customer of engine.state.customers) {

@@ -264,6 +264,7 @@ export class WorkerSystem {
       const step = Math.min(50, remaining);
       remaining -= step;
       for (const worker of this.state.workers) {
+        if (worker.id === this.state.security.guardId) continue;
         if (worker.task === 'idle') {
           const job = this.chooseJob(worker);
           if (!job) continue;

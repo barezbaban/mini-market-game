@@ -31,6 +31,7 @@ test('management buys every expansion with real costs, caps levels, and preserve
     'shelf',
     'carts',
     'cashier',
+    'secondCashier',
     'customers',
     'helpers',
     'helperCapacity',
@@ -114,6 +115,13 @@ test('fully staffed expanded store earns money and XP with no player harvesting'
         engine.state.customers.map((customer) => [customer.id, { ...customer.basket }]),
       );
       engine.update(50);
+      // The player makes collection rounds; helpers never bank register cash.
+      if (time % 10000 === 0) {
+        engine.state.player = { x: 965, y: 350 };
+        engine.cashCollection.update(0);
+        engine.state.player = { x: 105, y: 920 };
+        engine.cashCollection.update(0);
+      }
       for (const customer of engine.state.customers) {
         if (customer.state !== 'LEAVING') continue;
         for (const [id, count] of Object.entries(baskets.get(customer.id) ?? {}))

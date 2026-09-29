@@ -161,8 +161,13 @@ test('keyboard harvest, shelf stocking, customer payment, and reload persistence
   });
   await advance(page, 6000);
   current = await state(page);
-  expect(current.money).toBeGreaterThan(0);
+  expect(current.money).toBe(0);
+  expect(current.cashStacks.store.amount).toBeGreaterThan(0);
   expect(current.totalServed).toBeGreaterThan(0);
+  await page.evaluate(() => window.__MARKET__.setPaused(false));
+  await walkTo(page, GAME_CONFIG.storeCash);
+  current = await state(page);
+  expect(current.money).toBeGreaterThan(0);
   expect(current.totalEarned).toBe(current.money);
   await page.evaluate(() => window.__MARKET__.save.save(window.__MARKET__.engine.snapshot()));
   await page.reload();
@@ -426,8 +431,7 @@ test('drive-through vehicle shows its item list and accepts one item at a time',
     lane: true,
     shoulder: true,
     curb: true,
-    roadLength:
-      (GAME_CONFIG.driveThroughRoadEndX - GAME_CONFIG.driveThroughRoadStartX) / 100,
+    roadLength: (GAME_CONFIG.driveThroughRoadEndX - GAME_CONFIG.driveThroughRoadStartX) / 100,
     vehicle: true,
     car: true,
     bike: false,
@@ -519,7 +523,8 @@ test('a saved blocked queue resumes cashier sales without resetting progress', a
   await expect
     .poll(async () => (await state(page)).totalServed, { timeout: 20_000 })
     .toBeGreaterThan(stuckQueue.totalServed);
-  await expect.poll(async () => (await state(page)).money).toBeGreaterThan(stuckQueue.money);
+  await expect.poll(async () => (await state(page)).cashStacks.store.amount).toBeGreaterThan(0);
+  expect((await state(page)).money).toBe(stuckQueue.money);
   await page.evaluate(() => {
     window.__MARKET__.setPaused(true);
     for (let time = 0; time < 60_000; time += 16) window.__MARKET__.engine.update(16);

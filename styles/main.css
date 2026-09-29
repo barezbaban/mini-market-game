@@ -1096,6 +1096,99 @@ button.basket-heading > span:first-child {
   font-size: 11px;
   flex-wrap: wrap;
 }
+.cash-ready {
+  display: block;
+  margin-top: 6px;
+  padding: 5px 9px;
+  background: #fff8db;
+  border-radius: 8px;
+  color: #655520;
+  font-size: 11px;
+  font-weight: 700;
+}
+.security-banner {
+  position: absolute;
+  z-index: 6;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(430px, 36vw);
+  padding: 12px 16px;
+  border: 2px solid #e7ad5b;
+  border-radius: 14px;
+  background: #fff7df;
+  color: #6e412b;
+  font-size: 13px;
+  line-height: 1.4;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+.sprint-button {
+  position: absolute;
+  z-index: 7;
+  right: 22px;
+  bottom: 40px;
+  width: 86px;
+  padding: 12px 8px;
+  border: 2px solid #fff;
+  border-radius: 18px;
+  background: #266b53;
+  color: #fff;
+  font:
+    700 15px 'Outfit',
+    sans-serif;
+  touch-action: none;
+  user-select: none;
+}
+.sprint-button small {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 400;
+}
+.sprint-track {
+  display: block;
+  overflow: hidden;
+  height: 5px;
+  margin-top: 8px;
+  border-radius: 5px;
+  background: #174f3c;
+}
+#sprint-energy {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: #e9d887;
+}
+.sprint-button.exhausted {
+  background: #637767;
+}
+@media (max-width: 700px) {
+  .security-banner {
+    top: 190px;
+    width: calc(100% - 28px);
+    font-size: 12px;
+  }
+  .sprint-button {
+    display: none;
+    right: 16px;
+    bottom: 26px;
+  }
+  .chasing .sprint-button {
+    display: block;
+  }
+  .chasing .objective {
+    display: none;
+  }
+}
+@media (max-height: 460px) {
+  .security-banner {
+    top: 96px;
+    width: min(410px, 56vw);
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+}
 .management-summary > span {
   display: inline-flex;
   align-items: center;

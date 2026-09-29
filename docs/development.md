@@ -101,10 +101,10 @@ Start a new game in a separate browser profile or confirm Reset Game in Settings
 3. Move to the tomato shelf and confirm only matching produce transfers and shelf capacity is respected.
 4. Repeat for eggs. Confirm empty and stocked shelf indicators differ.
 5. Confirm the entrance station starts with three carts. Watch each customer push a cart into the store, verify selected products appear inside it, and confirm a fourth shopper waits until a cart is returned.
-6. Stand near checkout; confirm progress completes, money increases once, and the customer leaves.
+6. Stand near checkout; confirm progress completes, its cash pile grows, XP increases once, and the customer leaves. The wallet must not increase until approaching the gold cash circle. Camp there through another sale and reload: new payments must remain stacked until leaving and returning.
 7. Open Manage, try an unaffordable upgrade, and verify the shortfall feedback. Earn enough and verify one button press purchases exactly one level.
 8. Unlock corn and test its complete production-to-sale loop.
-9. Hire the cashier and leave checkout. Confirm customers continue to pay without the player present.
+9. Hire the cashier and leave checkout. Confirm customers pay into its pile, stopping when another payment will not fit under $250. Collect it and verify sales resume. At player level 20 buy the second checkout; verify simultaneous sales, separate piles, and saved in-flight customers. Check the same full/collect behavior at the drive-through.
 10. Reload and verify balance, purchased upgrades, capacities, unlocks, and tutorial progress persist.
 11. Toggle sound and test a confirmed reset. Canceling reset must preserve progress.
 12. Use the fixed joystick and drag an open part of the world; test pointer release, orientation changes, and confirm touch movement does not scroll the page.
@@ -114,6 +114,7 @@ Start a new game in a separate browser profile or confirm Reset Game in Settings
 16. Hire three helpers, upgrade carrying capacity and speed, then watch them harvest, supply, collect, and stock without duplication. Upgrade marketing, cashier, and accountant through their limits; verify arrival rate, service timing, passive XP, and the player level meter.
 17. Open the Basket drawer to inspect all nine products. Check management tabs, card scrolling, inventory previews, and close controls on portrait and landscape screens. Confirm a purchase saves without closing the management dialog.
 18. Open the drive-through and observe several orders after each expansion. Confirm later goods such as coffee, milk, and cheese can appear, with two to four total units and no more than three product types per order.
+19. Leave cash for three active minutes while away. Verify a visible thief approach, six-second theft warning, stolen cash, and sprint/net capture. Reload during flight and while caught: money must not duplicate or disappear. A helper must retain carried items while guarding, police must walk in and escort out, and the helper must resume work. Check the no-helper case, escape loss, cooldown, drive cash targeting, capture blocked by shelves, and desktop/mobile sprint controls.
 
 Target desktop viewports include 1920×1080, 1440×900, and 1366×768. Also check an iPad-sized viewport, phone landscape, and phone portrait. Target current Chrome, Safari, Edge, and Firefox; device emulation is useful but does not replace testing a physical touch device.
 

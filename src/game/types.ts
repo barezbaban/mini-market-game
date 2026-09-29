@@ -16,6 +16,7 @@ export type UpgradeId =
   | 'customers'
   | 'corn'
   | 'cashier'
+  | 'secondCashier'
   | 'expansion'
   | 'tomatoPlots'
   | 'eggPlots'
@@ -36,6 +37,32 @@ export type UpgradeId =
 export interface Vec2 {
   x: number;
   y: number;
+}
+export interface PlayerInput extends Vec2 {
+  sprint?: boolean;
+}
+export type CashPointId = 'store' | 'second' | 'drive';
+export interface CashStack {
+  amount: number;
+  unattendedMs: number;
+  collectionArmed: boolean;
+  blocked: boolean;
+}
+export type ThiefPhase = 'APPROACHING' | 'STEALING' | 'FLEEING' | 'CAUGHT' | 'ESCORTED';
+export interface ThiefData extends Vec2 {
+  phase: ThiefPhase;
+  target: CashPointId;
+  stolen: number;
+  elapsed: number;
+  path: Vec2[];
+}
+export interface SecurityState {
+  thief: ThiefData | null;
+  police: (Vec2 & { path: Vec2[] }) | null;
+  guardId: number | null;
+  cooldownMs: number;
+  lost: number;
+  recovered: number;
 }
 export type ItemCounts = Record<ProductId, number>;
 export interface ProductDefinition {
@@ -119,6 +146,9 @@ export type CustomerState =
   | 'MOVING_TO_CHECKOUT'
   | 'QUEUEING'
   | 'PAYING'
+  | 'MOVING_TO_SECOND_CHECKOUT'
+  | 'SECOND_QUEUEING'
+  | 'SECOND_PAYING'
   | 'LEAVING';
 export interface CustomerData {
   id: number;
@@ -159,6 +189,13 @@ export interface GameState {
   player: Vec2;
   customers: CustomerData[];
   checkoutProgress: number;
+  secondCheckoutProgress: number;
+  cashStacks: Record<CashPointId, CashStack>;
+  security: SecurityState;
+  sprintEnergy: number;
+  sprintExhausted: boolean;
+  sprinting: boolean;
+  netReady: boolean;
   upgradeProgress: number;
   activeUpgrade: UpgradeId | null;
   tutorialStep: number;

@@ -1,5 +1,6 @@
 import { PRODUCTS } from '../data/products';
 import { GAME_CONFIG } from '../data/gameConfig';
+import { CASH_POINTS, uncollectedCash } from '../data/cashPoints';
 import { playerLevel, xpForLevel } from '../data/upgrades';
 import type { GameState } from '../types';
 import { icon, productIcon } from './icons';
@@ -33,9 +34,10 @@ export class Hud {
           <div id="game-canvas" aria-label="Market and farm game world. Move with WASD, arrow keys, or the touch joystick." role="application" tabindex="0"></div>
           <div class="game-hud">
             <div class="hud-left">
-              <div class="money-card" aria-label="Market earnings"><span class="coin" aria-hidden="true">$</span><strong id="money-value">$0</strong></div>
+              <div class="money-card" aria-label="Collected money available to spend"><span class="coin" aria-hidden="true">$</span><strong id="money-value">$0</strong></div>
               <div class="level-card" title="Earn XP by serving customers and hiring an accountant"><span id="player-level">LV 1</span><div><span id="xp-label">0 / 100 XP</span><div class="xp-track" role="progressbar" aria-label="Player level progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="xp-fill"></span></div></div></div>
               <button class="manage-button" id="manage-button" aria-label="Manage market">${icon('manage', 18)} <span>Manage</span></button>
+              <span id="cash-ready" class="cash-ready" hidden></span>
             </div>
             <div class="hud-right">
               <div class="basket-card"><button class="basket-heading" id="inventory-toggle" aria-label="Show basket contents" aria-expanded="false" aria-controls="inventory-detail"><span>${icon('basket', 17)} Basket</span><span id="basket-count">0 / 8</span>${icon('chevron', 12)}</button><div id="inventory-items" class="inventory-items"></div><div id="inventory-detail" class="inventory-detail" hidden></div></div>
@@ -49,6 +51,8 @@ export class Hud {
             </div>
           </div>
           <div class="objective"><span class="objective-spark">${icon('leaf', 21)}</span><div id="objective-text"></div></div>
+          <div id="security-banner" class="security-banner" role="status" aria-live="polite" hidden></div>
+          <button id="sprint-button" class="sprint-button" aria-label="Hold to sprint" title="Hold Shift or this button to sprint"><span>Sprint</span><small>Hold / Shift</small><span class="sprint-track"><span id="sprint-energy"></span></span></button>
           <div id="joystick" class="joystick" aria-label="Touch movement joystick"><div class="joystick-knob">${icon('close', 22)}</div></div>
           <div id="pause-overlay" class="pause-overlay" hidden><div><span>${icon('pause', 32)}</span><h2>A little breather.</h2><p>Your market will be right here.</p><button id="resume-button" class="primary-button">Back to the market ${icon('play', 16)}</button></div></div>
           <div id="loading" class="loading"><span class="loading-leaf">${icon('leaf', 36)}</span><strong>Opening the market…</strong></div>
@@ -92,6 +96,53 @@ export class Hud {
   }
 
   update(state: GameState): void {
+    const pending = uncollectedCash(state);
+    const cashReady = document.querySelector<HTMLElement>('#cash-ready')!;
+    cashReady.hidden = pending === 0;
+    cashReady.textContent = `Uncollected: $${pending.toLocaleString()}`;
+    document.querySelector<HTMLElement>('#sprint-energy')!.style.width =
+      `${Math.round(state.sprintEnergy * 100)}%`;
+    document.querySelector('#sprint-button')!.classList.toggle('exhausted', state.sprintExhausted);
+    const banner = document.querySelector<HTMLElement>('#security-banner')!;
+    const thief = state.security.thief;
+    const blocked = CASH_POINTS.filter(({ id }) => state.cashStacks[id].blocked);
+    const chase = Boolean(thief && ['APPROACHING', 'STEALING', 'FLEEING'].includes(thief.phase));
+    document.querySelector('#game-frame')!.classList.toggle('chasing', chase);
+    let securityText = '';
+    if (thief) {
+      const distance = Math.round(
+        Math.hypot(state.player.x - thief.x, state.player.y - thief.y) / 100,
+      );
+      const direction =
+        thief.x < state.player.x - 40
+          ? 'west'
+          : thief.x > state.player.x + 40
+            ? 'east'
+            : thief.y < state.player.y
+              ? 'north'
+              : 'south';
+      if (thief.phase === 'APPROACHING')
+        securityText = `Thief approaching ${CASH_POINTS.find(({ id }) => id === thief.target)!.name}! ${distance}m ${direction}. Collect the cash or catch them in your net circle.`;
+      if (thief.phase === 'STEALING')
+        securityText = `Thief stealing! ${Math.max(0, Math.ceil((GAME_CONFIG.thiefStealTime - thief.elapsed) / 1000))}s left. Sprint into net range — Shift or hold Sprint.`;
+      if (thief.phase === 'FLEEING')
+        securityText = `Thief fleeing${thief.stolen ? ` with $${thief.stolen}` : ''}! ${distance}m ${direction}. Sprint into net range to catch them.`;
+      if (thief.phase === 'CAUGHT')
+        securityText = state.security.guardId
+          ? 'Cash safe! A helper is guarding the netted thief. Police are on their way.'
+          : 'Cash safe! Your net holds the thief until police arrive.';
+      if (thief.phase === 'ESCORTED')
+        securityText = 'Police are escorting the thief out. Your helper is back at work.';
+    } else if (blocked.length)
+      securityText = `${blocked.map(({ name }) => name).join(' & ')} closed: cash pile full. Walk to the cash to reopen.`;
+    else if (
+      CASH_POINTS.some(
+        ({ id }) => state.cashStacks[id].unattendedMs >= GAME_CONFIG.thiefDelay - 30000,
+      )
+    )
+      securityText = 'Cash has been unattended a long time. Collect it before a thief visits.';
+    banner.hidden = !securityText;
+    if (banner.textContent !== securityText) banner.textContent = securityText;
     const nearTrash =
       Math.hypot(state.player.x - GAME_CONFIG.trash.x, state.player.y - GAME_CONFIG.trash.y) < 85;
     const nearDriveThrough =
@@ -112,6 +163,8 @@ export class Hud {
       state.unlockedProducts.join(':'),
       nearTrash,
       nearDriveThrough,
+      pending,
+      ...CASH_POINTS.map(({ id }) => state.cashStacks[id].blocked),
       state.driveThroughOrders
         .map((order) => `${order.id}:${order.state}:${Object.values(order.delivered).join('.')}`)
         .join('|'),
@@ -158,7 +211,10 @@ export class Hud {
       ['Fill your first shelf', 'Carry tomatoes to the matching shelf.'],
       ['The market is open!', 'Customers collect produce from your shelves.'],
       ['Time to check out', 'Stand on the green spot to serve customers.'],
-      ['A little room to grow', 'Open Manage to add farms, machines and staff.'],
+      [
+        'Collect your earnings',
+        'Walk to the cash pile beside checkout. Only collected cash can be spent.',
+      ],
     ];
     const hint = hints[Math.min(state.tutorialStep, hints.length - 1)];
     this.hint.innerHTML =
@@ -179,8 +235,8 @@ export class Hud {
           '<strong>Vehicle approaching</strong><span>Wait for it to stop at the pickup window.</span>';
       else if (['READY_TO_PAY', 'PAYING'].includes(order.state))
         this.hint.innerHTML = state.upgrades.driveCashier
-          ? '<strong>Drive-through payment</strong><span>Your dedicated cashier is collecting it.</span>'
-          : '<strong>Drive-through payment ready</strong><span>Stay here to collect the money.</span>';
+          ? '<strong>Drive-through payment</strong><span>Your cashier stacks the cash. Collect it at the separate cash pile.</span>'
+          : '<strong>Drive-through payment ready</strong><span>Serve here, then walk to the cash pile to collect.</span>';
       else {
         const remaining = PRODUCTS.filter(({ id }) => order.requested[id] > order.delivered[id])
           .map(({ id, name }) => `${order.requested[id] - order.delivered[id]} ${name}`)
@@ -189,7 +245,12 @@ export class Hud {
           ? `<strong>Drive-through order</strong><span>${remaining || 'Loaded'} · Your runner is working.</span>`
           : `<strong>Drive-through order</strong><span>Bring ${remaining || 'the last item'} here from your basket.</span>`;
       }
+      if (state.cashStacks.drive.blocked)
+        this.hint.innerHTML =
+          '<strong>Drive-through closed</strong><span>Walk to its cash pile to collect the money and reopen.</span>';
     }
+    if (pending && state.tutorialStep >= 6 && !nearDriveThrough && !nearTrash)
+      this.hint.innerHTML = `<strong>$${pending.toLocaleString()} waiting to collect</strong><span>Walk up to a cash pile. Step away before collecting another batch.</span>`;
     this.soundButton.innerHTML = icon(state.soundEnabled ? 'sound' : 'mute');
     this.soundButton.setAttribute(
       'aria-label',

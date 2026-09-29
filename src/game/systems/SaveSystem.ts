@@ -1,6 +1,7 @@
 import { GAME_CONFIG } from '../data/gameConfig';
 import { PRODUCTS, emptyItems, plotCount } from '../data/products';
 import { MACHINES } from '../data/machines';
+import { CASH_POINTS, cashPointOpen } from '../data/cashPoints';
 import { UPGRADES, checkoutDuration, upgradePrerequisitesMet } from '../data/upgrades';
 import type {
   CustomerData,
@@ -13,6 +14,8 @@ import type {
   Vec2,
   UpgradeId,
   WorkerData,
+  CashPointId,
+  ThiefPhase,
 } from '../types';
 import { applyUpgradeEffects } from './UpgradeSystem';
 
@@ -46,6 +49,17 @@ export function createInitialState(): GameState {
     player: { ...GAME_CONFIG.playerStart },
     customers: [],
     checkoutProgress: 0,
+    secondCheckoutProgress: 0,
+    cashStacks: {
+      store: { amount: 0, unattendedMs: 0, collectionArmed: true, blocked: false },
+      second: { amount: 0, unattendedMs: 0, collectionArmed: true, blocked: false },
+      drive: { amount: 0, unattendedMs: 0, collectionArmed: true, blocked: false },
+    },
+    security: { thief: null, police: null, guardId: null, cooldownMs: 0, lost: 0, recovered: 0 },
+    sprintEnergy: 1,
+    sprintExhausted: false,
+    sprinting: false,
+    netReady: false,
     upgradeProgress: 0,
     activeUpgrade: null,
     tutorialStep: 0,
@@ -123,6 +137,20 @@ export function validateSave(value: unknown): GameState | null {
   state.totalServed = integer(raw.totalServed);
   state.totalHarvested = integer(raw.totalHarvested);
   state.xp = integer(raw.xp, state.totalServed * 5);
+  state.sprintEnergy = number(raw.sprintEnergy, 1, 1);
+  state.sprintExhausted = raw.sprintExhausted === true;
+  const savedCash = object(raw.cashStacks);
+  for (const { id } of CASH_POINTS) {
+    if (!cashPointOpen(state, id)) continue;
+    const stored = object(savedCash[id]);
+    const amount = integer(stored.amount, 0, GAME_CONFIG.cashStackLimit);
+    state.cashStacks[id] = {
+      amount,
+      unattendedMs: amount ? number(stored.unattendedMs, 0, GAME_CONFIG.thiefDelay) : 0,
+      collectionArmed: stored.collectionArmed !== false,
+      blocked: amount > 0 && (stored.blocked === true || amount === GAME_CONFIG.cashStackLimit),
+    };
+  }
   state.accountantElapsed = number(raw.accountantElapsed, 0, GAME_CONFIG.accountantInterval - 1);
   state.tutorialStep = integer(raw.tutorialStep, 0, 6);
   state.elapsed = number(raw.elapsed);
@@ -211,6 +239,9 @@ export function validateSave(value: unknown): GameState | null {
     'MOVING_TO_CHECKOUT',
     'QUEUEING',
     'PAYING',
+    'MOVING_TO_SECOND_CHECKOUT',
+    'SECOND_QUEUEING',
+    'SECOND_PAYING',
     'LEAVING',
   ];
   const ids = new Set<number>();
@@ -259,7 +290,23 @@ export function validateSave(value: unknown): GameState | null {
       // A leaving shopper has already paid. Never let its old basket pay twice.
       if (restored.state === 'LEAVING') restored.basket = emptyItems();
       if (
-        ['QUEUEING', 'PAYING', 'MOVING_TO_CHECKOUT'].includes(restored.state) &&
+        ['MOVING_TO_SECOND_CHECKOUT', 'SECOND_QUEUEING', 'SECOND_PAYING'].includes(
+          restored.state,
+        ) &&
+        !state.upgrades.secondCashier
+      ) {
+        restored.state = 'MOVING_TO_CHECKOUT';
+        restored.path = [];
+      }
+      if (
+        [
+          'QUEUEING',
+          'PAYING',
+          'MOVING_TO_CHECKOUT',
+          'SECOND_QUEUEING',
+          'SECOND_PAYING',
+          'MOVING_TO_SECOND_CHECKOUT',
+        ].includes(restored.state) &&
         basketRoom === 2
       ) {
         restored.state = 'MOVING_TO_SHELF';
@@ -270,6 +317,11 @@ export function validateSave(value: unknown): GameState | null {
   }
   state.checkoutProgress = state.customers.some((customer) => customer.state === 'PAYING')
     ? number(raw.checkoutProgress, 0, checkoutDuration(state) - 1)
+    : 0;
+  state.secondCheckoutProgress = state.customers.some(
+    (customer) => customer.state === 'SECOND_PAYING',
+  )
+    ? number(raw.secondCheckoutProgress, 0, checkoutDuration(state) - 1)
     : 0;
   state.driveThroughServed = integer(raw.driveThroughServed);
   state.driveThroughSpawnElapsed = number(
@@ -338,6 +390,43 @@ export function validateSave(value: unknown): GameState | null {
     activeDriveOrder && ['READY_TO_PAY', 'PAYING'].includes(activeDriveOrder.state)
       ? number(raw.driveThroughCheckoutProgress, 0, GAME_CONFIG.driveThroughCheckoutTime - 1)
       : 0;
+  const savedSecurity = object(raw.security);
+  state.security.cooldownMs = number(savedSecurity.cooldownMs, 0, GAME_CONFIG.thiefCooldown);
+  state.security.lost = integer(savedSecurity.lost);
+  state.security.recovered = integer(savedSecurity.recovered);
+  const savedThief = object(savedSecurity.thief);
+  const phases: ThiefPhase[] = ['APPROACHING', 'STEALING', 'FLEEING', 'CAUGHT', 'ESCORTED'];
+  const target = savedThief.target as CashPointId;
+  if (
+    phases.includes(savedThief.phase as ThiefPhase) &&
+    CASH_POINTS.some(({ id }) => id === target) &&
+    cashPointOpen(state, target)
+  ) {
+    const phase = savedThief.phase as ThiefPhase;
+    state.security.thief = {
+      ...point(savedThief, GAME_CONFIG.entrance, true),
+      phase,
+      target,
+      stolen: phase === 'FLEEING' ? integer(savedThief.stolen, 0, GAME_CONFIG.cashStackLimit) : 0,
+      elapsed: number(savedThief.elapsed, 0, GAME_CONFIG.thiefDelay),
+      path: Array.isArray(savedThief.path)
+        ? savedThief.path.slice(0, 16).map((entry) => point(entry, GAME_CONFIG.entrance, true))
+        : [],
+    };
+    if (phase === 'CAUGHT' || phase === 'ESCORTED') {
+      const police = object(savedSecurity.police);
+      if (savedSecurity.police || phase === 'ESCORTED')
+        state.security.police = {
+          ...point(police, state.security.thief, true),
+          path: Array.isArray(police.path)
+            ? police.path.slice(0, 16).map((entry) => point(entry, GAME_CONFIG.entrance, true))
+            : [],
+        };
+      const guardId = integer(savedSecurity.guardId);
+      state.security.guardId =
+        phase === 'CAUGHT' && state.workers.some(({ id }) => id === guardId) ? guardId : null;
+    }
+  }
   return state;
 }
 

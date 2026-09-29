@@ -115,9 +115,11 @@ describe('drive-through service', () => {
     }
     advance(engine, GAME_CONFIG.driveThroughCheckoutTime);
     expect(order!.state).toBe('LEAVING');
-    expect(engine.state.money).toBe(before + driveThroughValue(order!));
+    expect(engine.state.money).toBe(before);
+    expect(engine.state.cashStacks.drive.amount).toBe(driveThroughValue(order!));
     advance(engine, GAME_CONFIG.driveThroughCheckoutTime);
-    expect(engine.state.money).toBe(before + driveThroughValue(order!));
+    expect(engine.state.money).toBe(before);
+    expect(engine.state.cashStacks.drive.amount).toBe(driveThroughValue(order!));
   });
 
   it('departing vehicles continue forward without reversing through the queue', () => {
@@ -187,7 +189,8 @@ describe('drive-through service', () => {
     expect(Object.values(engine.state.inventory).every((count) => count === 0)).toBe(true);
     advance(engine, GAME_CONFIG.driveThroughCheckoutTime);
     expect(order.state).toBe('LEAVING');
-    expect(engine.state.money).toBe(openingMoney + driveThroughValue(order));
+    expect(engine.state.money).toBe(openingMoney);
+    expect(engine.state.cashStacks.drive.amount).toBe(driveThroughValue(order));
     expect(engine.state.driveThroughServed).toBe(1);
     expect(engine.state.totalServed).toBe(1);
     expect(engine.state.xp).toBe(5 + units * 2);
@@ -216,7 +219,8 @@ describe('drive-through service', () => {
     const afterHire = engine.state.money;
     advance(engine, GAME_CONFIG.driveThroughCheckoutTime);
     expect(order.state).toBe('LEAVING');
-    expect(engine.state.money).toBe(afterHire + driveThroughValue(order));
+    expect(engine.state.money).toBe(afterHire);
+    expect(engine.state.cashStacks.drive.amount).toBe(driveThroughValue(order));
   });
 
   it('restores open orders and discards malformed or locked drive-through data', () => {

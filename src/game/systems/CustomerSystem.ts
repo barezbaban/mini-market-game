@@ -427,6 +427,12 @@ export class CustomerSystem {
       ...this.state.customers.filter((entry) => !isInQueue(entry)),
     ]) {
       customer.waitTime += deltaMs;
+      if (customer.state === 'MOVING_TO_SECOND_CHECKOUT') {
+        move(customer, deltaMs);
+        if (!customer.path.length) customer.state = 'SECOND_QUEUEING';
+        continue;
+      }
+      if (customer.state === 'SECOND_QUEUEING' || customer.state === 'SECOND_PAYING') continue;
       if (isInQueue(customer)) {
         const index = queue.findIndex((entry) => entry.id === customer.id);
         const target = queuePosition(index);

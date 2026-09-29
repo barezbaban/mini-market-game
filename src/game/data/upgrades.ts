@@ -91,6 +91,21 @@ export const UPGRADES: UpgradeDefinition[] = [
     category: 'store',
   },
   {
+    id: 'secondCashier',
+    name: 'Second checkout',
+    description:
+      'Add a second staffed checkout and a separate cash pile. Collect both piles yourself.',
+    cost: 1500,
+    costGrowth: 1,
+    type: 'worker',
+    maxLevel: 1,
+    playerLevels: { 1: 20 },
+    requires: { cashier: 1 },
+    position: { ...GAME_CONFIG.secondCheckout },
+    icon: 'worker',
+    category: 'store',
+  },
+  {
     id: 'tomatoPlots',
     name: 'Tomato plants',
     description: 'Add one plant, up to 5; each grows 3 tomatoes / 3s',
