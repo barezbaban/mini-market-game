@@ -41,6 +41,7 @@ Cash left unattended for **three minutes** attracts a thief when you are away. T
 
 - Original low-poly 3D world, rounded characters, produce models, and shop branding.
 - Full-screen game presentation with clear lighting, no world shadows, and a compact HUD.
+- **Settings → Camera zoom** adjusts the view from 75% (wider) to 175% (closer), with a reset to 100%. It applies immediately, survives reloads and screen rotation, and does not increase rendering resolution.
 - Automatic harvesting, stocking, and checkout; no interaction button needed.
 - Ten products, independently growing farm plots, and four processing machines, including a corn grill with its own shelf.
 - Four equipment-speed upgrades multiply processor speed by 1.20 each; later tiers require player levels 5, 10 and 20. Batch capacity upgrades remain separate.

@@ -732,6 +732,48 @@ kbd {
   display: block;
   margin-top: 5px;
 }
+.zoom-setting {
+  margin: 20px 0;
+  padding: 16px;
+  border: 1px solid #e0e7d3;
+  border-radius: 16px;
+  background: #f7f8ed;
+}
+.zoom-heading,
+.zoom-scale,
+.zoom-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.zoom-heading {
+  font-size: 14px;
+  font-weight: 700;
+}
+.zoom-heading output {
+  color: #168a65;
+  font-variant-numeric: tabular-nums;
+}
+.zoom-setting input {
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  accent-color: #168a65;
+}
+.zoom-scale {
+  color: #6d805e;
+  font-size: 11px;
+}
+.zoom-actions {
+  margin-top: 12px;
+}
+.zoom-actions button {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
 @media (pointer: coarse) {
   button,
   .icon-button {

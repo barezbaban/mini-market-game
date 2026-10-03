@@ -214,6 +214,7 @@ export interface GameState {
   soundEnabled: boolean;
   effectsVolume: number;
   musicVolume: number;
+  cameraZoom: number;
   returnedStock: ItemCounts;
   totalWalkouts: number;
   rush: {

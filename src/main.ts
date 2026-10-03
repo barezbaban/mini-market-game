@@ -2,6 +2,7 @@ import '../styles/main.css';
 import { AccountController } from './auth/AccountController';
 import { AuthClient } from './auth/AuthClient';
 import { GAME_CONFIG } from './game/data/gameConfig';
+import { CAMERA_ZOOM, clampCameraZoom } from './game/data/cameraConfig';
 import { MACHINES, machineDuration } from './game/data/machines';
 import { plotCount, PRODUCTS } from './game/data/products';
 import {
@@ -115,15 +116,36 @@ function showDialog(kind: 'settings' | 'help'): void {
   const dialog = document.querySelector<HTMLDialogElement>('#settings-dialog')!;
   dialogWasPaused = paused;
   setPaused(true);
+  const zoomPercent = Math.round(engine.state.cameraZoom * 100);
   dialog.innerHTML =
     `<div class="dialog-heading"><h2>${kind === 'settings' ? 'Make yourself at home.' : 'Small steps. Fresh starts.'}</h2><button class="icon-button" id="dialog-close" aria-label="Close dialog">${icon('close')}</button></div>` +
     (kind === 'help'
       ? '<p>Gold footprint circles show a place to stand. They turn green when you are close enough to collect, stock, or load items.</p>'
       : '') +
+    (kind === 'settings'
+      ? `<section class="zoom-setting" aria-label="Camera settings"><div class="zoom-heading"><label for="camera-zoom">Camera zoom</label><output id="camera-zoom-value" for="camera-zoom">${zoomPercent}%</output></div><input id="camera-zoom" type="range" min="${CAMERA_ZOOM.min * 100}" max="${CAMERA_ZOOM.max * 100}" step="${CAMERA_ZOOM.step * 100}" value="${zoomPercent}" aria-valuetext="${zoomPercent}% zoom" aria-describedby="camera-zoom-hint"><div class="zoom-scale" aria-hidden="true"><span>Wider view</span><span>Closer view</span></div><div class="zoom-actions"><small id="camera-zoom-hint">Applies immediately and saves on this device.</small><button id="reset-zoom" class="secondary-button" ${engine.state.cameraZoom === CAMERA_ZOOM.default ? 'disabled' : ''}>Reset zoom</button></div></section>`
+      : '') +
     (kind === 'help'
       ? `<p>Your farm, your shelves, your growing team.</p><ol><li>Your compact shop has two shelf rows, checkouts on the right, and a wide glass entrance at the front. Farms sit in a three-column yard, with processors between the shop and fields. Departments open within this footprint instead of extending sideways.</li><li>Try <strong>Manage → Start rush hour</strong>: serve 8 orders in 90 seconds for 100 bonus XP. Timers keep running in Pause and Manage. Hiding or closing the browser tab suspends the market. Small faces appear only for an empty shelf, after 30 seconds in the payment queue, or briefly after a completed purchase. Customers leave after two minutes of waiting; serve them before they leave.</li><li>Use <strong>Settings</strong> for separate sound-effect and music volume. On touch screens, drag the world or joystick to walk and hold Sprint with your other thumb. Stand in the gold circles to move items automatically; no tiny item dragging is needed.</li><li>Build a <strong>corn grill</strong> in the processing row outside to sell grilled corn. Equipment speed upgrades accelerate every processor.</li><li>Move with <strong>WASD, arrow keys, the joystick, or dragging the world.</strong> Hold <strong>Shift or Sprint</strong> while moving for a short burst. Release and let stamina recover.</li><li>Stand near ripe farm plots to collect produce, then carry it to a matching shelf. Shelves start with 3 rows and 12 spaces. Buy extra rows in Manage at player levels 3, 10, and 20 to reach 24 spaces.</li><li>Customers take a cart outside, walk through the sliding entrance, and show what they need in a thought cloud. Their selected products appear inside the cart.</li><li>Your store starts with three carts. Each cart upgrade adds one cart. Grow to 10, then unlock five more at player levels 20, 22, 24, 26, and 28.</li><li>Take unwanted carried items to the <strong>trash bin</strong> beside the team office. Stay close for one second to empty your basket.</li><li>Stand beside checkout to serve customers. Sales earn 5 XP per customer and 2 XP per item, but <strong>cash stays in the pile</strong>. Walk into its gold circle to collect it. Only collected money can be spent. Step away before collecting another batch; standing there will not bank new payments.</li><li>Cash piles have <strong>no storage limit</strong>, and registers keep selling while money waits. The display stays small; its label shows the amount. Collect regularly because neglected cash can be stolen. At player level <strong>20</strong>, buy a second staffed checkout in Manage after hiring your first cashier. It has its own cash pile and shares cashier speed upgrades.</li><li>After <strong>three minutes</strong> of unattended cash, a thief may arrive. A warning gives you time to collect or intercept them. Bring the thief inside your visible <strong>net circle</strong> to catch them automatically and recover stolen cash. A hired helper will come to guard them; otherwise your net holds them. Police walk in and escort them out. Escaped cash is lost.</li><li>Buy the <strong>drive-through service</strong> in Manage. Bring the requested items to the drive window one at a time, then stay to process payment. Its separate cash pile has no storage limit and must still be collected by you.</li><li>The drive-through runner loads requested stock from shelves. The separate drive-through cashier processes completed payments and stacks the cash. Neither works until hired; neither banks money for you.</li><li>Open <strong>Manage</strong> to expand the store, add farm plots, build machines, hire staff, and purchase every upgrade. The level roadmap shows future unlocks; reaching a level makes upgrades available to buy, not free.</li><li>Carry tomatoes to the cannery, coffee beans to the grinder, or milk to the dairy kitchen. Stand close to supply ingredients and collect finished products when your basket has room.</li><li>Helpers harvest, supply machines, collect finished goods, and restock shelves. Upgrade their baskets and speed to keep things moving.</li></ol><p>The production department opens first, then the coffee corner, carrot garden, and dairy meadow. Your market saves automatically on this device, including stacked cash and any active thief encounter. Theft timers also keep running in menus. Hidden tabs and closed games do not advance them.</p>`
       : `<div class="setting-row"><span>Market sounds<small>Original melodies & little rewards</small></span><button id="dialog-sound" class="secondary-button">${engine.state.soundEnabled ? 'Sound on' : 'Sound off'}</button></div><div class="setting-row audio-setting"><label for="effects-volume">Sound effects<small>Pickups, stocking and register chimes</small></label><input id="effects-volume" type="range" min="0" max="100" value="${Math.round(engine.state.effectsVolume * 100)}" aria-label="Sound effects volume"></div><div class="setting-row audio-setting"><label for="music-volume">Background music<small>Cheerful original tune · set to 0 to mute</small></label><input id="music-volume" type="range" min="0" max="100" value="${Math.round(engine.state.musicVolume * 100)}" aria-label="Background music volume"></div><div class="setting-row"><span>Your little business<small>${engine.state.totalServed} customers · $${engine.state.totalEarned} lifetime earned</small></span>${icon('leaf')}</div><div class="setting-row"><span>A fresh beginning<small>Erase this device’s market progress</small></span><button id="reset-button" class="danger-button">Reset game</button></div><p>Your market is saved automatically in this browser. Clearing browser data also clears your save.</p>`);
   dialog.querySelector('#dialog-close')!.addEventListener('click', () => dialog.close());
+  const zoomSlider = dialog.querySelector<HTMLInputElement>('#camera-zoom');
+  const applyZoom = (value: number) => {
+    engine.state.cameraZoom = clampCameraZoom(value);
+    runtime.world.setZoom(engine.state.cameraZoom);
+    const percent = Math.round(engine.state.cameraZoom * 100);
+    zoomSlider!.value = String(percent);
+    zoomSlider!.setAttribute('aria-valuetext', `${percent}% zoom`);
+    dialog.querySelector('#camera-zoom-value')!.textContent = `${percent}%`;
+    dialog.querySelector<HTMLButtonElement>('#reset-zoom')!.disabled =
+      engine.state.cameraZoom === CAMERA_ZOOM.default;
+    runtime.persist();
+  };
+  zoomSlider?.addEventListener('input', () => applyZoom(Number(zoomSlider.value) / 100));
+  dialog.querySelector('#reset-zoom')?.addEventListener('click', () => {
+    applyZoom(CAMERA_ZOOM.default);
+    zoomSlider!.focus();
+  });
   for (const [id, field] of [
     ['effects-volume', 'effectsVolume'],
     ['music-volume', 'musicVolume'],

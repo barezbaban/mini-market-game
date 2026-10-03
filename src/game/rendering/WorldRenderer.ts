@@ -16,6 +16,7 @@ import {
 import type { BufferGeometry, Material, Texture } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GAME_CONFIG } from '../data/gameConfig';
+import { clampCameraZoom } from '../data/cameraConfig';
 import { PRODUCTS } from '../data/products';
 import { cartCapacity, checkoutDuration } from '../data/upgrades';
 import { STORE_WALLS } from '../data/worldLayout';
@@ -291,6 +292,13 @@ export class WorldRenderer {
     }
   }
 
+  setZoom(value: number): void {
+    const zoom = clampCameraZoom(value);
+    if (this.camera.zoom === zoom) return;
+    this.camera.zoom = zoom;
+    this.camera.updateProjectionMatrix();
+  }
+
   resize(): void {
     this.width = Math.max(1, this.host.clientWidth);
     this.height = Math.max(1, this.host.clientHeight);
@@ -329,6 +337,7 @@ export class WorldRenderer {
 
   update(state: GameState, timeMs: number, deltaMs: number, trashProgress = 0): void {
     this.lastState = state;
+    this.setZoom(state.cameraZoom);
     const dx = state.player.x - this.previousPlayer.x;
     const dy = state.player.y - this.previousPlayer.y;
     const moving = Math.hypot(dx, dy) > 0.03;

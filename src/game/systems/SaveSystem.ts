@@ -1,4 +1,5 @@
 import { GAME_CONFIG } from '../data/gameConfig';
+import { CAMERA_ZOOM, clampCameraZoom } from '../data/cameraConfig';
 import { PRODUCTS, emptyItems, plotCount } from '../data/products';
 import { MACHINES } from '../data/machines';
 import { CASH_POINTS, cashPointOpen } from '../data/cashPoints';
@@ -75,6 +76,7 @@ export function createInitialState(): GameState {
     soundEnabled: true,
     effectsVolume: 0.7,
     musicVolume: 0.35,
+    cameraZoom: CAMERA_ZOOM.default,
     returnedStock: emptyItems(),
     totalWalkouts: 0,
     rush: { remainingMs: 0, cooldownMs: 0, servedAtStart: 0, completed: 0, result: 'none' },
@@ -168,6 +170,7 @@ export function validateSave(value: unknown): GameState | null {
   state.soundEnabled = typeof raw.soundEnabled === 'boolean' ? raw.soundEnabled : true;
   state.effectsVolume = number(raw.effectsVolume, 0.7, 1);
   state.musicVolume = number(raw.musicVolume, 0.35, 1);
+  state.cameraZoom = clampCameraZoom(raw.cameraZoom);
   state.totalWalkouts = integer(raw.totalWalkouts);
   const rush = object(raw.rush);
   state.rush = {
