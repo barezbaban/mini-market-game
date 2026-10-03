@@ -73,16 +73,11 @@ interface MachineVisual {
 export class StoreDisplays {
   private readonly products = new Map<ProductId, ProductVisual>();
   private readonly machines = new Map<MachineId, MachineVisual>();
-  private readonly wings: {
-    floor: Group;
-    gate: Group;
-    title: WorldLabel;
-    area: number;
-  }[] = [];
+  private readonly yards: { floor: Group; area: number }[] = [];
   private compactLabels = false;
 
   constructor(private readonly scene: Scene) {
-    this.createWings();
+    this.createFarmYard();
     PRODUCTS.forEach((product) => this.createProduct(product));
     MACHINES.forEach((machine) => this.createMachine(machine));
   }
@@ -93,10 +88,8 @@ export class StoreDisplays {
 
   update(state: GameState, time: number): void {
     const playerHasRoom = itemCount(state.inventory) < state.inventoryCapacity;
-    this.wings.forEach(({ floor, gate, title, area }) => {
+    this.yards.forEach(({ floor, area }) => {
       floor.visible = state.upgrades.expansion >= area;
-      gate.visible = state.upgrades.expansion === area - 1;
-      title.object.visible = !this.compactLabels;
     });
     PRODUCTS.forEach((product) => {
       const visual = this.products.get(product.id)!;
@@ -543,7 +536,7 @@ export class StoreDisplays {
     const locked = new Group();
     root.add(locked);
     block(locked, 0, 0.025, 0, 1.52, 0.05, 1.1, 0xcae2a5);
-    const lockedTitle = label(locked, `${machineTitle} · OPEN MANAGE`, 1.42, 0.26, {
+    const lockedTitle = label(locked, machineTitle, 1.42, 0.26, {
       id: `machine:${machine.id}:locked`,
       kind: 'action',
       mount: 'surface',
@@ -565,47 +558,14 @@ export class StoreDisplays {
     });
   }
 
-  private createWings(): void {
-    const names = ['PRODUCTION WING', 'COFFEE CORNER', 'CARROT GARDEN', 'DAIRY MEADOW'];
-    for (let area = 1; area <= 4; area += 1) {
-      const left = GAME_CONFIG.areaBounds[area - 1];
-      const right = GAME_CONFIG.areaBounds[area];
-      const width = (right - left) / 100;
+  private createFarmYard(): void {
+    for (const product of PRODUCTS.filter((entry) => entry.kind === 'farm')) {
       const floor = new Group();
-      floor.name = `expansion-area-${area}`;
+      floor.name = 'farm-yard-' + product.id;
+      floor.position.copy(point(product.farm.x, product.farm.y + 45));
       this.scene.add(floor);
-      const center = ((left + right) / 2 - 640) / 100;
-      block(floor, center, -0.01, -1.12, width, 0.13, 3.82, C.cream);
-      for (let x = (left - 640) / 100 + 0.12; x < (right - 640) / 100; x += 0.58)
-        block(floor, x, 0.061, -1.12, 0.012, 0.009, 3.75, C.grout, false);
-      for (let z = -2.9; z < 0.7; z += 0.58)
-        block(floor, center, 0.061, z, width - 0.1, 0.009, 0.012, C.grout, false);
-      block(floor, center, 0.32, -3, width, 0.65, 0.14, C.mint);
-      block(floor, center, 0.675, -3, width, 0.09, 0.21, C.green);
-      block(floor, center, -0.012, 3.1, width - 0.13, 0.045, 4.55, 0x9acd79);
-      const title = label(floor, names[area - 1], Math.min(2.5, width - 0.2), 0.24, {
-        id: `area:${area}:title`,
-        kind: 'area',
-        mount: 'surface',
-        foreground: '#ffffff',
-        background: '#26976d',
-        border: false,
-      });
-      title.object.position.set(center, 0.68, -2.885);
-      const gate = new Group();
-      gate.name = `expansion-gate-${area}`;
-      gate.position.x = (left - 640) / 100 + 0.11;
-      this.scene.add(gate);
-      for (let z = -2.7; z < 5.4; z += 0.67) {
-        block(gate, 0, 0.35, z, 0.09, 0.7, 0.09, C.cream);
-      }
-      block(gate, 0, 0.35, 1.3, 0.045, 0.065, 8.1, 0xcde39d);
-      this.wings.push({
-        floor,
-        gate,
-        title,
-        area,
-      });
+      block(floor, 0, -0.014, 0, 3.5, 0.045, 2.22, 0xa8d887);
+      this.yards.push({ floor, area: product.area });
     }
   }
 }

@@ -18,8 +18,10 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GAME_CONFIG } from '../data/gameConfig';
 import { PRODUCTS } from '../data/products';
 import { cartCapacity, checkoutDuration } from '../data/upgrades';
+import { STORE_WALLS } from '../data/worldLayout';
+import { queuePosition } from '../systems/CustomerSystem';
 import { remainingCustomerNeed } from '../systems/CustomerSystem';
-import { patienceRemaining } from '../systems/PatienceSystem';
+import { customerEmoji } from '../systems/CustomerReactions';
 import type { GameEvent, GameState, ItemCounts, ProductId, Vec2 } from '../types';
 import { driveThroughRemaining } from '../systems/DriveThroughSystem';
 import { createCharacter, createProduce, createTree } from './Models';
@@ -27,7 +29,7 @@ import { StoreDisplays } from './world/StoreDisplays';
 import { CashSecurityDisplays } from './world/CashSecurityDisplays';
 import { CASH_POINTS } from '../data/cashPoints';
 import type { CharacterModel } from './Models';
-import { block, crate, disc, label, material, PALETTE as C, ring, sphere } from './world/WorldKit';
+import { block, disc, label, material, PALETTE as C, ring, sphere } from './world/WorldKit';
 import type { WorldLabel } from './world/WorldKit';
 
 interface CustomerVisual {
@@ -137,8 +139,8 @@ export class WorldRenderer {
   private readonly checkoutProgress: Mesh;
   private readonly checkoutLabel: WorldLabel;
   private readonly trashProgress: Mesh;
-  private readonly storeDoorLeft: Mesh;
-  private readonly storeDoorRight: Mesh;
+  private readonly storeDoorLeft: Group;
+  private readonly storeDoorRight: Group;
   private readonly cartStationLabel: WorldLabel;
   private readonly parkedCarts: Group[];
   private readonly driveArea: Group;
@@ -269,11 +271,10 @@ export class WorldRenderer {
       quantity.object.position.set(0.115, 0.055, 0.13);
       bubble.visible = false;
       this.scene.add(bubble);
-      const mood = label(this.scene, '', 0.55, 0.18, {
+      const mood = label(this.scene, '', 0.14, 0.14, {
         id: `customer:${index}:patience`,
         kind: 'status',
         mount: 'billboard',
-        background: '#fff9e8',
         border: false,
       });
       mood.object.visible = false;
@@ -295,7 +296,7 @@ export class WorldRenderer {
     this.height = Math.max(1, this.host.clientHeight);
     const aspect = this.width / this.height;
     // A close following view keeps the miniature world tactile on phone and desktop.
-    const span = aspect < 0.8 ? 9.9 : aspect < 1.25 ? 9.5 : this.height < 460 ? 5 : 8.4;
+    const span = aspect < 0.8 ? 10.8 : aspect < 1.25 ? 11 : this.height < 460 ? 5 : 11.8;
     this.camera.left = (-span * aspect) / 2;
     this.camera.right = (span * aspect) / 2;
     this.camera.top = span / 2;
@@ -387,22 +388,17 @@ export class WorldRenderer {
       visual.cart.setInventory(customer.basket);
       visual.model.animate(timeMs + customer.id * 131, customerMoving);
       visual.previous = { x: customer.x, y: customer.y };
-      const patience = patienceRemaining(customer);
-      visual.mood.object.visible = customer.state !== 'ENTERING' && customer.state !== 'LEAVING';
+      const emoji = customerEmoji(state, customer);
+      visual.mood.object.visible = Boolean(emoji);
       visual.mood.object.position.copy(toWorld(customer, 0.91));
-      visual.mood.object.scale.set(0.55, 0.18, 1);
-      const segments = Math.ceil(patience * 4);
-      visual.mood.setText(
-        `${patience > 0.5 ? '🙂' : patience > 0.25 ? '😐' : '😠'} ${'▰'.repeat(segments)}${'▱'.repeat(4 - segments)}`,
-        patience > 0.5 ? '#17694b' : patience > 0.25 ? '#956410' : '#af392d',
-      );
+      visual.mood.object.scale.set(0.14, 0.14, 1);
+      visual.mood.setText(emoji);
       if (['ENTERING', 'MOVING_TO_SHELF', 'WAITING_FOR_PRODUCT'].includes(customer.state)) {
         visual.bubble.visible = true;
         visual.bubble.position.copy(toWorld(customer, 1.18 + Math.sin(timeMs / 500) * 0.025));
         visual.bubble.quaternion.copy(this.camera.quaternion);
-        // Keep mood inside the existing thought cloud instead of stacking another sign overhead.
-        visual.mood.object.visible = true;
-        visual.mood.object.scale.set(0.44, 0.12, 1);
+        // Missing-stock reactions fit below the item without adding a second bubble.
+        visual.mood.object.scale.set(0.12, 0.12, 1);
         visual.mood.object.position
           .set(0, -0.105, 0.15)
           .applyQuaternion(this.camera.quaternion)
@@ -429,7 +425,7 @@ export class WorldRenderer {
       cart.visible = index < availableCarts;
     });
     const doorNeeded =
-      [state.security.thief, state.security.police].some(
+      [state.player, ...state.workers, state.security.thief, state.security.police].some(
         (actor) =>
           actor &&
           Math.hypot(actor.x - GAME_CONFIG.entrance.x, actor.y - GAME_CONFIG.entrance.y) < 145,
@@ -448,8 +444,8 @@ export class WorldRenderer {
     this.storeDoorOpen +=
       (Number(doorNeeded) - this.storeDoorOpen) *
       (1 - Math.exp(-Math.min(100, Math.max(0, deltaMs)) / 120));
-    this.storeDoorLeft.position.x = -0.22 - this.storeDoorOpen * 0.3;
-    this.storeDoorRight.position.x = 0.22 + this.storeDoorOpen * 0.3;
+    this.storeDoorLeft.position.x = -0.34 - this.storeDoorOpen * 0.62;
+    this.storeDoorRight.position.x = 0.34 + this.storeDoorOpen * 0.62;
     this.displays.update(state, timeMs);
     this.workers.forEach((visual, index) => {
       const worker = state.workers[index];
@@ -613,13 +609,7 @@ export class WorldRenderer {
       ? toWorld(this.lastState.player)
       : toWorld(GAME_CONFIG.playerStart);
     const portrait = this.width / this.height < 1.15;
-    const target = portrait
-      ? new Vector3(player.x, 0, player.z - 0.3)
-      : new Vector3(
-          player.x + Math.max(-1.8, Math.min(1.8, -player.x * 0.58 - 0.25)),
-          0,
-          player.z * 0.75 - 0.1,
-        );
+    const target = new Vector3(player.x, 0, player.z - (portrait ? 0.35 : 0.65));
     if (
       this.lastState?.upgrades.driveThrough &&
       Math.hypot(
@@ -680,53 +670,38 @@ export class WorldRenderer {
   }
 
   private drawEnvironment(): void {
-    block(this.scene, 0, -0.14, 0, 80, 0.2, 80, C.grass, false);
-    block(this.scene, 23.15, -0.02, 0, 2.5, 0.05, 50, 0xbfc5aa, false);
-    block(this.scene, 21.77, -0.005, 0, 0.25, 0.08, 50, C.cream, false);
-    for (let z = -18; z < 20; z += 1.3)
-      block(this.scene, 23.15, 0.012, z, 0.08, 0.018, 0.65, C.cream);
-    block(this.scene, 7.5, -0.005, 0.46, 27.4, 0.055, 0.66, 0xe7dcc1);
-    for (let x = -6; x < 21; x += 0.55)
-      block(this.scene, x, 0.026, 0.46, 0.5, 0.016, 0.53, 0xf4eacf);
-    block(this.scene, 4.96, -0.008, 0.45, 1.58, 0.065, 6.35, 0xadd789);
-    block(this.scene, -1.62, -0.009, 3.13, 7.45, 0.065, 4.6, 0xa1d67d);
-    for (let x = -5.6; x < 1.3; x += 0.46)
-      block(this.scene, x, 0.3, 6, 0.075, 0.63, 0.075, C.cream);
-    [0.22, 0.46].forEach((y) => block(this.scene, -2.3, y, 6, 6.7, 0.075, 0.07, C.cream));
-    [
-      [-6.1, -3.6, 1.2],
-      [-7, -1, 0.95],
-      [-6.5, 2, 0.95],
-      [-5.8, 8.4, 1.1],
-      [-3, 8.3, 1.15],
-      [0.4, 8.4, 1],
-      [3.0, 8.5, 1.15],
-      [5.6, -3.7, 1.1],
-      [1.8, -4.6, 1.05],
-      [-2.2, -4.5, 1.2],
-      [22.1, -3.9, 1.5],
-      [22.1, 8.5, 1.15],
-    ].forEach(([x, z, scale]) => {
+    block(this.scene, 0, -0.14, 0, 60, 0.2, 60, C.grass, false);
+    const path = (x: number, y: number, width: number, depth: number) => {
+      const p = toWorld({ x, y });
+      block(this.scene, p.x, -0.015, p.z, width / 100, 0.06, depth / 100, 0xe8dfc7);
+    };
+    path(750, 948, 1380, 74);
+    for (const y of [1065, 1290, 1545]) path(750, y, 1330, 58);
+    for (const x of [480, 920]) path(x, 1285, 58, 520);
+    path(620, 965, 150, 125);
+    // A short, readable garden perimeter, with gaps at the walking paths.
+    for (const x of [70, 1455]) {
+      for (let y = 1060; y < 1510; y += 60) {
+        if (Math.abs(y - 1290) < 40) continue;
+        const p = toWorld({ x, y });
+        block(this.scene, p.x, 0.2, p.z, 0.06, 0.4, 0.06, C.cream);
+        block(this.scene, p.x, 0.24, p.z + 0.22, 0.045, 0.045, 0.45, C.cream);
+      }
+    }
+    for (const [x, y, scale] of [
+      [-45, 300, 1.2],
+      [1500, 160, 1.2],
+      [1530, 650, 1],
+      [-60, 1300, 1],
+      [1500, 1430, 1.2],
+      [300, 50, 1],
+      [1100, 20, 1.2],
+    ]) {
       const tree = createTree();
-      tree.position.set(x, 0, z);
+      tree.position.copy(toWorld({ x, y }));
       tree.scale.setScalar(scale);
       this.scene.add(tree);
-    });
-    for (let index = 0; index < 55; index += 1) {
-      const x = Math.sin(index * 29.7) * 9.5;
-      const z = Math.cos(index * 17.4) * 7;
-      if ((x > -5.8 && x < 20.9 && z > -3.1 && z < 6.1) || (z > 5.9 && z < 7.5) || x > 6.1)
-        continue;
-      const grass = block(this.scene, x, 0.05, z, 0.07, 0.15, 0.035, C.darkGrass);
-      grass.rotation.z = index % 2 ? -0.3 : 0.3;
-      if (index % 3 === 0)
-        sphere(this.scene, x + 0.04, 0.13, z, 0.055, index % 2 ? C.white : C.gold);
     }
-    crate(this.scene, 3.45, 0, 2.7, 0.9);
-    crate(this.scene, 3.95, 0, 2.93, 0.75);
-    crate(this.scene, 3.45, 0.27, 2.7, 0.82);
-    disc(this.scene, 2.84, 0.2, 3.1, 0.21, 0.4, 0xf1dfad);
-    disc(this.scene, 2.52, 0.16, 3.12, 0.18, 0.32, 0xf6e7c7);
   }
 
   /** Static scenery shares one draw call per material, instead of one per fence, tile, or leaf. */
@@ -771,55 +746,65 @@ export class WorldRenderer {
   }
 
   private drawMarket(): void {
-    block(this.scene, -0.7, -0.01, -1.3, 9.7, 0.13, 3.45, C.cream);
-    block(this.scene, -0.7, 0.056, -1.3, 9.47, 0.012, 3.22, C.tile);
-    for (let x = -5.3; x < 4; x += 0.58)
-      block(this.scene, x, 0.065, -1.3, 0.012, 0.009, 3.2, C.grout, false);
-    for (let z = -2.8; z < 0.31; z += 0.58)
-      block(this.scene, -0.7, 0.065, z, 9.43, 0.009, 0.012, C.grout, false);
-    block(this.scene, -1.275, 0.42, -3, 8.55, 0.86, 0.2, C.cream);
-    block(this.scene, 4.025, 0.42, -3, 0.25, 0.86, 0.2, C.cream);
-    block(this.scene, -1.205, 0.32, -2.888, 8.41, 0.5, 0.055, C.mint);
-    block(this.scene, 3.955, 0.32, -2.888, 0.11, 0.5, 0.055, C.mint);
-    block(this.scene, -0.7, 0.875, -3, 9.86, 0.1, 0.26, C.green);
-    block(this.scene, -5.45, 0.23, -1.39, 0.18, 0.43, 3.15, C.cream);
-    block(this.scene, -5.45, 0.47, -1.39, 0.22, 0.075, 3.18, C.peach);
-    block(this.scene, 4.02, 0.21, -2.15, 0.16, 0.4, 1.54, C.cream);
-    block(this.scene, 4.02, 0.44, -2.15, 0.2, 0.075, 1.6, C.peach);
-    [-5.38, 3.98].forEach((x) => {
-      block(this.scene, x, 0.71, -2.92, 0.23, 1.4, 0.24, C.cream);
-      block(this.scene, x, 1.41, -2.92, 0.3, 0.11, 0.3, C.peach);
+    const bounds = GAME_CONFIG.storeBounds;
+    const center = toWorld({
+      x: (bounds.left + bounds.right) / 2,
+      y: (bounds.top + bounds.bottom) / 2,
     });
+    block(this.scene, center.x, -0.015, center.z, 13, 0.12, 7.7, C.cream).name =
+      'compact-store-floor';
+    block(this.scene, center.x, 0.05, center.z, 12.8, 0.015, 7.5, C.tile);
+    for (let x = 130; x < 1390; x += 55) {
+      const p = toWorld({ x, y: 515 });
+      block(this.scene, p.x, 0.062, p.z, 0.01, 0.009, 7.45, C.grout, false);
+    }
+    for (let y = 150; y < 890; y += 55) {
+      const p = toWorld({ x: 750, y });
+      block(this.scene, p.x, 0.062, p.z, 12.8, 0.009, 0.01, C.grout, false);
+    }
+    for (const wall of STORE_WALLS) {
+      const p = toWorld({ x: (wall.left + wall.right) / 2, y: (wall.top + wall.bottom) / 2 });
+      const back = wall.top === 120;
+      const height = back ? 0.95 : wall.top === 890 ? 0.19 : 0.38;
+      block(
+        this.scene,
+        p.x,
+        height / 2,
+        p.z,
+        (wall.right - wall.left) / 100,
+        height,
+        (wall.bottom - wall.top) / 100,
+        C.cream,
+      );
+      block(
+        this.scene,
+        p.x,
+        height,
+        p.z,
+        (wall.right - wall.left) / 100,
+        0.045,
+        (wall.bottom - wall.top) / 100,
+        C.green,
+      );
+    }
     const sign = new Group();
-    sign.position.set(-1.6, 1.28, -2.96);
+    sign.position.copy(toWorld({ x: 740, y: 137 }, 1.15));
     this.scene.add(sign);
-    block(sign, 0, 0, 0, 3.1, 0.56, 0.16, C.green);
-    const brand = label(sign, 'MINI MARKET', 2.75, 0.39, {
+    block(sign, 0, 0, 0, 3.4, 0.45, 0.09, C.green);
+    const brand = label(sign, 'MINI MARKET', 3.05, 0.34, {
       id: 'store:brand',
       kind: 'brand',
       foreground: '#ffffff',
       mount: 'surface',
     });
-    brand.object.position.set(0, 0.02, 0.1);
-    const tag = label(this.scene, 'FRESH FROM YOUR FARM', 2, 0.18, {
-      id: 'store:tagline',
-      kind: 'brand',
-      foreground: '#1a835d',
-      mount: 'surface',
-    });
-    tag.object.position.set(-1.6, 0.77, -2.79);
-    [-4.65, 2.65].forEach((x) => {
-      block(this.scene, x, 0.99, -2.82, 0.6, 0.45, 0.08, C.wood);
-      block(this.scene, x, 0.99, -2.76, 0.47, 0.32, 0.03, C.cream);
-      const stamp = label(this.scene, x < 0 ? 'LOCAL' : 'OPEN', 0.46, 0.2, {
-        id: `store:${x < 0 ? 'local' : 'open'}`,
-        kind: 'brand',
-        foreground: '#248564',
-        mount: 'surface',
-      });
-      stamp.object.position.set(x, 1, -2.7);
-    });
-    block(this.scene, 3.6, 0.047, 0.06, 0.85, 0.02, 0.5, C.green);
+    brand.object.position.set(0, 0, 0.052);
+    // Keep the work area and queue visibly distinct without oversized floating signs.
+    const checkout = toWorld({ x: 1100, y: 760 });
+    block(this.scene, checkout.x, 0.075, checkout.z, 4.5, 0.012, 1.7, 0xe3edd8);
+    const service = new Group();
+    service.position.copy(toWorld(GAME_CONFIG.serviceDoor));
+    this.scene.add(service);
+    block(service, 0, 0.035, 0, 0.7, 0.025, 1.05, 0xb6d7b8);
   }
 
   private drawTrashBin(): Mesh {
@@ -848,15 +833,16 @@ export class WorldRenderer {
     return progress;
   }
 
-  private drawStoreEntrance(): { left: Mesh; right: Mesh } {
+  private drawStoreEntrance(): { left: Group; right: Group } {
     const entrance = new Group();
     entrance.name = 'store-entrance';
-    entrance.position.copy(toWorld({ x: GAME_CONFIG.entrance.x, y: 100 }));
+    entrance.position.copy(toWorld(GAME_CONFIG.entrance));
     this.scene.add(entrance);
-    block(entrance, 0, 0.035, 0.46, 0.9, 0.025, 1.18, C.green);
-    [-0.53, 0.53].forEach((x) => block(entrance, x, 0.72, 0, 0.16, 1.4, 0.16, C.cream));
-    block(entrance, 0, 1.43, 0, 1.22, 0.18, 0.18, C.green);
-    const sign = label(entrance, 'ENTRANCE', 0.78, 0.21, {
+    block(entrance, 0, 0.035, 0.2, 1.65, 0.04, 0.7, C.green);
+    [-0.9, 0.9].forEach((x) => block(entrance, x, 0.7, 0, 0.14, 1.4, 0.18, C.cream));
+    block(entrance, 0, 1.45, 0, 1.94, 0.23, 0.22, C.green);
+    block(entrance, 0, 1.53, 0.22, 2.18, 0.12, 0.65, C.green);
+    const sign = label(entrance, 'ENTRANCE / EXIT', 1.85, 0.25, {
       id: 'store:entrance',
       kind: 'area',
       foreground: '#ffffff',
@@ -864,13 +850,24 @@ export class WorldRenderer {
       mount: 'surface',
       border: false,
     });
-    sign.object.position.set(0, 1.73, 0.11);
-    const left = block(entrance, -0.22, 0.72, 0, 0.4, 1.16, 0.075, C.mint);
-    left.name = 'store-door:left';
-    const right = block(entrance, 0.22, 0.72, 0, 0.4, 1.16, 0.075, C.mint);
-    right.name = 'store-door:right';
-    block(left, 0.13, 0, 0.055, 0.035, 0.32, 0.035, C.green);
-    block(right, -0.13, 0, 0.055, 0.035, 0.32, 0.035, C.green);
+    sign.object.position.set(0, 1.46, 0.56);
+    const left = new Group();
+    const right = new Group();
+    entrance.add(left, right);
+    for (const [index, door] of [left, right].entries()) {
+      door.position.set(index ? 0.34 : -0.34, 0.7, 0);
+      door.name = index ? 'store-door:right' : 'store-door:left';
+      const glass = block(door, 0, 0, 0, 0.65, 1.2, 0.035, 0xa5d8df);
+      glass.material = new MeshBasicMaterial({
+        color: 0x91cdd6,
+        transparent: true,
+        opacity: 0.32,
+        depthWrite: false,
+      });
+      for (const x of [-0.31, 0.31]) block(door, x, 0, 0, 0.025, 1.2, 0.055, C.green);
+      for (const y of [-0.6, 0.6]) block(door, 0, y, 0, 0.65, 0.035, 0.055, C.green);
+      block(door, index ? -0.23 : 0.23, 0, 0.045, 0.035, 0.28, 0.035, C.gold);
+    }
     return { left, right };
   }
 
@@ -1077,7 +1074,7 @@ export class WorldRenderer {
 
   private drawOffice(): void {
     const office = new Group();
-    office.position.copy(toWorld({ x: 990, y: 780 }));
+    office.position.copy(toWorld(GAME_CONFIG.office));
     this.scene.add(office);
     block(office, 0, 0.015, 0, 2.35, 0.06, 1.5, C.cream);
     block(office, 0, 1.08, -0.59, 1.66, 0.32, 0.06, C.green);
@@ -1110,7 +1107,9 @@ export class WorldRenderer {
       });
       title.object.position.set(index ? 0.61 : -0.61, 0.82, -0.2);
       const worker = createCharacter('cashier', role.color);
-      worker.group.position.copy(toWorld({ x: 990 + x * 100, y: 817 }));
+      worker.group.position.copy(
+        toWorld({ x: GAME_CONFIG.office.x + x * 100, y: GAME_CONFIG.office.y + 37 }),
+      );
       worker.setFacing(0, -1);
       this.scene.add(worker.group);
       this.officeStaff.push({ model: worker, upgrade: role.upgrade });
@@ -1128,7 +1127,6 @@ export class WorldRenderer {
     counter.name = second ? 'second-checkout' : 'checkout-counter';
     counter.position.copy(toWorld(second ? GAME_CONFIG.secondCheckout : GAME_CONFIG.checkout));
     this.scene.add(counter);
-    if (second) block(counter, 0.22, 0.015, 0.45, 1.7, 0.06, 2.05, C.tile);
     block(counter, 0, 0.35, -0.08, 0.68, 0.69, 0.84, C.green);
     block(counter, 0, 0.74, -0.08, 0.81, 0.12, 0.95, C.cream);
     block(counter, 0, 0.812, 0.11, 0.56, 0.035, 0.43, 0x656e61);
@@ -1153,11 +1151,8 @@ export class WorldRenderer {
     highlight.position.y = 0.095;
     const progress = ring(spot, 0.4, C.green, 0.064);
     progress.position.y = 0.102;
-    for (let index = 0; index < (second ? 0 : 5); index += 1) {
-      const point = toWorld({
-        x: GAME_CONFIG.queueStart.x,
-        y: GAME_CONFIG.queueStart.y + index * GAME_CONFIG.queueSpacing,
-      });
+    for (let index = 0; index < (second ? 0 : 15); index += 1) {
+      const point = toWorld(queuePosition(index));
       block(this.scene, point.x, 0.077, point.z, 0.27, 0.012, 0.055, 0xd1c8ad);
     }
     return { ring: highlight, progress, label: checkoutLabel, counter, spot };

@@ -165,6 +165,8 @@ export interface CustomerData {
   waitTime: number;
   /** Only time spent waiting for stock or in a stationary checkout queue. */
   patienceElapsed?: number;
+  /** Stationary checkout waiting only; shelf waits do not trigger the queue reaction. */
+  checkoutWaitElapsed?: number;
   unhappy?: boolean;
   path: Vec2[];
 }
@@ -182,6 +184,7 @@ export interface DriveThroughOrder {
 }
 export interface GameState {
   version: 2;
+  layoutVersion: 2;
   money: number;
   inventory: ItemCounts;
   inventoryCapacity: number;

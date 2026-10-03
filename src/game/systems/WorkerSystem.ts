@@ -4,6 +4,7 @@ import { FARM_PRODUCTS, plotCount, plotPosition, productById } from '../data/pro
 import type { GameEvent, GameState, MachineId, ProductId, Vec2, WorkerData } from '../types';
 import { InventorySystem, itemCount } from './InventorySystem';
 import { MachineSystem } from './MachineSystem';
+import { walkRoute } from './Navigation';
 
 export const helperCapacity = (state: GameState): number =>
   GAME_CONFIG.helperCapacities[Math.min(4, Math.max(0, state.upgrades.helperCapacity))];
@@ -191,9 +192,7 @@ export class WorkerSystem {
     worker.machine = job.machine;
     worker.target = { ...job.target };
     worker.actionElapsed = 0;
-    const aisle = worker.id % 2 ? 450 : 480;
-    const route = [{ x: worker.x, y: aisle }, { x: job.target.x, y: aisle }, { ...job.target }];
-    worker.path = Math.hypot(worker.x - job.target.x, worker.y - job.target.y) < 2 ? [] : route;
+    worker.path = walkRoute(this.state, worker, job.target);
   }
 
   private move(worker: WorkerData, deltaMs: number): void {
@@ -272,6 +271,10 @@ export class WorkerSystem {
         }
         this.move(worker, step);
         if (worker.path.length) continue;
+        if (Math.hypot(worker.x - worker.target.x, worker.y - worker.target.y) > 2) {
+          worker.task = 'idle';
+          continue;
+        }
         worker.actionElapsed += step;
         if (worker.actionElapsed >= GAME_CONFIG.harvestInterval) this.act(worker);
       }

@@ -145,7 +145,11 @@ test('drive-through has one mounted title and one active order, even with a full
 async function openGame(page: Page): Promise<void> {
   await page.goto('./?debug=true');
   await page.waitForFunction(() => window.__MARKET__?.ready);
-  await page.evaluate(() => window.__MARKET__.setPaused(true));
+  await page.evaluate(() => {
+    window.__MARKET__.setPaused(true);
+    document.querySelector<HTMLElement>('#pause-overlay')!.style.display = 'none';
+    document.querySelector<HTMLElement>('#debug-panel')!.hidden = true;
+  });
 }
 
 interface LabelSnapshot {
@@ -324,9 +328,7 @@ test('world labels use unique mounted signs and intentional status badges', asyn
   const byId = new Map(snapshot.map((entry) => [entry.id, entry]));
   const mounted = [
     'store:brand',
-    'store:tagline',
-    'store:local',
-    'store:open',
+    'store:entrance',
     'store:carts:count',
     'office:team:title',
     'office:customers:title',
@@ -346,7 +348,6 @@ test('world labels use unique mounted signs and intentional status badges', asyn
       `machine:${id}:status`,
       `machine:${id}:locked`,
     ]),
-    ...[1, 2, 3].map((area) => `area:${area}:title`),
   ];
   for (const id of mounted) expect(byId.get(id), id).toMatchObject({ mount: 'surface' });
   expect(byId.get('checkout:title')?.text).toBe('CHECKOUT');
@@ -398,9 +399,55 @@ test('labels stay concise through upgrades and compact layouts hide decorative h
   snapshot = await labels(page);
   byId = new Map(snapshot.map((entry) => [entry.id, entry]));
   expect(byId.get('farm:tomato:title')?.visible).toBe(false);
-  expect(byId.get('area:1:title')?.visible).toBe(false);
+  expect(snapshot.some(({ id }) => id.startsWith('area:'))).toBe(false);
   expect(byId.get('shelf:tomato:title')?.visible).toBe(true);
   expect(byId.get('machine:paste:status')?.visible).toBe(true);
+});
+
+test('maximum-height shelves keep both aisle rows and their stock labels separate', async ({
+  page,
+}) => {
+  await openGame(page);
+  await page.evaluate(() => {
+    const { engine } = window.__MARKET__;
+    engine.state.money = 100000;
+    engine.state.xp = 100000;
+    for (const id of [
+      'expansion',
+      'shelf',
+      'corn',
+      'pasteMachine',
+      'coffeeMachine',
+      'dairyMachine',
+      'grillMachine',
+    ] as const)
+      while (engine.purchaseUpgrade(id)) {
+        /* maximum-height fixture */
+      }
+  });
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await focusCamera(page, { x: 750, y: 450 });
+    const shelves = (await labelBounds(page)).filter(
+      (entry) =>
+        entry.visible &&
+        entry.id.startsWith('shelf:') &&
+        entry.left >= 0 &&
+        entry.right <= viewport.width &&
+        entry.top >= 0 &&
+        entry.bottom <= viewport.height,
+    );
+    expect(shelves.length).toBeGreaterThan(3);
+    for (let i = 0; i < shelves.length; i++)
+      for (let j = i + 1; j < shelves.length; j++)
+        expect(
+          polygonsOverlap(shelves[i], shelves[j]),
+          `${shelves[i].id} overlaps ${shelves[j].id}`,
+        ).toBe(false);
+  }
 });
 
 test('critical signs stay legible and contained in the compact landscape view', async ({
@@ -450,7 +497,7 @@ test('critical signs stay legible and contained in the compact landscape view', 
     });
     world.update(engine.state, engine.state.elapsed, 0);
   });
-  await focusCamera(page, { x: 990, y: 780 });
+  await focusCamera(page, { x: 350, y: 805 });
   bounds = await labelBounds(page);
   const office = [
     'office:team:title',
@@ -474,15 +521,15 @@ test('critical signs stay legible and contained in the compact landscape view', 
 
   for (const tour of [
     {
-      position: { x: 1320, y: 580 },
+      position: { x: 200, y: 1000 },
       ids: ['machine:paste:title', 'machine:paste:level', 'machine:paste:status'],
     },
     {
-      position: { x: 1640, y: 580 },
+      position: { x: 440, y: 1000 },
       ids: ['machine:coffee:title', 'machine:coffee:level', 'machine:coffee:status'],
     },
     {
-      position: { x: 2010, y: 300 },
+      position: { x: 700, y: 305 },
       ids: ['shelf:carrot:title', 'shelf:carrot:count'],
     },
   ]) {

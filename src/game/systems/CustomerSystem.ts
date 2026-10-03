@@ -1,8 +1,9 @@
 import { GAME_CONFIG } from '../data/gameConfig';
-import { PRODUCTS, emptyItems, productById } from '../data/products';
+import { emptyItems, productById } from '../data/products';
 import { cartCapacity } from '../data/upgrades';
 import type { CustomerData, GameState, ProductId, Vec2 } from '../types';
 import { InventorySystem, itemCount } from './InventorySystem';
+import { canStand, clearWalk, walkRoute } from './Navigation';
 
 const COLORS = [0x739ebd, 0xe58b71, 0xa78bb7, 0xe7bd67, 0x78a68f, 0xd599ae];
 export const distance = (a: Vec2, b: Vec2): number => Math.hypot(a.x - b.x, a.y - b.y);
@@ -20,15 +21,12 @@ export const remainingCustomerNeed = (customer: CustomerData): number =>
   );
 export function queuePosition(index: number): Vec2 {
   const safe = Math.max(0, Math.min(GAME_CONFIG.customerMax - 1, index));
-  // The late-game overflow lane begins below the corn display, not inside it.
-  if (safe >= 10)
-    return { x: GAME_CONFIG.queueStart.x - 100, y: 310 + (safe - 10) * GAME_CONFIG.queueSpacing };
-  return safe < 5
-    ? { x: GAME_CONFIG.queueStart.x, y: GAME_CONFIG.queueStart.y + safe * GAME_CONFIG.queueSpacing }
-    : {
-        x: GAME_CONFIG.queueStart.x - 50,
-        y: GAME_CONFIG.queueStart.y + (9 - safe) * GAME_CONFIG.queueSpacing,
-      };
+  const column = Math.floor(safe / 5),
+    slot = safe % 5;
+  return {
+    x: GAME_CONFIG.queueStart.x - column * 50,
+    y: GAME_CONFIG.queueStart.y - (column % 2 === 0 ? slot : 4 - slot) * GAME_CONFIG.queueSpacing,
+  };
 }
 
 function move(customer: CustomerData, deltaMs: number): void {
@@ -87,33 +85,6 @@ function distanceToApproach(point: Vec2, customer: CustomerData): number {
   return closest;
 }
 
-function crossesSolid(
-  start: Vec2,
-  end: Vec2,
-  left: number,
-  right: number,
-  top: number,
-  bottom: number,
-): boolean {
-  let enter = 0;
-  let exit = 1;
-  for (const [origin, delta, low, high] of [
-    [start.x, end.x - start.x, left + 1e-6, right - 1e-6],
-    [start.y, end.y - start.y, top + 1e-6, bottom - 1e-6],
-  ]) {
-    if (Math.abs(delta) < 1e-9) {
-      if (origin < low || origin > high) return false;
-    } else {
-      const first = (low - origin) / delta;
-      const second = (high - origin) / delta;
-      enter = Math.max(enter, Math.min(first, second));
-      exit = Math.min(exit, Math.max(first, second));
-      if (enter >= exit) return false;
-    }
-  }
-  return enter < exit;
-}
-
 /** Shoppers follow explicit aisle routes, then occupy stable, ordered queue slots. */
 export class CustomerSystem {
   private spawnElapsed: number;
@@ -158,13 +129,13 @@ export class CustomerSystem {
       0,
       this.shoppersFor(product.id).findIndex((entry) => entry.id === customer.id),
     );
-    return { x: product.shelf.x, y: product.shelf.y + 65 + index * 34 };
+    return { x: product.shelf.x, y: product.shelf.y + 75 + index * 34 };
   }
 
   private routeToShelf(customer: CustomerData): void {
     const target = this.shelfPosition(customer);
     customer.state = 'MOVING_TO_SHELF';
-    customer.path = [{ x: customer.x, y: 450 }, { x: target.x, y: 450 }, target];
+    customer.path = walkRoute(this.state, customer, target);
   }
 
   private spawn(): void {
@@ -187,7 +158,7 @@ export class CustomerSystem {
         { ...GAME_CONFIG.cartStation },
         { ...GAME_CONFIG.entranceOutside },
         { ...GAME_CONFIG.entrance },
-        { x: GAME_CONFIG.entrance.x, y: 450 },
+        { x: GAME_CONFIG.entrance.x, y: 820 },
       ],
     };
     this.state.customers.push(customer);
@@ -195,19 +166,16 @@ export class CustomerSystem {
 
   private joinCheckout(customer: CustomerData): void {
     customer.state = 'MOVING_TO_CHECKOUT';
+    customer.checkoutWaitElapsed = 0;
     customer.queueOrder = this.nextQueueOrder++;
     const queue = orderedQueue(this.state);
     const index = queue.findIndex((entry) => entry.id === customer.id);
     this.queueIndices.set(customer.id, index);
     const target = queuePosition(index);
-    // Join each row from its outside aisle. A later arrival can reach its slot
-    // first without occupying an earlier shopper's route through the line.
-    const approachX = index < 5 ? 880 : index < 10 ? 765 : 710;
-    const aisleY = index < 10 ? 450 : 490;
+    const approach = { x: target.x - 30, y: 610 };
     customer.path = [
-      { x: customer.x, y: aisleY },
-      { x: approachX, y: aisleY },
-      { x: approachX, y: target.y },
+      ...walkRoute(this.state, customer, approach),
+      { x: approach.x, y: target.y },
       target,
     ];
     customer.waitTime = 0;
@@ -305,20 +273,26 @@ export class CustomerSystem {
       { x: customer.x - earlier.x, y: customer.y - earlier.y },
       { x: direction, y: 1 },
       { x: direction, y: -1 },
+      { x: -direction, y: 0 },
       { x: 0, y: 1 },
       { x: 0, y: -1 },
     ];
     let best: Vec2 | undefined;
-    let clearance = distanceToApproach(customer, earlier);
+    // A counter can prevent a direct sideways step. Allow progress along its
+    // edge, too, until there is room to clear the older shopper's route.
+    let clearance = distanceToApproach(customer, earlier) + distance(customer, earlier) * 0.05;
     for (const vector of candidates) {
       const length = Math.hypot(vector.x, vector.y) || 1;
       const point = {
         x: customer.x + (vector.x / length) * step,
         y: customer.y + (vector.y / length) * step,
       };
-      const candidateClearance = distanceToApproach(point, earlier);
+      const candidateClearance =
+        distanceToApproach(point, earlier) + distance(point, earlier) * 0.05;
       if (
         candidateClearance <= clearance ||
+        !canStand(this.state, point) ||
+        !clearWalk(this.state, customer, point) ||
         queue.some((other) => other.id !== customer.id && distance(point, other) < 26)
       )
         continue;
@@ -344,18 +318,7 @@ export class CustomerSystem {
     const obstacles = queue.filter((other) => other.id !== customer.id);
     const clear = (start: Vec2, end: Vec2): boolean =>
       obstacles.every((other) => distanceToSegment(other, start, end) >= 26) &&
-      !crossesSolid(start, end, 863, 937, 172, 260) &&
-      PRODUCTS.every(
-        (product) =>
-          !crossesSolid(
-            start,
-            end,
-            product.shelf.x - 78,
-            product.shelf.x + 78,
-            product.shelf.y - 43,
-            product.shelf.y + 44,
-          ),
-      );
+      clearWalk(this.state, start, end);
     if (!clear(target, target)) return false;
     const nodes: Vec2[] = [{ x: customer.x, y: customer.y }, target];
     const right = GAME_CONFIG.areaBounds[this.state.upgrades.expansion];
@@ -452,6 +415,13 @@ export class CustomerSystem {
         }
         if (!customer.path.length && distance(customer, target) > 1) customer.path = [target];
         if (this.yieldToEarlier(customer, index, queue, deltaMs)) continue;
+        // A yielding shopper may now be on the far side of a counter corner.
+        // Rejoin the queue around the furniture, not diagonally through it.
+        if (customer.path[0] && !clearWalk(this.state, customer, customer.path[0])) {
+          const detour = walkRoute(this.state, customer, customer.path[0]);
+          if (!detour.length) continue;
+          customer.path = [...detour, ...customer.path.slice(1)];
+        }
         const before = {
           x: customer.x,
           y: customer.y,
@@ -488,6 +458,8 @@ export class CustomerSystem {
               y: customer.y + ((customer.y - obstruction.y) / separation) * step,
             };
             if (
+              canStand(this.state, yieldPoint) &&
+              clearWalk(this.state, customer, yieldPoint) &&
               queue.every((other) => other.id === customer.id || distance(yieldPoint, other) >= 26)
             ) {
               customer.x = yieldPoint.x;

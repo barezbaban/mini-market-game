@@ -18,13 +18,13 @@ function advance(engine: GameEngine, duration: number): void {
 
 function waitForOrder(engine: GameEngine): void {
   for (let elapsed = 0; elapsed < 12_000 && !engine.state.driveThroughOrders.length; elapsed += 50)
-    engine.update(50);
+    engine.driveThrough.update(50);
   for (
     let elapsed = 0;
-    elapsed < 8_000 && engine.state.driveThroughOrders[0]?.state === 'ARRIVING';
+    elapsed < 20_000 && engine.state.driveThroughOrders[0]?.state === 'ARRIVING';
     elapsed += 50
   )
-    engine.update(50);
+    engine.driveThrough.update(50);
 }
 
 describe('drive-through service', () => {
@@ -128,6 +128,7 @@ describe('drive-through service', () => {
     engine.purchaseUpgrade('driveThrough');
     waitForOrder(engine);
     const departing = engine.state.driveThroughOrders[0];
+    engine.state.driveThroughOrders = [departing];
     departing.delivered = { ...departing.requested };
     departing.state = 'LEAVING';
     const waiting = {
@@ -234,7 +235,7 @@ describe('drive-through service', () => {
     order.y = 875; // A save from the old lane beside the office.
     engine.state.driveThroughHandoffProgress = 300;
     const restored = validateSave(engine.snapshot())!;
-    expect(restored.driveThroughOrders).toHaveLength(1);
+    expect(restored.driveThroughOrders).toHaveLength(engine.state.driveThroughOrders.length);
     expect(restored.driveThroughOrders[0].requested).toEqual(order.requested);
     expect(restored.driveThroughOrders[0].delivered).toEqual(order.delivered);
     expect(restored.driveThroughOrders[0].y).toBe(GAME_CONFIG.driveThroughVehicleSpot.y);

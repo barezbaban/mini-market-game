@@ -10,14 +10,14 @@ Start with **$0**, a basket that holds **8 items**, a tomato patch, and a chicke
 
 Grow → harvest → process → carry → stock → serve → earn → upgrade.
 
-The market occupies the top of the map; the farms and processing areas sit below it. Customers arrive from outside, take a shopping cart, walk through the labeled sliding entrance, find available products, form a checkout line, pay, return the cart, and continue off-screen before leaving the simulation. Products collected by each shopper appear inside that shopper's cart. The store starts with **3 carts**; each Shopping carts purchase adds one, initially up to **10**. Player levels **20, 22, 24, 26, and 28** unlock carts 11–15. Shoppers need a free cart to enter. Open **Manage** to inspect and purchase every upgrade. Keeping progression in this dedicated screen leaves the market floor clear and easy to read. The management window pauses the simulation while you plan.
+The market occupies the top of the map; the farms and processing areas sit below it. Customers arrive from outside, take a shopping cart, walk through the labeled sliding entrance, find available products, form a checkout line, pay, return the cart, and continue off-screen before leaving the simulation. Products collected by each shopper appear inside that shopper's cart. The store starts with **3 carts**; each Shopping carts purchase adds one, initially up to **10**. Player levels **20, 22, 24, 26, and 28** unlock carts 11–15. Shoppers need a free cart to enter. Open **Manage** to inspect and purchase every upgrade. Keeping progression in this dedicated screen leaves the market floor clear and easy to read. Pause and Manage only pause player controls: customers, staff, production, patience, theft, and rush-hour timers keep running. Manage shows a live rush countdown and enables the next challenge as soon as its cooldown finishes.
 
 | Product       | Production                              | Sale price | Availability                            |
 | ------------- | --------------------------------------- | ---------- | --------------------------------------- |
 | Tomatoes      | 3 per plant / 3 seconds                 | $5         | Available at the start                  |
 | Eggs          | 1 per nest / 4 seconds                  | $7         | Available at the start                  |
 | Corn          | 2 per plot / 5 seconds                  | $10        | Unlock for $150                         |
-| Tomato paste  | 1 tomato → 1 can; 6-second batch        | $15        | Production wing and cannery             |
+| Tomato paste  | 1 tomato → 1 can; 6-second batch        | $15        | Production department and cannery       |
 | Coffee beans  | 2 per plant / 4 seconds                 | $12        | Coffee corner                           |
 | Ground coffee | 1 bean → 1 bag; 8-second batch          | $24        | Coffee corner and grinder               |
 | Carrots       | 1 per bed / 2 seconds                   | $8         | Carrot garden                           |
@@ -27,7 +27,7 @@ The market occupies the top of the map; the farms and processing areas sit below
 
 All shelves start with **3 rows × 4 spaces = 12 items**. At player levels **3, 10, and 20**, buy an extra visible row for every shelf, including future shelves: **16 → 20 → 24 items**. Existing stock is preserved. Add up to five tomato plants, nests, corn plots, coffee plants, and cows; the carrot garden supports eight beds. Every plot has its own production timer. Machines process **up to** 2, 4, 6, or 8 ingredients per batch as they are upgraded, and start a smaller batch when less input is available. Stand near a machine while carrying its raw ingredient to supply it, then collect the finished products when your basket has room.
 
-Expand eastward in four stages: **production wing ($250)**, **coffee corner ($500)**, **carrot garden ($1,000)**, and **dairy meadow ($2,000)**. The management cards show current capacity, the next effect, the exact next price, and any prerequisite. Most repeated upgrades grow more expensive; the carrot-bed price increases by 20% each time.
+Fit out the compact store in four stages: **production department ($250)**, **coffee corner ($500)**, **carrot garden ($1,000)**, and **dairy meadow ($2,000)**. The management cards show current capacity, the next effect, the exact next price, and any prerequisite. Most repeated upgrades grow more expensive; the carrot-bed price increases by 20% each time. Departments stay within one compact footprint: two shelf rows, two indoor checkout stations, a wide front entrance, a service-side opening, and a three-column farmyard.
 
 Hire up to **three helpers** to harvest, operate machines, and stock shelves. Their baskets grow **2 → 3 → 4 → 5 → 6** items; ten speed levels multiply walking speed by **1.10** at each upgrade. The cashier starts with five purchasable tiers and marketing with ten. Player levels **20, 25, and 30** unlock three additional tiers for the cashier, marketing director, and player basket (up to 40 carried items). Each cashier tier after hiring divides checkout time by 1.25; each marketing tier adds 20% of the base arrival rate. Every paid store or drive-through order earns **5 customer XP + 2 XP per item sold** (7 XP for one item, 9 XP for two). Picking up goods and unpaid orders do not earn sales XP. The accountant still earns **5 XP per tier every 10 seconds**. Manage shows the next unlock, XP remaining, and a complete level roadmap. Unlocks are permission to buy with game money, not automatic purchases; existing saves keep owned upgrades and XP.
 
@@ -35,7 +35,7 @@ The **drive-through service** is available to purchase from the beginning. Cars 
 
 Every register has **unlimited cash storage** and keeps selling while money waits for collection. Each display stays at two short layers of bills, even with a large balance; compact world signs show amounts such as $25K or $1.2M, while the HUD and save retain the exact money. Helpers and cashiers never bank money for you; camping at a cash pile does not collect new payments. At **player level 20**, buy a **second staffed checkout** for **$1,500** after hiring the first cashier. Both draw from the same queue and share speed upgrades, but keep separate cash piles. Existing saves with full registers reopen without losing stored cash. The thief remains the risk of leaving money unattended.
 
-Cash left unattended for **three minutes** attracts a thief when you are away. They walk into the store, spend **six seconds** attempting theft, then flee with the pile. Hold **Shift** or the **Sprint** button while moving (four seconds of stamina, six seconds to refill). Get the thief inside your visible **net circle** to catch them and recover stolen cash once. A hired helper guards the netted thief until police arrive and walk them out; without helpers, the net holds them. Escaped cash is lost. Cash piles, collection readiness, and encounters survive reloads; paused or closed games do not advance theft timers.
+Cash left unattended for **three minutes** attracts a thief when you are away. They walk into the store, spend **six seconds** attempting theft, then flee with the pile. Hold **Shift** or the **Sprint** button while moving (four seconds of stamina, six seconds to refill). Get the thief inside your visible **net circle** to catch them and recover stolen cash once. A hired helper guards the netted thief until police arrive and walk them out; without helpers, the net holds them. Escaped cash is lost. Cash piles, collection readiness, and encounters survive reloads; menu screens keep theft timers running; hidden tabs and closed games do not advance them.
 
 ## Features
 
@@ -44,16 +44,16 @@ Cash left unattended for **three minutes** attracts a thief when you are away. T
 - Automatic harvesting, stocking, and checkout; no interaction button needed.
 - Ten products, independently growing farm plots, and four processing machines, including a corn grill with its own shelf.
 - Four equipment-speed upgrades multiply processor speed by 1.20 each; later tiers require player levels 5, 10 and 20. Batch capacity upgrades remain separate.
-- Optional **Manage → Start rush hour** challenge: 90 seconds, double store arrivals within the cart limit, and 100 bonus XP for 8 paid store/drive-through orders. Success ends the rush early; either outcome has a 60-second active-play cooldown. No cash penalty for missing the goal, and payments still require manual collection.
-- Compact happy/neutral/angry customer mood bars. Two minutes waiting for stock or checkout triggers a walkout via the door and cart return. Walking and payment do not consume patience; unpaid goods are returned, with overflow held safely until shelf space opens. No sales XP for walkouts.
+- Optional **Manage → Start rush hour** challenge: 90 seconds, double store arrivals within the cart limit, and 100 bonus XP for 8 paid store/drive-through orders. Success ends the rush early; either outcome has a 60-second cooldown that also counts down in menus. No cash penalty for missing the goal, and payments still require manual collection.
+- Small customer emojis appear only for empty shelves, after 30 seconds queued for payment, or briefly after a completed purchase. Normal shopping has no mood bar; product-and-quantity thought bubbles remain. Two minutes waiting for stock or checkout triggers a walkout via the door and cart return. Walking and payment do not consume patience; unpaid goods are returned, with overflow held safely until shelf space opens. No sales XP for walkouts.
 - Customer state machines, visible product-filled shopping carts, an animated entrance, an orderly checkout queue, and a hireable cashier.
 - Purchasable car-and-bike drive-through orders with separate runner and cashier automation.
 - Four store expansions, level milestones, growing shelf rows, and management tabs for Store, Farms, Machines, and Staff.
 - Upgradeable helpers, cashier, marketing director, and accountant; player XP and levels.
 - Floating feedback, carried products, stock indicators, and a short first-time tutorial.
 - Desktop movement, touch joystick/drag movement with a dead zone, and simultaneous two-thumb Sprint. Touch targets are at least 44 pixels; cancellation and rotation release movement safely. Items transfer automatically in stand areas, without tiny drag targets.
-- Original cheerful synthesized music, pickup/stock sounds and register chimes, separate effect/music volume sliders, and an instant master mute. Sound begins after a gesture, pauses with gameplay, and uses bounded, cleaned-up audio voices.
-- Local saves (including challenge timers, patience, returned stock and sound preferences) and a confirmed reset in Settings. Closing or pausing never advances timers.
+- Original cheerful synthesized music, pickup/stock sounds and register chimes, separate effect/music volume sliders, and an instant master mute. Sound begins after a gesture, continues in menus, suspends in hidden tabs, and uses bounded, cleaned-up audio voices.
+- Local saves (including challenge timers, patience, returned stock and sound preferences) and a confirmed reset in Settings. Hiding or closing the tab never advances timers; opening Pause or Manage does not freeze or reset them.
 - Modular TypeScript systems, automated tests, and GitHub Pages deployment.
 
 ## Controls
@@ -75,9 +75,11 @@ The game fills the browser window. The camera and overlays adapt to desktop, tab
 
 ## Screenshots
 
-![Mini Market Manager 3D gameplay with its original market, farm, characters, and compact floating HUD](docs/screenshots/desktop.png)
+![Compact store with two shelf aisles, front glass entrance, indoor checkouts, grouped farms and a separate drive-through lane](docs/screenshots/compact-map.png)
 
 The screenshots are captured from the running application. Scenery, characters, and produce are original 3D meshes created for this project.
+
+The compact-map overview uses an isolated, fully unlocked demonstration fixture and a zoomed-out camera to show the complete layout. Gameplay normally uses the following camera. Older saves relocate once into this layout while retaining money, inventory, upgrades, orders, XP, and cash awaiting collection. The captures below show earlier layouts.
 
 [Mobile landscape screenshot](docs/screenshots/mobile-landscape.png) · [Mobile portrait screenshot](docs/screenshots/mobile-portrait.png)
 

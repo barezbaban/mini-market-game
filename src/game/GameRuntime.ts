@@ -12,6 +12,7 @@ interface RuntimeServices {
   save: SaveSystem;
   audio: AudioManager;
   hud: Hud;
+  refreshMenus?(): void;
 }
 
 /** Rendering and lifecycle adapter; game rules and save format are renderer-independent. */
@@ -29,6 +30,7 @@ export class GameRuntime {
   private saveTimer = 0;
   private hudTimer = 0;
   private paused = false;
+  private controlsBlocked = false;
   private contextLost = false;
   private fps = 60;
   private readonly debug = new URLSearchParams(location.search).get('debug') === 'true';
@@ -49,7 +51,7 @@ export class GameRuntime {
     sprintButton.addEventListener(
       'pointerdown',
       (event) => {
-        if (this.paused) return;
+        if (this.inputBlocked) return;
         event.preventDefault();
         sprintButton.setPointerCapture(event.pointerId);
         this.touchSprint = true;
@@ -70,7 +72,7 @@ export class GameRuntime {
       (event) => {
         if (event.key === ' ' || event.key === 'Enter') {
           event.preventDefault();
-          this.touchSprint = !this.paused;
+          this.touchSprint = !this.inputBlocked;
         }
       },
       options,
@@ -93,12 +95,21 @@ export class GameRuntime {
           return;
         if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key))
           event.preventDefault();
-        if (!this.paused) this.keys.add(event.key.toLowerCase());
+        if (!this.inputBlocked) this.keys.add(event.key.toLowerCase());
       },
       options,
     );
     window.addEventListener('keyup', (event) => this.keys.delete(event.key.toLowerCase()), options);
     window.addEventListener('blur', () => this.clearInput(), options);
+    document.addEventListener(
+      'visibilitychange',
+      () => {
+        this.previousTime = 0;
+        this.clearInput();
+        services.audio.setPaused(this.suspended);
+      },
+      options,
+    );
     host.querySelector('canvas')!.addEventListener(
       'webglcontextlost',
       (event) => {
@@ -115,7 +126,8 @@ export class GameRuntime {
       'webglcontextrestored',
       () => {
         this.contextLost = false;
-        services.audio.setPaused(this.paused);
+        this.previousTime = 0;
+        services.audio.setPaused(this.suspended);
       },
       options,
     );
@@ -127,8 +139,19 @@ export class GameRuntime {
 
   setPaused(paused: boolean): void {
     this.paused = paused;
-    this.services.audio.setPaused(paused);
+    this.services.audio.setPaused(this.suspended);
     this.clearInput();
+  }
+  /** Menus stop player input, not the shop simulation or its timers. */
+  setControlsBlocked(blocked: boolean): void {
+    this.controlsBlocked = blocked;
+    this.clearInput();
+  }
+  private get suspended(): boolean {
+    return this.paused || this.contextLost || document.hidden;
+  }
+  private get inputBlocked(): boolean {
+    return this.controlsBlocked || this.suspended;
   }
   private clearInput(): void {
     this.touchSprint = false;
@@ -141,17 +164,22 @@ export class GameRuntime {
     this.previousTime = time;
     this.fps = this.fps * 0.95 + (1000 / Math.max(1, delta)) * 0.05;
     const { engine, audio, hud } = this.services;
-    if (!this.paused && !this.contextLost) {
+    if (!this.suspended) {
       const x =
         Number(this.keys.has('d') || this.keys.has('arrowright')) -
         Number(this.keys.has('a') || this.keys.has('arrowleft'));
       const y =
         Number(this.keys.has('s') || this.keys.has('arrowdown')) -
         Number(this.keys.has('w') || this.keys.has('arrowup'));
-      engine.update(delta, {
-        ...this.world.screenToWorldInput(x || y ? { x, y } : this.controls.vector),
-        sprint: this.keys.has('shift') || this.touchSprint,
-      });
+      engine.update(
+        delta,
+        this.controlsBlocked
+          ? { x: 0, y: 0 }
+          : {
+              ...this.world.screenToWorldInput(x || y ? { x, y } : this.controls.vector),
+              sprint: this.keys.has('shift') || this.touchSprint,
+            },
+      );
       this.animationTime += delta;
       const events = engine.drainEvents();
       let important = false;
@@ -170,13 +198,14 @@ export class GameRuntime {
       if (important || this.saveTimer >= GAME_CONFIG.saveInterval) this.persist();
     }
     // Keep presenting while paused so resizing, camera easing, and test fixtures stay visible.
-    if (!this.contextLost)
+    if (!this.contextLost && !document.hidden)
       this.world.update(engine.state, this.animationTime, delta, engine.trashProgress);
     this.floating.update(this.animationTime);
     this.hudTimer += delta;
     if (this.hudTimer >= 100) {
       this.hudTimer = 0;
       hud.update(engine.state);
+      this.services.refreshMenus?.();
       if (this.debug) {
         document.querySelector('#debug-panel')!.textContent =
           `3D · ${Math.round(this.fps)} FPS · ${this.world.renderer.info.render.calls} draw calls\nPlayer ${Math.round(engine.state.player.x)}, ${Math.round(engine.state.player.y)}\nBasket ${JSON.stringify(engine.state.inventory)}\n${engine.state.customers.map((customer) => `${customer.id}:${customer.state}`).join(' ')}\nSales ${engine.state.totalServed} · Tutorial ${engine.state.tutorialStep}`;

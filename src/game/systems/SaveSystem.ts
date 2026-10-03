@@ -20,10 +20,13 @@ import type {
 import { applyUpgradeEffects } from './UpgradeSystem';
 import { RUSH } from './RushHourSystem';
 import { CUSTOMER_PATIENCE_MS } from './PatienceSystem';
+import { LAYOUT_VERSION } from '../data/worldLayout';
+import { migrateLayout } from './migrateLayout';
 
 export function createInitialState(): GameState {
   const state: GameState = {
     version: 2,
+    layoutVersion: LAYOUT_VERSION,
     money: 0,
     inventory: emptyItems(),
     inventoryCapacity: GAME_CONFIG.playerStartCapacity,
@@ -116,13 +119,13 @@ const point = (value: unknown, fallback: Vec2, outside = false): Vec2 => {
       source.x,
       fallback.x,
       outside ? -500 : bounds.left,
-      outside ? GAME_CONFIG.width + 100 : bounds.right,
+      outside ? GAME_CONFIG.width + 800 : bounds.right,
     ),
     y: coordinate(
       source.y,
       fallback.y,
       outside ? -500 : bounds.top,
-      outside ? GAME_CONFIG.height : bounds.bottom,
+      outside ? GAME_CONFIG.height + 800 : bounds.bottom,
     ),
   };
 };
@@ -232,7 +235,10 @@ export function validateSave(value: unknown): GameState | null {
   state.workers = Array.from({ length: state.upgrades.helpers }, (_, index): WorkerData => {
     const id = index + 1;
     const original = object(rawWorkers.find((entry) => object(entry).id === id));
-    const position = point(original, { x: 990 + index * 35, y: 780 });
+    const position = point(original, {
+      x: GAME_CONFIG.helperHub.x + index * 25,
+      y: GAME_CONFIG.helperHub.y,
+    });
     const basket = emptyItems();
     const storedBasket = object(original.basket);
     let room = workerCapacity;
@@ -303,8 +309,11 @@ export function validateSave(value: unknown): GameState | null {
           ? { patienceElapsed: number(customer.patienceElapsed, 0, CUSTOMER_PATIENCE_MS) }
           : {}),
         ...(customer.unhappy === true ? { unhappy: true } : {}),
+        ...(customer.checkoutWaitElapsed !== undefined
+          ? { checkoutWaitElapsed: number(customer.checkoutWaitElapsed, 0, CUSTOMER_PATIENCE_MS) }
+          : {}),
         path: Array.isArray(customer.path)
-          ? customer.path.slice(0, 16).map((entry) => point(entry, GAME_CONFIG.entrance, true))
+          ? customer.path.slice(0, 64).map((entry) => point(entry, GAME_CONFIG.entrance, true))
           : [],
       };
       if (
@@ -406,7 +415,9 @@ export function validateSave(value: unknown): GameState | null {
     }
   }
   const activeDriveOrder = state.driveThroughOrders.find(
-    (order) => order.state !== 'LEAVING' && order.x === GAME_CONFIG.driveThroughVehicleSpot.x,
+    (order) =>
+      ['WAITING_FOR_ITEMS', 'READY_TO_PAY', 'PAYING'].includes(order.state) &&
+      (raw.layoutVersion !== LAYOUT_VERSION || order.x === GAME_CONFIG.driveThroughVehicleSpot.x),
   );
   state.driveThroughHandoffProgress =
     activeDriveOrder?.state === 'WAITING_FOR_ITEMS'
@@ -436,7 +447,7 @@ export function validateSave(value: unknown): GameState | null {
       stolen: phase === 'FLEEING' ? integer(savedThief.stolen) : 0,
       elapsed: number(savedThief.elapsed, 0, GAME_CONFIG.thiefDelay),
       path: Array.isArray(savedThief.path)
-        ? savedThief.path.slice(0, 16).map((entry) => point(entry, GAME_CONFIG.entrance, true))
+        ? savedThief.path.slice(0, 64).map((entry) => point(entry, GAME_CONFIG.entrance, true))
         : [],
     };
     if (phase === 'CAUGHT' || phase === 'ESCORTED') {
@@ -445,7 +456,7 @@ export function validateSave(value: unknown): GameState | null {
         state.security.police = {
           ...point(police, state.security.thief, true),
           path: Array.isArray(police.path)
-            ? police.path.slice(0, 16).map((entry) => point(entry, GAME_CONFIG.entrance, true))
+            ? police.path.slice(0, 64).map((entry) => point(entry, GAME_CONFIG.entrance, true))
             : [],
         };
       const guardId = integer(savedSecurity.guardId);
@@ -453,6 +464,7 @@ export function validateSave(value: unknown): GameState | null {
         phase === 'CAUGHT' && state.workers.some(({ id }) => id === guardId) ? guardId : null;
     }
   }
+  if (raw.layoutVersion !== LAYOUT_VERSION) migrateLayout(state);
   return state;
 }
 

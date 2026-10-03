@@ -13,7 +13,7 @@ import { EconomySystem } from './EconomySystem';
 import { refreshFarmTotals } from './FarmingSystem';
 
 export function createWorker(id: number): WorkerData {
-  const position = { x: 965 + (id - 1) * 22, y: 480 };
+  const position = { x: GAME_CONFIG.helperHub.x + (id - 1) * 22, y: GAME_CONFIG.helperHub.y };
   return {
     id,
     ...position,

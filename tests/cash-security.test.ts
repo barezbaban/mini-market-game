@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CASH_POINTS, cashLabelAmount } from '../src/game/data/cashPoints';
 import { GAME_CONFIG } from '../src/game/data/gameConfig';
-import { emptyItems } from '../src/game/data/products';
+import { PRODUCTS, emptyItems } from '../src/game/data/products';
 import { xpForLevel } from '../src/game/data/upgrades';
 import { queuePosition } from '../src/game/systems/CustomerSystem';
 import { GameEngine } from '../src/game/systems/GameEngine';
@@ -31,7 +31,7 @@ function securityAdvance(engine: GameEngine, duration: number): void {
 function fleeing(engine: GameEngine, amount = 100): ThiefData {
   engine.state.security.thief = {
     x: 600,
-    y: 450,
+    y: 610,
     phase: 'FLEEING',
     target: 'store',
     stolen: amount,
@@ -350,7 +350,7 @@ describe('cash security and net rescue', () => {
     engine.state.totalEarned = 100;
     engine = new GameEngine(validateSave(engine.snapshot())!);
     expect(engine.state.security.thief?.stolen).toBe(100);
-    engine.state.player = { x: 650, y: 450 };
+    engine.state.player = { x: 650, y: 610 };
     engine.security.update(50);
     expect(engine.state.security.thief?.phase).toBe('CAUGHT');
     expect(engine.state.money).toBe(100);
@@ -390,8 +390,9 @@ describe('cash security and net rescue', () => {
   it('prevents net captures through solid shelves', () => {
     const engine = new GameEngine();
     const thief = fleeing(engine, 50);
-    Object.assign(thief, { x: 265, y: 250, path: [{ x: 265, y: 450 }] });
-    engine.state.player = { x: 265, y: 310 };
+    const shelf = PRODUCTS[0].shelf;
+    Object.assign(thief, { x: shelf.x, y: shelf.y, path: [] });
+    engine.state.player = { x: shelf.x, y: shelf.y + 60 };
     engine.security.update(1);
     expect(thief.phase).toBe('FLEEING');
     expect(engine.state.money).toBe(0);
@@ -399,7 +400,7 @@ describe('cash security and net rescue', () => {
 
   it('does not bank stolen cash when a thief runs past an idle player', () => {
     const engine = new GameEngine();
-    engine.state.player = { x: 600, y: 450 };
+    engine.state.player = { x: 600, y: 610 };
     securityAdvance(engine, 1000);
     const thief = fleeing(engine, 100);
     thief.x = 620;

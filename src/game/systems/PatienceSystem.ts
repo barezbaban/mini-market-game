@@ -1,7 +1,7 @@
-import { GAME_CONFIG } from '../data/gameConfig';
 import { PRODUCTS, emptyItems } from '../data/products';
 import type { CustomerData, GameEvent, GameState } from '../types';
 import { InventorySystem } from './InventorySystem';
+import { exitRoute } from './Navigation';
 
 export const CUSTOMER_PATIENCE_MS = 120000;
 export const patienceRemaining = (customer: CustomerData): number =>
@@ -18,6 +18,11 @@ export class PatienceSystem {
   update(deltaMs: number): void {
     if (!Number.isFinite(deltaMs) || deltaMs <= 0) return;
     for (const customer of this.state.customers) {
+      if (['QUEUEING', 'SECOND_QUEUEING'].includes(customer.state))
+        customer.checkoutWaitElapsed = Math.min(
+          CUSTOMER_PATIENCE_MS,
+          (customer.checkoutWaitElapsed ?? 0) + deltaMs,
+        );
       if (!['WAITING_FOR_PRODUCT', 'QUEUEING', 'SECOND_QUEUEING'].includes(customer.state))
         continue;
       customer.patienceElapsed = Math.min(
@@ -30,14 +35,7 @@ export class PatienceSystem {
       customer.unhappy = true;
       customer.state = 'LEAVING';
       // Leave via the front aisle, doorway and cart return; never disappear in-store.
-      customer.path = [
-        { x: customer.x, y: 450 },
-        { x: 1000, y: 450 },
-        { ...GAME_CONFIG.entrance },
-        { ...GAME_CONFIG.entranceOutside },
-        { ...GAME_CONFIG.cartStation },
-        { ...GAME_CONFIG.customerExit },
-      ];
+      customer.path = exitRoute(this.state, customer);
       this.state.totalWalkouts++;
       this.emit({
         type: 'notice',

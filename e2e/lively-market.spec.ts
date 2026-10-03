@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import type { CustomerData } from '../src/game/types';
 
-test('rush-hour controls, countdown pause, reward and audio settings survive reload', async ({
+test('rush-hour countdown runs behind Pause, reward and audio settings survive reload', async ({
   page,
 }) => {
   await page.goto('./?debug=true');
@@ -11,9 +11,13 @@ test('rush-hour controls, countdown pause, reward and audio settings survive rel
   await expect(page.locator('#management-dialog')).not.toBeVisible();
   await expect(page.locator('#rush-status')).toContainText('0/8 orders');
   await page.getByRole('button', { name: 'Pause game', exact: true }).click();
-  const frozen = await page.evaluate(() => window.__MARKET__.engine.state.rush.remainingMs);
-  await page.waitForTimeout(350);
-  expect(await page.evaluate(() => window.__MARKET__.engine.state.rush.remainingMs)).toBe(frozen);
+  const before = await page.evaluate(() => window.__MARKET__.engine.snapshot());
+  await page.keyboard.down('d');
+  await expect
+    .poll(() => page.evaluate(() => window.__MARKET__.engine.state.rush.remainingMs))
+    .toBeLessThan(before.rush.remainingMs - 300);
+  expect(await page.evaluate(() => window.__MARKET__.engine.state.player)).toEqual(before.player);
+  await page.keyboard.up('d');
   await page.getByRole('button', { name: 'Back to the market' }).click();
   await page.getByRole('button', { name: 'Open settings' }).click();
   await page.locator('#effects-volume').fill('25');
@@ -49,15 +53,15 @@ test('grill, stock shelf and compact customer mood indicators render in the expa
     for (let area = 0; area < 3; area++) engine.purchaseUpgrade('expansion');
     engine.purchaseUpgrade('corn');
     engine.purchaseUpgrade('grillMachine');
-    engine.state.player = { x: 2030, y: 560 };
+    engine.state.player = { x: 950, y: 610 };
     engine.state.shelves.grilledCorn = 12;
     const empty = Object.fromEntries(Object.keys(engine.state.inventory).map((id) => [id, 0]));
     engine.state.customers = [0, 70000, 110000].map(
       (patienceElapsed, index) =>
         ({
           id: index + 1,
-          x: 2140,
-          y: 305 + index * 40,
+          x: 1140,
+          y: 285 + index * 34,
           state: 'WAITING_FOR_PRODUCT',
           targetProduct: 'grilledCorn',
           targetQuantity: 2,
@@ -73,20 +77,130 @@ test('grill, stock shelf and compact customer mood indicators render in the expa
     document.querySelector<HTMLElement>('#debug-panel')!.hidden = true;
     return {
       moods: [0, 1, 2].map(
-        (i) =>
-          world.scene.getObjectByName('label:customer:' + i + ':patience')!.userData.worldLabel
-            .text,
+        (i) => world.scene.getObjectByName('label:customer:' + i + ':patience')!.visible,
       ),
       machine: world.scene.getObjectByName('machine-grill')!.visible,
       shelf: world.scene.getObjectByName('label:shelf:grilledCorn:title')?.userData.worldLabel.text,
       shadows: world.renderer.shadowMap.enabled,
     };
   });
-  expect(result.moods).toEqual(['🙂 ▰▰▰▰', '😐 ▰▰▱▱', '😠 ▰▱▱▱']);
+  expect(result.moods).toEqual([false, false, false]);
   expect(result.machine).toBe(true);
   expect(result.shadows).toBe(false);
   await page.screenshot({ path: 'test-results/lively-grill.png' });
 });
+
+for (const viewport of [
+  { width: 1440, height: 900 },
+  { width: 390, height: 844 },
+]) {
+  test(`customer emojis stay small and appear only for service events at ${viewport.width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.goto('./?debug=true');
+    await page.waitForFunction(() => window.__MARKET__?.ready);
+    const reactions = await page.evaluate(() => {
+      const { engine, world, setPaused } = window.__MARKET__;
+      setPaused(true);
+      const empty = { ...engine.state.inventory };
+      const customer: CustomerData = {
+        id: 1,
+        x: 260,
+        y: 535,
+        state: 'ENTERING',
+        targetProduct: 'tomato',
+        targetQuantity: 1,
+        basket: { ...empty },
+        color: 0x739ebd,
+        waitTime: 0,
+        path: [],
+        patienceElapsed: 110000,
+      };
+      engine.state.customers = [customer];
+      engine.state.player = { x: 300, y: 600 };
+      const snapshot = () => {
+        world.update(engine.state, 0, 50);
+        const face = world.scene.getObjectByName('label:customer:0:patience')!;
+        return {
+          visible: face.visible,
+          text: face.userData.worldLabel.text as string,
+          width: face.scale.x,
+          height: face.scale.y,
+        };
+      };
+      const normal = ['ENTERING', 'MOVING_TO_SHELF', 'QUEUEING', 'SECOND_QUEUEING', 'PAYING'].map(
+        (state) => {
+          customer.state = state as CustomerData['state'];
+          return snapshot();
+        },
+      );
+      customer.state = 'WAITING_FOR_PRODUCT';
+      engine.state.shelves.tomato = 0;
+      const missing = snapshot();
+      const thoughtVisible = world.scene.getObjectByName('customer:0:thought')!.visible;
+      engine.state.shelves.tomato = 2;
+      const restocked = snapshot();
+      customer.state = 'QUEUEING';
+      customer.checkoutWaitElapsed = 29999;
+      const shortWait = snapshot();
+      customer.checkoutWaitElapsed = 30000;
+      const longWait = snapshot();
+      customer.state = 'SECOND_QUEUEING';
+      const secondWait = snapshot();
+      customer.state = 'QUEUEING';
+      customer.x = 903;
+      customer.y = 790;
+      customer.basket.tomato = 1;
+      engine.state.cashier = true;
+      engine.checkout.update(1000);
+      const purchased = snapshot();
+      customer.waitTime = 2200;
+      const expired = snapshot();
+      customer.unhappy = true;
+      customer.waitTime = 0;
+      const walkout = snapshot();
+      customer.state = 'WAITING_FOR_PRODUCT';
+      customer.x = 260;
+      customer.y = 535;
+      customer.basket = { ...empty };
+      engine.state.shelves.tomato = 0;
+      for (let frame = 0; frame < 60; frame++) world.update(engine.state, 0, 50);
+      document.querySelector<HTMLElement>('#pause-overlay')!.style.display = 'none';
+      document.querySelector<HTMLElement>('#debug-panel')!.hidden = true;
+      return {
+        normal,
+        missing,
+        thoughtVisible,
+        restocked,
+        shortWait,
+        longWait,
+        secondWait,
+        purchased,
+        expired,
+        walkout,
+      };
+    });
+    for (const reaction of [
+      ...reactions.normal,
+      reactions.restocked,
+      reactions.shortWait,
+      reactions.expired,
+      reactions.walkout,
+    ])
+      expect(reaction.visible).toBe(false);
+    expect(reactions.thoughtVisible).toBe(true);
+    expect(reactions.missing).toMatchObject({ visible: true, text: '😕' });
+    expect(reactions.longWait).toMatchObject({ visible: true, text: '😠' });
+    expect(reactions.secondWait).toMatchObject({ visible: true, text: '😠' });
+    expect(reactions.purchased).toMatchObject({ visible: true, text: '🙂' });
+    for (const reaction of [reactions.missing, reactions.longWait, reactions.purchased]) {
+      expect(reaction.width).toBeLessThanOrEqual(0.14);
+      expect(reaction.height).toBeLessThanOrEqual(0.14);
+    }
+    await page.screenshot({ path: `test-results/customer-reactions-${viewport.width}.png` });
+  });
+}
 
 test('phone controls have large targets, a dead zone, multi-touch sprint and rotation recovery', async ({
   browser,

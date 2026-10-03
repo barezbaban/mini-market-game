@@ -18,7 +18,7 @@ test('management buys every expansion with real costs, caps levels, and preserve
   await page.locator('#manage-button').click();
   const dialog = page.locator('#management-dialog');
   await expect(dialog).toBeVisible();
-  const pausedAt = await page.evaluate(() => window.__MARKET__.engine.state.elapsed);
+  const openedAt = await page.evaluate(() => window.__MARKET__.engine.state.elapsed);
   await page.locator('#management-tab-machines').click();
   await expect(page.locator('#buy-pasteMachine')).toBeDisabled();
   await page.locator('#management-tab-staff').click();
@@ -60,7 +60,9 @@ test('management buys every expansion with real costs, caps levels, and preserve
     }
     await expect(page.locator(`#buy-${id}`)).toBeDisabled();
   }
-  expect(await page.evaluate(() => window.__MARKET__.engine.state.elapsed)).toBe(pausedAt);
+  expect(await page.evaluate(() => window.__MARKET__.engine.state.elapsed)).toBeGreaterThan(
+    openedAt,
+  );
   const before = await page.evaluate(() => window.__MARKET__.engine.snapshot());
   expect(before.workers).toHaveLength(3);
   expect(before.unlockedProducts).toHaveLength(10);
@@ -119,7 +121,7 @@ test('fully staffed expanded store earns money and XP with no player harvesting'
       engine.update(50);
       // The player makes collection rounds; helpers never bank register cash.
       if (time % 10000 === 0) {
-        engine.state.player = { x: 965, y: 350 };
+        engine.state.player = { x: 1040, y: 845 };
         engine.cashCollection.update(0);
         engine.state.player = { x: 105, y: 920 };
         engine.cashCollection.update(0);

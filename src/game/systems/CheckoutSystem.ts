@@ -6,6 +6,7 @@ import { EconomySystem } from './EconomySystem';
 import { checkoutDuration } from '../data/upgrades';
 import { awardSaleXp } from './ProgressionSystem';
 import { itemCount } from './InventorySystem';
+import { exitRoute, walkRoute } from './Navigation';
 
 export class CheckoutSystem {
   constructor(
@@ -29,12 +30,7 @@ export class CheckoutSystem {
     const candidate = queue[primaryCanWork ? 1 : 0];
     if (!candidate || candidate.state !== 'QUEUEING' || candidate.path.length) return;
     candidate.state = 'MOVING_TO_SECOND_CHECKOUT';
-    candidate.path = [
-      { x: 890, y: candidate.y },
-      { x: 890, y: 490 },
-      { x: GAME_CONFIG.secondQueueStart.x, y: 490 },
-      { ...GAME_CONFIG.secondQueueStart },
-    ];
+    candidate.path = walkRoute(this.state, candidate, GAME_CONFIG.secondQueueStart);
   }
 
   private serve(customer: CustomerData | undefined, deltaMs: number, second: boolean): void {
@@ -76,15 +72,9 @@ export class CheckoutSystem {
     this.state.tutorialStep = Math.max(this.state.tutorialStep, 5);
     this.state[progress] = 0;
     customer.state = 'LEAVING';
+    customer.waitTime = 0;
     customer.basket = emptyItems();
-    customer.path = [
-      ...(second ? [{ x: 1000, y: 360 }] : [{ x: 885, y: 302 }]),
-      { x: 1010, y: 320 },
-      { ...GAME_CONFIG.entrance },
-      { ...GAME_CONFIG.entranceOutside },
-      { ...GAME_CONFIG.cartStation },
-      { ...GAME_CONFIG.customerExit },
-    ];
+    customer.path = exitRoute(this.state, customer);
     this.emit({ type: 'checkout', text: `$${amount} stacked · +${earnedXp} XP`, ...counter });
     this.emit({ type: 'checkout', text: 'Thank you!', x: customer.x, y: customer.y });
   }

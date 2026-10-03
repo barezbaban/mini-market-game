@@ -4,6 +4,7 @@ import type { GameEngine } from '../src/game/systems/GameEngine';
 import type { SaveSystem } from '../src/game/systems/SaveSystem';
 import type { GameState } from '../src/game/types';
 import { GAME_CONFIG } from '../src/game/data/gameConfig';
+import { walkRoute } from '../src/game/systems/Navigation';
 import type { Mesh, MeshBasicMaterial } from 'three';
 import stuckQueue from '../tests/fixtures/stuck-queue.json' with { type: 'json' };
 
@@ -42,6 +43,13 @@ async function advance(page: Page, milliseconds: number): Promise<void> {
 
 /** Navigate with actual screen-relative keys while the angled camera follows. */
 async function walkTo(page: Page, target: { x: number; y: number }): Promise<void> {
+  const snapshot = await state(page);
+  const route = walkRoute(snapshot, snapshot.player, target);
+  expect(route.at(-1)).toEqual(target);
+  for (const waypoint of route) await walkStraightTo(page, waypoint);
+}
+
+async function walkStraightTo(page: Page, target: { x: number; y: number }): Promise<void> {
   let held: string[] = [];
   const deadline = Date.now() + 12_000;
   try {
@@ -102,21 +110,21 @@ test('actionable farm, shelf, and machine spots show a floor target that confirm
         (world.scene.getObjectByName(`${name}:outline`) as Mesh).material as MeshBasicMaterial
       ).color.getHex();
     engine.state.farms.tomato.plots[0].ready = 3;
-    engine.state.player = { x: 265, y: 490 };
+    engine.state.player = { x: 260, y: 1030 };
     world.update(engine.state, 0, 0);
     const farmAvailable = farm.visible;
     const farmFarColor = color(farm.name);
-    engine.state.player = { x: 265, y: 548 };
+    engine.state.player = { x: 260, y: 1088 };
     world.update(engine.state, 0, 0);
     const farmNearColor = color(farm.name);
     engine.state.inventory.tomato = 1;
-    engine.state.player = { x: 265, y: 297 };
+    engine.state.player = { x: 260, y: 517 };
     world.update(engine.state, 0, 0);
     const shelfAvailable = shelf.visible;
     const shelfNearColor = color(shelf.name);
     engine.state.upgrades.expansion = 1;
     engine.state.upgrades.pasteMachine = 1;
-    engine.state.player = { x: 1320, y: 632 };
+    engine.state.player = { x: 200, y: 1052 };
     world.update(engine.state, 0, 0);
     return {
       farmAvailable,
@@ -145,10 +153,10 @@ test('keyboard harvest, shelf stocking, customer payment, and reload persistence
   page.on('pageerror', (error) => errors.push(error.message));
   await openGame(page);
   const initial = await state(page);
-  await walkTo(page, { x: 265, y: 590 });
+  await walkTo(page, { x: 260, y: 1130 });
   await expect.poll(async () => (await state(page)).inventory.tomato).toBeGreaterThan(0);
   expect((await state(page)).player.x).toBeLessThan(initial.player.x - 120);
-  await walkTo(page, { x: 265, y: 295 });
+  await walkTo(page, { x: 260, y: 513 });
   await expect.poll(async () => (await state(page)).shelves.tomato).toBeGreaterThan(0);
   await advance(page, 35_000);
   let current = await state(page);
@@ -156,9 +164,9 @@ test('keyboard harvest, shelf stocking, customer payment, and reload persistence
   expect(current.money).toBe(0);
 
   // Continue the same transaction at checkout; time is accelerated without granting money.
-  await page.evaluate(() => {
-    window.__MARKET__.engine.state.player = { x: 950, y: 225 };
-  });
+  await page.evaluate((spot) => {
+    window.__MARKET__.engine.state.player = { ...spot };
+  }, GAME_CONFIG.cashierSpot);
   await advance(page, 6000);
   current = await state(page);
   expect(current.money).toBe(0);
@@ -329,7 +337,7 @@ test('store entrance opens for arriving and leaving shoppers', async ({ page }) 
     };
   }, GAME_CONFIG);
   expect(opened.entrance).toBe(true);
-  expect(opened.sign).toBe('ENTRANCE');
+  expect(opened.sign).toBe('ENTRANCE / EXIT');
   expect(opened.left).toBeLessThan(-0.3);
   expect(opened.right).toBeGreaterThan(0.3);
 
@@ -468,12 +476,12 @@ test('management upgrades, corn production, hired cashier, tutorial and settings
   await page.locator('#management-close').click();
   expect((await state(page)).unlockedProducts).toContain('corn');
   await page.evaluate(() => {
-    window.__MARKET__.engine.state.player = { x: 685, y: 590 };
+    window.__MARKET__.engine.state.player = { x: 1140, y: 1130 };
   });
   await advance(page, 11_000);
   expect((await state(page)).inventory.corn).toBeGreaterThanOrEqual(2);
   await page.evaluate(() => {
-    window.__MARKET__.engine.state.player = { x: 685, y: 295 };
+    window.__MARKET__.engine.state.player = { x: 700, y: 515 };
   });
   await advance(page, 1200);
   expect((await state(page)).shelves.corn).toBeGreaterThan(0);

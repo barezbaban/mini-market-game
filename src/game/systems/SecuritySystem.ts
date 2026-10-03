@@ -2,6 +2,7 @@ import { CASH_POINTS, cashPointOpen, cashPosition } from '../data/cashPoints';
 import { GAME_CONFIG } from '../data/gameConfig';
 import type { GameEvent, GameState, Vec2 } from '../types';
 import { EconomySystem } from './EconomySystem';
+import { exitRoute, walkRoute } from './Navigation';
 
 function move(actor: Vec2 & { path: Vec2[] }, delta: number, speed: number): void {
   let remaining = (speed * delta) / 1000;
@@ -18,17 +19,6 @@ function move(actor: Vec2 & { path: Vec2[] }, delta: number, speed: number): voi
       remaining = 0;
     }
   }
-}
-
-function aisleRoute(from: Vec2, target: Vec2): Vec2[] {
-  const route: Vec2[] = [];
-  if (from.y < 160) route.push({ ...GAME_CONFIG.entranceOutside }, { ...GAME_CONFIG.entrance });
-  if (from.y > 850) route.push({ x: 1210, y: from.y }, { x: 1210, y: 450 });
-  else route.push({ x: from.x, y: 450 });
-  if (target.y > 850) route.push({ x: 1210, y: 450 }, { x: 1210, y: target.y });
-  else route.push({ x: target.x, y: 450 });
-  route.push({ ...target });
-  return route;
 }
 
 /** A single persistent encounter: neglected cash, visible approach, theft, chase, then police. */
@@ -48,12 +38,7 @@ export class SecuritySystem {
     const thief = this.state.security.thief!;
     thief.phase = 'FLEEING';
     thief.elapsed = 0;
-    thief.path = [
-      ...aisleRoute(thief, { x: 1210, y: 900 }),
-      { x: 900, y: 900 },
-      { x: 105, y: 900 },
-      { x: -250, y: 900 },
-    ];
+    thief.path = exitRoute(this.state, thief);
   }
 
   private releaseGuard(): void {
@@ -108,7 +93,11 @@ export class SecuritySystem {
         target: target.id,
         stolen: 0,
         elapsed: 0,
-        path: aisleRoute(GAME_CONFIG.customerSpawn, target.position),
+        path: [
+          { ...GAME_CONFIG.entranceOutside },
+          { ...GAME_CONFIG.entrance },
+          ...walkRoute(this.state, GAME_CONFIG.entrance, target.position),
+        ],
       };
       this.emit({
         type: 'notice',
@@ -142,7 +131,7 @@ export class SecuritySystem {
       if (guard) {
         security.guardId = guard.id;
         guard.task = 'idle';
-        guard.path = aisleRoute(guard, { x: thief.x + 28, y: thief.y + 12 });
+        guard.path = walkRoute(this.state, guard, { x: thief.x + 28, y: thief.y + 12 });
       }
       this.emit({
         type: 'money',
@@ -197,13 +186,13 @@ export class SecuritySystem {
       const guard = this.state.workers.find(({ id }) => id === security.guardId);
       if (guard) {
         if (!guard.path.length && Math.hypot(guard.x - thief.x, guard.y - thief.y) > 40)
-          guard.path = aisleRoute(guard, { x: thief.x + 28, y: thief.y + 12 });
+          guard.path = walkRoute(this.state, guard, { x: thief.x + 28, y: thief.y + 12 });
         move(guard, deltaMs, GAME_CONFIG.helperBaseSpeed * 1.1 ** this.state.upgrades.helperSpeed);
       }
       if (!security.police && thief.elapsed >= GAME_CONFIG.policeDelay) {
         security.police = {
           ...GAME_CONFIG.customerSpawn,
-          path: aisleRoute(GAME_CONFIG.customerSpawn, { x: thief.x + 25, y: thief.y }),
+          path: walkRoute(this.state, GAME_CONFIG.customerSpawn, { x: thief.x + 25, y: thief.y }),
         };
       }
       if (security.police) {
@@ -211,12 +200,7 @@ export class SecuritySystem {
         if (!security.police.path.length) {
           thief.phase = 'ESCORTED';
           thief.elapsed = 0;
-          security.police.path = [
-            ...aisleRoute(security.police, { x: 990, y: 450 }),
-            { ...GAME_CONFIG.entrance },
-            { ...GAME_CONFIG.entranceOutside },
-            { ...GAME_CONFIG.customerExit },
-          ];
+          security.police.path = exitRoute(this.state, security.police);
           this.releaseGuard();
           this.emit({
             type: 'notice',

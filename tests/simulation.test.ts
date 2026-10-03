@@ -140,8 +140,8 @@ describe('production and player interaction', () => {
     engine.state.customers = [
       {
         id: 2,
-        x: 265,
-        y: 305,
+        x: PRODUCTS[0].shelf.x,
+        y: PRODUCTS[0].shelf.y + 75,
         state: 'WAITING_FOR_PRODUCT',
         targetProduct: 'tomato',
         targetQuantity: 2,
@@ -167,8 +167,8 @@ describe('production and player interaction', () => {
     engine.state.customers = [
       {
         id: 3,
-        x: 475,
-        y: 305,
+        x: PRODUCTS[1].shelf.x,
+        y: PRODUCTS[1].shelf.y + 75,
         state: 'WAITING_FOR_PRODUCT',
         targetProduct: 'egg',
         targetQuantity: 1,
@@ -192,9 +192,9 @@ describe('production and player interaction', () => {
     expect(
       Math.hypot(diagonal.state.player.x - start.x, diagonal.state.player.y - start.y),
     ).toBeCloseTo(straight.state.player.x - start.x);
-    straight.state.player = { x: 265, y: 300 };
+    straight.state.player = { x: PRODUCTS[0].shelf.x, y: PRODUCTS[0].shelf.y + 70 };
     straight.update(1000, { x: 0, y: -1 });
-    expect(straight.state.player.y).toBeGreaterThanOrEqual(284);
+    expect(straight.state.player.y).toBeGreaterThanOrEqual(PRODUCTS[0].shelf.y + 44);
   });
 
   it('gives rate-limited feedback for full baskets and shelves', () => {
@@ -291,7 +291,7 @@ describe('customers and checkout', () => {
     expect(arriving.path).toContainEqual(GAME_CONFIG.entranceOutside);
     expect(arriving.path).toContainEqual(GAME_CONFIG.entrance);
     advance(engine, 10000);
-    expect(arriving.y).toBeGreaterThan(GAME_CONFIG.entranceOutside.y);
+    expect(arriving.y).toBeLessThan(GAME_CONFIG.entrance.y);
     expect(arriving.state).not.toBe('ENTERING');
 
     const state = createInitialState();

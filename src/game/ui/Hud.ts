@@ -55,7 +55,7 @@ export class Hud {
           <div id="security-banner" class="security-banner" role="status" aria-live="polite" hidden></div>
           <button id="sprint-button" class="sprint-button" aria-label="Hold to sprint" title="Hold Shift or this button to sprint"><span>Sprint</span><small>Hold / Shift</small><span class="sprint-track"><span id="sprint-energy"></span></span></button>
           <div id="joystick" class="joystick" aria-label="Touch movement joystick"><div class="joystick-knob">${icon('close', 22)}</div></div>
-          <div id="pause-overlay" class="pause-overlay" hidden><div><span>${icon('pause', 32)}</span><h2>A little breather.</h2><p>Your market will be right here.</p><button id="resume-button" class="primary-button">Back to the market ${icon('play', 16)}</button></div></div>
+          <div id="pause-overlay" class="pause-overlay" hidden><div><span>${icon('pause', 32)}</span><h2>A little breather.</h2><p>Your market keeps running, including rush-hour timers. Only your movement controls are paused.</p><button id="resume-button" class="primary-button">Back to the market ${icon('play', 16)}</button></div></div>
           <div id="loading" class="loading"><span class="loading-leaf">${icon('leaf', 36)}</span><strong>Opening the market…</strong></div>
           <pre id="debug-panel" class="debug-panel" hidden></pre>
           <div class="desktop-controls"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move</span><small>Walk close to harvest, stock & serve</small></div>

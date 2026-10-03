@@ -79,10 +79,10 @@ describe('expanded market progression and compatibility', () => {
     expect(restored.machines.dairy.output).toBeGreaterThanOrEqual(3);
   });
 
-  it('gates new products and walking bounds behind four consecutive area purchases', () => {
+  it('unlocks four departments without stretching the map bounds', () => {
     const engine = new GameEngine();
     engine.economy.earn(10000);
-    engine.state.player = { x: 1205, y: 460 };
+    engine.state.player = { x: 1400, y: 1250 };
     engine.update(1000, { x: 1, y: 0 });
     expect(engine.state.player.x).toBe(GAME_CONFIG.areaBounds[0]);
     expect(engine.purchaseUpgrade('pasteMachine')).toBe(false);
@@ -91,7 +91,7 @@ describe('expanded market progression and compatibility', () => {
     expect(engine.state.unlockedProducts).toContain('tomatoPaste');
     expect(engine.state.unlockedProducts).not.toContain('coffee');
     engine.update(1000, { x: 1, y: 0 });
-    expect(engine.state.player.x).toBeGreaterThan(GAME_CONFIG.areaBounds[0]);
+    expect(engine.state.player.x).toBe(GAME_CONFIG.areaBounds[0]);
     expect(engine.purchaseUpgrade('expansion')).toBe(true);
     expect(engine.state.unlockedProducts).toContain('coffee');
     expect(engine.purchaseUpgrade('coffeeMachine')).toBe(true);
@@ -136,8 +136,7 @@ describe('expanded market progression and compatibility', () => {
       engine.state.customers = [
         {
           id: level,
-          x: 843,
-          y: 260,
+          ...GAME_CONFIG.queueStart,
           state: 'QUEUEING',
           targetProduct: 'tomato',
           targetQuantity: 1,

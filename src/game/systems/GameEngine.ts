@@ -17,6 +17,7 @@ import { CashCollectionSystem } from './CashCollectionSystem';
 import { SecuritySystem } from './SecuritySystem';
 import { RushHourSystem } from './RushHourSystem';
 import { PatienceSystem } from './PatienceSystem';
+import { canStand, repairWalk } from './Navigation';
 
 /** The renderer owns no game rules. This headless simulation runs in browser and tests. */
 export class GameEngine {
@@ -82,6 +83,17 @@ export class GameEngine {
       this.state.player =
         loadingSide && this.canWalk(loadingSide) ? loadingSide : { ...GAME_CONFIG.playerStart };
     }
+    if (purchased) {
+      const { customers, workers, security } = this.state;
+      for (const actor of [
+        ...customers,
+        ...workers,
+        ...[security.thief, security.police].filter(
+          (entry): entry is NonNullable<typeof entry> => entry !== null,
+        ),
+      ])
+        repairWalk(this.state, actor);
+    }
     return purchased;
   }
   snapshot(): GameState {
@@ -97,43 +109,7 @@ export class GameEngine {
   }
 
   private canWalk(point: Vec2): boolean {
-    if (
-      this.state.upgrades.secondCashier &&
-      Math.abs(point.x - GAME_CONFIG.secondCheckout.x) < 37 &&
-      point.y > GAME_CONFIG.secondCheckout.y - 53 &&
-      point.y < GAME_CONFIG.secondCheckout.y + 35
-    )
-      return false;
-    const bounds = GAME_CONFIG.bounds;
-    if (
-      point.x < bounds.left ||
-      point.x > GAME_CONFIG.areaBounds[this.state.upgrades.expansion] ||
-      point.y < bounds.top ||
-      point.y > bounds.bottom
-    )
-      return false;
-    for (const product of PRODUCTS) {
-      if (
-        Math.abs(point.x - product.shelf.x) < 78 &&
-        point.y > product.shelf.y - 43 &&
-        point.y < product.shelf.y + 44
-      )
-        return false;
-    }
-    for (const machine of MACHINES) {
-      if (
-        this.state.upgrades[machine.upgrade] > 0 &&
-        Math.abs(point.x - machine.position.x) < 38 &&
-        Math.abs(point.y - machine.position.y) < 35
-      )
-        return false;
-    }
-    if (
-      Math.abs(point.x - GAME_CONFIG.trash.x) < 32 &&
-      Math.abs(point.y - GAME_CONFIG.trash.y) < 32
-    )
-      return false;
-    return !(point.x > 863 && point.x < 937 && point.y > 172 && point.y < 260);
+    return canStand(this.state, point);
   }
 
   private updateTrash(deltaMs: number): void {
