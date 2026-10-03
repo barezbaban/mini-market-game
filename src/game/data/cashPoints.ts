@@ -12,3 +12,11 @@ export const cashPosition = (id: CashPointId): Vec2 =>
   CASH_POINTS.find((point) => point.id === id)!.position;
 export const uncollectedCash = (state: GameState): number =>
   CASH_POINTS.reduce((sum, { id }) => sum + state.cashStacks[id].amount, 0);
+
+const compactCash = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
+/** Short world signs only; the ledger and HUD retain the exact amount. */
+export const cashLabelAmount = (amount: number): string =>
+  `$${amount < 10000 ? amount.toLocaleString('en-US') : compactCash.format(amount)}`;

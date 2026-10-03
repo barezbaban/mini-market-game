@@ -24,17 +24,10 @@ export class CheckoutSystem {
     if (second) return;
     const queue = orderedQueue(this.state);
     const primaryCanWork =
-      !this.state.cashStacks.store.blocked &&
-      (this.state.cashier ||
-        distance(this.state.player, GAME_CONFIG.cashierSpot) <= GAME_CONFIG.interactionRadius);
+      this.state.cashier ||
+      distance(this.state.player, GAME_CONFIG.cashierSpot) <= GAME_CONFIG.interactionRadius;
     const candidate = queue[primaryCanWork ? 1 : 0];
-    if (
-      !candidate ||
-      candidate.state !== 'QUEUEING' ||
-      candidate.path.length ||
-      this.state.cashStacks.second.blocked
-    )
-      return;
+    if (!candidate || candidate.state !== 'QUEUEING' || candidate.path.length) return;
     candidate.state = 'MOVING_TO_SECOND_CHECKOUT';
     candidate.path = [
       { x: 890, y: candidate.y },
@@ -70,12 +63,10 @@ export class CheckoutSystem {
       0,
     );
     if (!this.economy.canDeposit(id, amount)) {
-      this.state.cashStacks[id].blocked = true;
       this.state[progress] = 0;
       customer.state = queueState;
       return;
     }
-    this.state.cashStacks[id].blocked = false;
     customer.state = payingState;
     this.state[progress] += deltaMs;
     if (this.state[progress] < checkoutDuration(this.state)) return;

@@ -46,7 +46,6 @@ export interface CashStack {
   amount: number;
   unattendedMs: number;
   collectionArmed: boolean;
-  blocked: boolean;
 }
 export type ThiefPhase = 'APPROACHING' | 'STEALING' | 'FLEEING' | 'CAUGHT' | 'ESCORTED';
 export interface ThiefData extends Vec2 {

@@ -20,7 +20,7 @@ async function paint(page: Page): Promise<void> {
   });
 }
 
-test('cash piles, full counters and level-20 second checkout remain readable on desktop and phone', async ({
+test('large cash balances stay compact, readable and open on desktop and phone', async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -34,9 +34,9 @@ test('cash piles, full counters and level-20 second checkout remain readable on 
     engine.purchaseUpgrade('cashier');
     engine.purchaseUpgrade('secondCashier');
     engine.purchaseUpgrade('driveThrough');
-    engine.economy.deposit('store', 250);
-    engine.economy.deposit('second', 100);
-    engine.economy.deposit('drive', 250);
+    engine.economy.deposit('store', 25000);
+    engine.economy.deposit('second', 1234567);
+    engine.economy.deposit('drive', 250000);
     engine.state.player = { x: 980, y: 430 };
     engine.drainEvents();
   });
@@ -46,8 +46,8 @@ test('cash piles, full counters and level-20 second checkout remain readable on 
   ]) {
     await page.setViewportSize(viewport);
     await paint(page);
-    await expect(page.locator('#cash-ready')).toHaveText('Uncollected: $600');
-    await expect(page.locator('#security-banner')).toContainText('closed');
+    await expect(page.locator('#cash-ready')).toHaveText('Uncollected: $1,509,567');
+    await expect(page.locator('#security-banner')).toBeHidden();
     const labels = await page.evaluate(() => {
       const { scene, renderer } = window.__MARKET__.world;
       return {
@@ -55,14 +55,16 @@ test('cash piles, full counters and level-20 second checkout remain readable on 
         second: scene.getObjectByName('label:cash:second:status')?.userData.worldLabel.text,
         drive: scene.getObjectByName('label:cash:drive:status')?.userData.worldLabel.text,
         checkout: scene.getObjectByName('label:checkout:second:title')?.userData.worldLabel.text,
+        firstCheckout: scene.getObjectByName('label:checkout:title')?.userData.worldLabel.text,
         shadows: renderer.shadowMap.enabled,
       };
     });
     expect(labels).toMatchObject({
-      store: 'FULL · $250',
-      second: 'PICK UP $100',
-      drive: 'FULL · $250',
+      store: 'PICK UP $25K',
+      second: 'PICK UP $1.2M',
+      drive: 'PICK UP $250K',
       checkout: 'CHECKOUT 2',
+      firstCheckout: 'CHECKOUT',
       shadows: false,
     });
     await page.screenshot({ path: `test-results/cash-checkouts-${viewport.width}.png` });
@@ -73,6 +75,26 @@ test('cash piles, full counters and level-20 second checkout remain readable on 
   });
   await paint(page);
   await page.screenshot({ path: 'test-results/cash-drive-mobile.png' });
+  const piles = await page.evaluate(() => {
+    const { engine, world } = window.__MARKET__;
+    const geometry = () =>
+      ['store', 'second', 'drive'].map((id) =>
+        world.scene
+          .getObjectByName(`cash-stack-${id}`)!
+          .children.filter((child) => child.name === 'cash-bundle')
+          .map((child) => ({ id: child.uuid, y: child.position.y, visible: child.visible })),
+      );
+    const before = geometry();
+    for (const id of ['store', 'second', 'drive'] as const)
+      engine.economy.deposit(id, 1_000_000_000);
+    world.update(engine.state, engine.state.elapsed, 0);
+    return { before, after: geometry() };
+  });
+  expect(piles.after).toEqual(piles.before);
+  for (const bundles of piles.after) {
+    expect(bundles).toHaveLength(6);
+    expect(Math.max(...bundles.map(({ y }) => y))).toBeLessThan(0.21);
+  }
   expect(errors).toEqual([]);
 });
 

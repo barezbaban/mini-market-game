@@ -173,7 +173,6 @@ export class SecuritySystem {
         thief.stolen = stack.amount;
         stack.amount = 0;
         stack.unattendedMs = 0;
-        stack.blocked = false;
         this.emit({
           type: 'notice',
           text: `Stolen $${thief.stolen}! Sprint and catch the thief.`,

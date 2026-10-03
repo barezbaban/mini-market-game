@@ -1,6 +1,6 @@
 import { Group, Mesh, MeshBasicMaterial, RingGeometry, SphereGeometry, Vector3 } from 'three';
 import type { Scene } from 'three';
-import { CASH_POINTS, cashPointOpen } from '../../data/cashPoints';
+import { CASH_POINTS, cashPointOpen, cashLabelAmount } from '../../data/cashPoints';
 import { GAME_CONFIG } from '../../data/gameConfig';
 import type { CashPointId, GameState, Vec2 } from '../../types';
 import { createCharacter } from '../Models';
@@ -61,11 +61,13 @@ export class CashSecurityDisplays {
     root.position.copy(world(position));
     this.scene.add(root);
     block(root, 0, 0.08, 0, 0.76, 0.09, 0.48, C.wood);
-    const bills = Array.from({ length: 10 }, (_, index) => {
+    // Six reusable bundles in two short layers, regardless of the cash balance.
+    const bills = Array.from({ length: 6 }, (_, index) => {
       const bundle = new Group();
-      bundle.position.set(index % 2 ? 0.18 : -0.18, 0.16 + Math.floor(index / 2) * 0.048, 0);
-      block(bundle, 0, 0, 0, 0.31, 0.041, 0.19, 0x53a66a);
-      block(bundle, 0, 0.003, 0, 0.065, 0.044, 0.194, C.cream);
+      bundle.name = 'cash-bundle';
+      bundle.position.set(((index % 3) - 1) * 0.24, 0.16 + Math.floor(index / 3) * 0.048, 0);
+      block(bundle, 0, 0, 0, 0.21, 0.041, 0.19, 0x53a66a);
+      block(bundle, 0, 0.003, 0, 0.045, 0.044, 0.194, C.cream);
       root.add(bundle);
       return bundle;
     });
@@ -95,17 +97,13 @@ export class CashSecurityDisplays {
       visual.root.visible = cashPointOpen(state, id);
       const cash = state.cashStacks[id];
       visual.bills.forEach((bill, index) => {
-        bill.visible = index < Math.ceil(cash.amount / 25);
+        bill.visible = index < Math.min(visual.bills.length, Math.ceil(cash.amount / 25));
       });
       visual.spot.visible = cash.amount > 0;
       visual.status.setText(
-        cash.blocked
-          ? `FULL · $${cash.amount}`
-          : cash.amount
-            ? `PICK UP $${cash.amount}`
-            : 'CASH $0',
+        cash.amount ? `PICK UP ${cashLabelAmount(cash.amount)}` : 'CASH $0',
         '#ffffff',
-        cash.blocked ? '#b7503d' : '#168a65',
+        '#168a65',
       );
     }
     const encounter = state.security.thief;

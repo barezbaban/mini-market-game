@@ -349,11 +349,7 @@ export class WorldRenderer {
         0,
         Math.floor(Math.min(1, state.secondCheckoutProgress / checkoutDuration(state)) * 64) * 6,
       );
-      checkout.label.setText(
-        state.cashStacks.second.blocked ? 'FULL · COLLECT' : 'CHECKOUT 2',
-        '#ffffff',
-        state.cashStacks.second.blocked ? '#b7503d' : '#168a65',
-      );
+      checkout.label.setText('CHECKOUT 2', '#ffffff', '#168a65');
       checkout.cashier.animate(timeMs, false);
     }
     this.ensureCustomerVisuals(state.customers.length);
@@ -501,17 +497,15 @@ export class WorldRenderer {
     this.driveProgress.geometry.setDrawRange(0, Math.floor(Math.min(1, driveProgress) * 64) * 6);
     (this.driveProgress.material as MeshBasicMaterial).color.set(drivePaying ? C.gold : C.green);
     this.driveStatus.setText(
-      state.cashStacks.drive.blocked
-        ? 'FULL · COLLECT'
-        : !activeDrive
-          ? 'OPEN'
-          : activeDrive.state === 'ARRIVING'
-            ? 'ARRIVING'
-            : drivePaying
-              ? 'PAYMENT'
-              : 'LOAD',
+      !activeDrive
+        ? 'OPEN'
+        : activeDrive.state === 'ARRIVING'
+          ? 'ARRIVING'
+          : drivePaying
+            ? 'PAYMENT'
+            : 'LOAD',
       '#ffffff',
-      state.cashStacks.drive.blocked ? '#b7503d' : drivePaying ? '#c77e26' : '#168a65',
+      drivePaying ? '#c77e26' : '#168a65',
     );
     const queue = state.customers.filter(
       (customer) => customer.state === 'QUEUEING' || customer.state === 'PAYING',
@@ -524,11 +518,7 @@ export class WorldRenderer {
       0,
       Math.floor(Math.min(1, state.checkoutProgress / checkoutDuration(state)) * 64) * 6,
     );
-    this.checkoutLabel.setText(
-      state.cashStacks.store.blocked ? 'FULL · COLLECT' : 'CHECKOUT',
-      '#ffffff',
-      state.cashStacks.store.blocked ? '#b7503d' : '#168a65',
-    );
+    this.checkoutLabel.setText('CHECKOUT', '#ffffff', '#168a65');
     this.trashProgress.visible = trashProgress > 0;
     this.trashProgress.geometry.setDrawRange(0, Math.floor(Math.min(1, trashProgress) * 64) * 6);
     this.updateTransfers(deltaMs);
@@ -648,8 +638,7 @@ export class WorldRenderer {
       destination = { x: PRODUCTS[0].shelf.x, y: PRODUCTS[0].shelf.y + 61 };
     else if (state.tutorialStep <= 4) destination = GAME_CONFIG.cashierSpot;
     const uncollected = CASH_POINTS.find(({ id }) => state.cashStacks[id].amount > 0);
-    if (uncollected && (state.tutorialStep === 5 || state.cashStacks[uncollected.id].blocked))
-      destination = uncollected.position;
+    if (uncollected && state.tutorialStep >= 5) destination = uncollected.position;
     if (
       state.security.thief &&
       ['APPROACHING', 'STEALING', 'FLEEING'].includes(state.security.thief.phase)

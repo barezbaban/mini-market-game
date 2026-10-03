@@ -103,13 +103,11 @@ export class DriveThroughSystem {
   private updateService(order: DriveThroughOrder, deltaMs: number): void {
     const amount = driveThroughValue(order);
     if (!this.economy.canDeposit('drive', amount)) {
-      this.state.cashStacks.drive.blocked = true;
       this.state.driveThroughCheckoutProgress = 0;
       this.state.driveThroughHandoffProgress = 0;
       if (order.state === 'PAYING') order.state = 'READY_TO_PAY';
       return;
     }
-    this.state.cashStacks.drive.blocked = false;
     if (order.state === 'WAITING_FOR_ITEMS') {
       if (driveThroughComplete(order)) {
         order.state = 'READY_TO_PAY';

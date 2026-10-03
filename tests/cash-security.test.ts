@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CASH_POINTS } from '../src/game/data/cashPoints';
+import { CASH_POINTS, cashLabelAmount } from '../src/game/data/cashPoints';
 import { GAME_CONFIG } from '../src/game/data/gameConfig';
 import { emptyItems } from '../src/game/data/products';
 import { xpForLevel } from '../src/game/data/upgrades';
@@ -81,20 +81,20 @@ describe('player-collected cash', () => {
     expect(engine.state.money).toBe(50);
   });
 
-  it('stops before a sale would overflow, without taking goods or granting XP', () => {
+  it('keeps selling past the old cash limit without banking money automatically', () => {
     const engine = new GameEngine();
     engine.state.cashier = true;
     engine.state.customers = [buyer()];
     engine.economy.deposit('store', 248);
     advance(engine, 5000);
-    expect(engine.state.cashStacks.store).toMatchObject({ amount: 248, blocked: true });
-    expect(engine.state.customers[0].basket.tomato).toBe(1);
-    expect(engine.state.xp).toBe(0);
-    expect(engine.state.totalServed).toBe(0);
+    expect(engine.state.cashStacks.store.amount).toBe(253);
+    expect(engine.state.xp).toBe(7);
+    expect(engine.state.totalServed).toBe(1);
+    expect(engine.state.money).toBe(0);
     engine.state.player = { ...GAME_CONFIG.storeCash };
     advance(engine, 2000);
-    expect(engine.state.money).toBe(248);
-    expect(engine.state.cashStacks.store.amount).toBe(5);
+    expect(engine.state.money).toBe(253);
+    expect(engine.state.cashStacks.store.amount).toBe(0);
     expect(engine.state.totalServed).toBe(1);
   });
 
@@ -104,23 +104,23 @@ describe('player-collected cash', () => {
     expect(engine.economy.deposit('drive', 20)).toBe(false);
     Object.assign(engine.state.upgrades, { secondCashier: 1, cashier: 1, driveThrough: 1 });
     for (const { id } of CASH_POINTS) {
-      for (const invalid of [0, -1, 1.1, NaN, Infinity, 251])
+      for (const invalid of [0, -1, 1.1, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])
         expect(engine.economy.deposit(id, invalid)).toBe(false);
-      expect(engine.economy.deposit(id, 250)).toBe(true);
-      expect(engine.economy.deposit(id, 1)).toBe(false);
+      expect(engine.economy.deposit(id, 10000)).toBe(true);
+      expect(engine.economy.deposit(id, 500000)).toBe(true);
     }
     const restored = new GameEngine(validateSave(engine.snapshot())!);
     for (const { id, position } of CASH_POINTS) {
-      expect(restored.state.cashStacks[id].amount).toBe(250);
+      expect(restored.state.cashStacks[id].amount).toBe(510000);
       restored.state.player = { ...position };
       restored.cashCollection.update(0);
       expect(restored.state.cashStacks[id].amount).toBe(0);
     }
-    expect(restored.state.money).toBe(750);
-    expect(restored.state.totalEarned).toBe(750);
+    expect(restored.state.money).toBe(1530000);
+    expect(restored.state.totalEarned).toBe(1530000);
   });
 
-  it('stops the drive-through at capacity and resumes after collection', () => {
+  it('keeps drive-through sales running above the old limit until the player collects', () => {
     const engine = new GameEngine();
     Object.assign(engine.state.upgrades, { driveThrough: 1, driveCashier: 1 });
     engine.driveThrough.update(3000);
@@ -128,16 +128,18 @@ describe('player-collected cash', () => {
     order.x = GAME_CONFIG.driveThroughVehicleSpot.x;
     order.state = 'READY_TO_PAY';
     order.delivered = { ...order.requested };
-    engine.economy.deposit('drive', 250);
+    engine.economy.deposit('drive', 25000);
     advance(engine, 3000);
-    expect(engine.state.driveThroughServed).toBe(0);
-    expect(engine.state.cashStacks.drive.blocked).toBe(true);
-    expect(order.state).toBe('READY_TO_PAY');
+    expect(engine.state.driveThroughServed).toBe(1);
+    expect(order.state).toBe('LEAVING');
+    const takings = engine.state.cashStacks.drive.amount;
+    expect(takings).toBeGreaterThan(25000);
+    expect(engine.state.money).toBe(0);
     engine.state.player = { ...GAME_CONFIG.driveCash };
     advance(engine, 3000);
-    expect(engine.state.money).toBe(250);
+    expect(engine.state.money).toBe(takings);
     expect(engine.state.driveThroughServed).toBe(1);
-    expect(engine.state.cashStacks.drive.amount).toBeGreaterThan(0);
+    expect(engine.state.cashStacks.drive.amount).toBe(0);
   });
 
   it('adds a second staffed checkout only at level 20 and pays each shopper once', () => {
@@ -160,16 +162,59 @@ describe('player-collected cash', () => {
     expect(engine.state.totalEarned).toBe(10);
   });
 
-  it('keeps the second register selling when the first is full', () => {
+  it('keeps both registers selling with large independent cash balances', () => {
     const engine = new GameEngine();
     Object.assign(engine.state.upgrades, { cashier: 1, secondCashier: 1 });
     applyUpgradeEffects(engine.state);
-    engine.state.customers = [buyer()];
-    engine.economy.deposit('store', 250);
+    engine.state.customers = [buyer(), buyer(2)];
+    engine.economy.deposit('store', 10000);
+    engine.economy.deposit('second', 20000);
     advance(engine, 10000);
-    expect(engine.state.cashStacks.store.amount).toBe(250);
-    expect(engine.state.cashStacks.second.amount).toBe(5);
-    expect(engine.state.totalServed).toBe(1);
+    expect(engine.state.cashStacks.store.amount).toBe(10005);
+    expect(engine.state.cashStacks.second.amount).toBe(20005);
+    expect(engine.state.totalServed).toBe(2);
+  });
+
+  it('reopens previously full saved registers without losing their stored money', () => {
+    const engine = new GameEngine();
+    Object.assign(engine.state.upgrades, {
+      cashier: 1,
+      secondCashier: 1,
+      driveThrough: 1,
+      driveCashier: 1,
+    });
+    engine.state.customers = [buyer(), buyer(2)];
+    const oldSave = engine.snapshot();
+    oldSave.totalEarned = 750;
+    for (const { id } of CASH_POINTS)
+      Object.assign(oldSave.cashStacks[id], { amount: 250, blocked: true, unattendedMs: 120000 });
+    const restored = new GameEngine(validateSave(oldSave)!);
+    for (const { id } of CASH_POINTS) {
+      expect(restored.state.cashStacks[id]).not.toHaveProperty('blocked');
+      expect(restored.state.cashStacks[id].unattendedMs).toBe(120000);
+    }
+    advance(restored, 10000);
+    expect(restored.state.totalServed).toBe(2);
+    expect(restored.state.cashStacks.store.amount).toBe(255);
+    expect(restored.state.cashStacks.second.amount).toBe(255);
+    expect(restored.state.cashStacks.drive.amount).toBe(250);
+    expect(restored.state.money).toBe(0);
+  });
+
+  it('still rejects unsafe numeric overflow without altering money', () => {
+    const engine = new GameEngine();
+    engine.economy.deposit('store', 1000);
+    expect(engine.economy.deposit('store', Number.MAX_SAFE_INTEGER)).toBe(false);
+    expect(engine.state.cashStacks.store.amount).toBe(1000);
+    expect(engine.state.totalEarned).toBe(1000);
+  });
+
+  it('keeps large world labels short without rounding the actual ledger', () => {
+    expect(cashLabelAmount(250)).toBe('$250');
+    expect(cashLabelAmount(1234)).toBe('$1,234');
+    expect(cashLabelAmount(25000)).toBe('$25K');
+    expect(cashLabelAmount(1234567)).toBe('$1.2M');
+    expect(cashLabelAmount(5000000000)).toBe('$5B');
   });
 
   it('preserves a partially paid second-register customer across reload', () => {
@@ -213,6 +258,33 @@ describe('player-collected cash', () => {
 });
 
 describe('cash security and net rescue', () => {
+  it('steals and recovers the entire large pile, including across reloads', () => {
+    let engine = new GameEngine();
+    engine.state.player = { x: 200, y: 450 };
+    engine.economy.deposit('store', 123456);
+    engine.state.security.thief = {
+      ...GAME_CONFIG.storeCash,
+      phase: 'STEALING',
+      target: 'store',
+      stolen: 0,
+      elapsed: GAME_CONFIG.thiefStealTime - 50,
+      path: [],
+    };
+    engine.security.update(50);
+    expect(engine.state.security.thief).toMatchObject({ phase: 'FLEEING', stolen: 123456 });
+    expect(engine.state.cashStacks.store.amount).toBe(0);
+    engine = new GameEngine(validateSave(engine.snapshot())!);
+    expect(engine.state.security.thief?.stolen).toBe(123456);
+    engine.state.player = { x: GAME_CONFIG.storeCash.x - 50, y: GAME_CONFIG.storeCash.y };
+    engine.security.update(50);
+    expect(engine.state.security.thief?.phase).toBe('CAUGHT');
+    expect(engine.state.money).toBe(123456);
+    engine = new GameEngine(validateSave(engine.snapshot())!);
+    engine.security.update(50);
+    expect(engine.state.money).toBe(123456);
+    expect(engine.state.totalEarned).toBe(123456);
+  });
+
   it('waits three minutes, approaches visibly, then steals after a six-second warning', () => {
     const engine = new GameEngine();
     engine.state.player = { x: 200, y: 450 };

@@ -1,4 +1,3 @@
-import { GAME_CONFIG } from '../data/gameConfig';
 import { cashPointOpen } from '../data/cashPoints';
 import type { CashPointId, GameState } from '../types';
 
@@ -33,7 +32,7 @@ export class EconomySystem {
       cashPointOpen(this.state, id) &&
       Number.isSafeInteger(amount) &&
       amount > 0 &&
-      this.state.cashStacks[id].amount + amount <= GAME_CONFIG.cashStackLimit &&
+      Number.isSafeInteger(this.state.cashStacks[id].amount + amount) &&
       Number.isSafeInteger(this.state.totalEarned + amount)
     );
   }
@@ -44,7 +43,6 @@ export class EconomySystem {
     const stack = this.state.cashStacks[id];
     if (stack.amount === 0) stack.unattendedMs = 0;
     stack.amount += amount;
-    stack.blocked = stack.amount >= GAME_CONFIG.cashStackLimit;
     this.state.totalEarned += amount;
     return true;
   }
@@ -56,7 +54,6 @@ export class EconomySystem {
     this.state.money += amount;
     stack.amount = 0;
     stack.unattendedMs = 0;
-    stack.blocked = false;
     return amount;
   }
 

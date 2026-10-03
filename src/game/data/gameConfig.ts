@@ -7,7 +7,6 @@ export const GAME_CONFIG = {
   sprintMultiplier: 1.85,
   sprintDuration: 4000,
   sprintRecovery: 6000,
-  cashStackLimit: 250,
   cashCollectRadius: 42,
   thiefDelay: 180000,
   thiefStealTime: 6000,

@@ -51,9 +51,9 @@ export function createInitialState(): GameState {
     checkoutProgress: 0,
     secondCheckoutProgress: 0,
     cashStacks: {
-      store: { amount: 0, unattendedMs: 0, collectionArmed: true, blocked: false },
-      second: { amount: 0, unattendedMs: 0, collectionArmed: true, blocked: false },
-      drive: { amount: 0, unattendedMs: 0, collectionArmed: true, blocked: false },
+      store: { amount: 0, unattendedMs: 0, collectionArmed: true },
+      second: { amount: 0, unattendedMs: 0, collectionArmed: true },
+      drive: { amount: 0, unattendedMs: 0, collectionArmed: true },
     },
     security: { thief: null, police: null, guardId: null, cooldownMs: 0, lost: 0, recovered: 0 },
     sprintEnergy: 1,
@@ -143,12 +143,11 @@ export function validateSave(value: unknown): GameState | null {
   for (const { id } of CASH_POINTS) {
     if (!cashPointOpen(state, id)) continue;
     const stored = object(savedCash[id]);
-    const amount = integer(stored.amount, 0, GAME_CONFIG.cashStackLimit);
+    const amount = integer(stored.amount);
     state.cashStacks[id] = {
       amount,
       unattendedMs: amount ? number(stored.unattendedMs, 0, GAME_CONFIG.thiefDelay) : 0,
       collectionArmed: stored.collectionArmed !== false,
-      blocked: amount > 0 && (stored.blocked === true || amount === GAME_CONFIG.cashStackLimit),
     };
   }
   state.accountantElapsed = number(raw.accountantElapsed, 0, GAME_CONFIG.accountantInterval - 1);
@@ -407,7 +406,7 @@ export function validateSave(value: unknown): GameState | null {
       ...point(savedThief, GAME_CONFIG.entrance, true),
       phase,
       target,
-      stolen: phase === 'FLEEING' ? integer(savedThief.stolen, 0, GAME_CONFIG.cashStackLimit) : 0,
+      stolen: phase === 'FLEEING' ? integer(savedThief.stolen) : 0,
       elapsed: number(savedThief.elapsed, 0, GAME_CONFIG.thiefDelay),
       path: Array.isArray(savedThief.path)
         ? savedThief.path.slice(0, 16).map((entry) => point(entry, GAME_CONFIG.entrance, true))

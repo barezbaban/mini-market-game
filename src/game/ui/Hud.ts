@@ -105,7 +105,6 @@ export class Hud {
     document.querySelector('#sprint-button')!.classList.toggle('exhausted', state.sprintExhausted);
     const banner = document.querySelector<HTMLElement>('#security-banner')!;
     const thief = state.security.thief;
-    const blocked = CASH_POINTS.filter(({ id }) => state.cashStacks[id].blocked);
     const chase = Boolean(thief && ['APPROACHING', 'STEALING', 'FLEEING'].includes(thief.phase));
     document.querySelector('#game-frame')!.classList.toggle('chasing', chase);
     let securityText = '';
@@ -133,9 +132,7 @@ export class Hud {
           : 'Cash safe! Your net holds the thief until police arrive.';
       if (thief.phase === 'ESCORTED')
         securityText = 'Police are escorting the thief out. Your helper is back at work.';
-    } else if (blocked.length)
-      securityText = `${blocked.map(({ name }) => name).join(' & ')} closed: cash pile full. Walk to the cash to reopen.`;
-    else if (
+    } else if (
       CASH_POINTS.some(
         ({ id }) => state.cashStacks[id].unattendedMs >= GAME_CONFIG.thiefDelay - 30000,
       )
@@ -164,7 +161,6 @@ export class Hud {
       nearTrash,
       nearDriveThrough,
       pending,
-      ...CASH_POINTS.map(({ id }) => state.cashStacks[id].blocked),
       state.driveThroughOrders
         .map((order) => `${order.id}:${order.state}:${Object.values(order.delivered).join('.')}`)
         .join('|'),
@@ -245,9 +241,6 @@ export class Hud {
           ? `<strong>Drive-through order</strong><span>${remaining || 'Loaded'} · Your runner is working.</span>`
           : `<strong>Drive-through order</strong><span>Bring ${remaining || 'the last item'} here from your basket.</span>`;
       }
-      if (state.cashStacks.drive.blocked)
-        this.hint.innerHTML =
-          '<strong>Drive-through closed</strong><span>Walk to its cash pile to collect the money and reopen.</span>';
     }
     if (pending && state.tutorialStep >= 6 && !nearDriveThrough && !nearTrash)
       this.hint.innerHTML = `<strong>$${pending.toLocaleString()} waiting to collect</strong><span>Walk up to a cash pile. Step away before collecting another batch.</span>`;
