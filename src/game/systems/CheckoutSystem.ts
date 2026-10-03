@@ -68,7 +68,13 @@ export class CheckoutSystem {
     if (this.state[progress] < checkoutDuration(this.state)) return;
     if (!this.economy.deposit(id, amount)) return;
     this.state.totalServed += 1;
-    const earnedXp = awardSaleXp(this.state, itemCount(customer.basket), this.emit);
+    const earnedXp = awardSaleXp(
+      this.state,
+      itemCount(customer.basket),
+      this.emit,
+      customer.basket,
+      customer.regularId,
+    );
     this.state.tutorialStep = Math.max(this.state.tutorialStep, 5);
     this.state[progress] = 0;
     customer.state = 'LEAVING';

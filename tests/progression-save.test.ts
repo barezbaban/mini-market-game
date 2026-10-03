@@ -12,9 +12,18 @@ const advance = (engine: GameEngine, duration: number) => {
   for (let t = 0; t < duration; t += 50) engine.update(Math.min(50, duration - t));
 };
 
+// This suite isolates existing departments and save behavior. Chapter gates
+// for genuinely new markets are tested separately in career.test.ts.
+function establishedEngine(): GameEngine {
+  const engine = new GameEngine();
+  engine.state.xp = 19000;
+  engine.state.totalServed = 260;
+  return engine;
+}
+
 describe('expanded market progression and compatibility', () => {
   it('keeps the player movable when a machine is built under their feet', () => {
-    const engine = new GameEngine();
+    const engine = establishedEngine();
     engine.economy.earn(10000);
     engine.purchaseUpgrade('corn');
     engine.purchaseUpgrade('expansion');
@@ -61,7 +70,7 @@ describe('expanded market progression and compatibility', () => {
   });
 
   it('restores purchased cows, milk stock, and an unfinished cheese batch', () => {
-    const engine = new GameEngine();
+    const engine = establishedEngine();
     engine.economy.earn(20_000);
     for (let area = 0; area < 4; area += 1) expect(engine.purchaseUpgrade('expansion')).toBe(true);
     expect(engine.purchaseUpgrade('cowPlots')).toBe(true);
@@ -80,7 +89,7 @@ describe('expanded market progression and compatibility', () => {
   });
 
   it('unlocks four departments without stretching the map bounds', () => {
-    const engine = new GameEngine();
+    const engine = establishedEngine();
     engine.economy.earn(10000);
     engine.state.player = { x: 1400, y: 1250 };
     engine.update(1000, { x: 1, y: 0 });
@@ -110,7 +119,7 @@ describe('expanded market progression and compatibility', () => {
   });
 
   it('charges exactly once for each explicit multi-level farm purchase', () => {
-    const engine = new GameEngine();
+    const engine = establishedEngine();
     engine.economy.earn(10000);
     engine.state.player = { x: 265, y: 855 };
     advance(engine, 6000);
@@ -154,7 +163,7 @@ describe('expanded market progression and compatibility', () => {
     expect(engine.purchaseUpgrade('cashier')).toBe(false);
   });
 
-  it('the accountant grants timed XP, advances player levels, and persists partial intervals', () => {
+  it('the accountant audits completed orders, advances levels, and persists partial intervals', () => {
     const state = createInitialState();
     const progression = new ProgressionSystem(state);
     progression.update(20000);
@@ -163,7 +172,8 @@ describe('expanded market progression and compatibility', () => {
     progression.update(9999);
     expect(state.xp).toBe(0);
     progression.update(1);
-    expect(state.xp).toBe(10);
+    expect(state.xp).toBe(0); // No passive XP while idle.
+    state.totalServed = 125;
     progression.update(90000);
     expect(state.xp).toBe(100);
     expect(playerLevel(state.xp)).toBe(2);
@@ -174,7 +184,7 @@ describe('expanded market progression and compatibility', () => {
   });
 
   it('preserves helper cargo, purchased plots, and machine inputs and unfinished batches', () => {
-    const engine = new GameEngine();
+    const engine = establishedEngine();
     engine.economy.earn(10000);
     engine.purchaseUpgrade('expansion');
     engine.purchaseUpgrade('pasteMachine');
@@ -193,7 +203,7 @@ describe('expanded market progression and compatibility', () => {
   });
 
   it('uses eight individually harvestable carrot beds and 20 percent price scaling', () => {
-    const engine = new GameEngine();
+    const engine = establishedEngine();
     engine.economy.earn(100000);
     for (let i = 0; i < 3; i++) engine.purchaseUpgrade('expansion');
     for (let level = 0; level < 7; level++) {
@@ -209,7 +219,7 @@ describe('expanded market progression and compatibility', () => {
   });
 
   it('automatically loads and collects processing machines while preserving raw conversion', () => {
-    const engine = new GameEngine();
+    const engine = establishedEngine();
     engine.economy.earn(10000);
     engine.purchaseUpgrade('expansion');
     engine.purchaseUpgrade('pasteMachine');

@@ -14,6 +14,7 @@ test('management buys every expansion with real costs, caps levels, and preserve
     // Isolated browser fixture funds, never applied to a player's saved game.
     window.__MARKET__.engine.economy.earn(1_000_000);
     window.__MARKET__.engine.state.xp = 43_500; // Player level 30, all milestone tiers available.
+    window.__MARKET__.engine.state.totalServed = 260;
   });
   await page.locator('#manage-button').click();
   const dialog = page.locator('#management-dialog');
@@ -88,6 +89,8 @@ test('fully staffed expanded store earns money and XP with no player harvesting'
     const { engine, setPaused, save, world } = window.__MARKET__;
     setPaused(true);
     engine.economy.earn(100000);
+    engine.state.xp = 19000;
+    engine.state.totalServed = 260;
     for (const id of [
       'expansion',
       'corn',

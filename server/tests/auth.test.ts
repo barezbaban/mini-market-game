@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { buildApp } from '../src/app.js';
 import type {
   AuthStore,
+  CloudSave,
   CreatePlayer,
   CreateSession,
   Player,
@@ -10,6 +11,7 @@ import type {
 } from '../src/types.js';
 
 class MemoryStore implements AuthStore {
+  saves = new Map<string, CloudSave>();
   players = new Map<string, StoredPlayer>();
   sessions = new Map<string, CreateSession>();
 
@@ -38,6 +40,25 @@ class MemoryStore implements AuthStore {
   }
 
   async deleteExpiredSessions(): Promise<void> {}
+
+  async readSave(playerId: string): Promise<CloudSave | null> {
+    return this.saves.get(playerId) ?? null;
+  }
+
+  async writeSave(
+    playerId: string,
+    revision: number,
+    mutationId: string,
+    state: Record<string, unknown>,
+  ) {
+    const current = this.saves.get(playerId) ?? null;
+    if (current?.mutationId === mutationId)
+      return { conflict: JSON.stringify(current.state) !== JSON.stringify(state), save: current };
+    if ((current?.revision ?? 0) !== revision) return { conflict: true, save: current };
+    const save = { revision: revision + 1, mutationId, state, updatedAt: new Date().toISOString() };
+    this.saves.set(playerId, save);
+    return { conflict: false, save };
+  }
 }
 
 const origin = 'https://play.kurdmart.example';
@@ -71,7 +92,11 @@ test('registers, restores and logs out a player through an opaque cookie session
   assert.match(setCookie as string, /SameSite=Lax/);
   const cookie = (setCookie as string).split(';', 1)[0];
 
-  const session = await app.inject({ method: 'GET', url: '/api/auth/session', headers: { cookie } });
+  const session = await app.inject({
+    method: 'GET',
+    url: '/api/auth/session',
+    headers: { cookie },
+  });
   assert.equal(session.statusCode, 200);
   assert.equal(session.json().user.email, 'player@example.com');
 
@@ -109,5 +134,150 @@ test('logs in with a generic failure and rejects an unapproved origin', async ()
   });
   assert.equal(foreign.statusCode, 403);
   assert.equal(store.players.size, 0);
+  await app.close();
+});
+
+test('cloud backups require ownership, strict origin and revision checks; retries do not duplicate writes', async () => {
+  const store = new MemoryStore();
+  const app = await buildApp({ store, clientOrigin: origin, secureCookies: true, sessionDays: 30 });
+  const register = async (name: string) => {
+    const result = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      headers: { origin },
+      payload: {
+        displayName: name,
+        email: `${name}@example.com`,
+        password: 'a long unique test passphrase',
+      },
+    });
+    assert.equal(result.statusCode, 201);
+    return (result.headers['set-cookie'] as string).split(';', 1)[0];
+  };
+  const cookie = await register('first');
+  const otherCookie = await register('second');
+  const state = { version: 2, money: 120, upgrades: {}, farms: {}, inventory: {} };
+  const mutationId = '9630956c-9999-4000-8000-2fcff1c68d29';
+  const payload = { revision: 0, mutationId, state };
+  assert.equal((await app.inject({ method: 'GET', url: '/api/save' })).statusCode, 401);
+  assert.equal(
+    (await app.inject({ method: 'POST', url: '/api/save', headers: { origin }, payload }))
+      .statusCode,
+    401,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: 'POST',
+        url: '/api/save',
+        headers: { cookie, origin: 'https://foreign.example' },
+        payload,
+      })
+    ).statusCode,
+    403,
+  );
+  assert.equal(
+    (await app.inject({ method: 'POST', url: '/api/save', headers: { cookie }, payload }))
+      .statusCode,
+    403,
+  );
+  const upload = await app.inject({
+    method: 'POST',
+    url: '/api/save',
+    headers: { cookie, origin },
+    payload,
+  });
+  assert.equal(upload.statusCode, 200);
+  assert.equal(upload.json().save.revision, 1);
+  assert.equal(upload.headers['cache-control'], 'no-store');
+  const retry = await app.inject({
+    method: 'POST',
+    url: '/api/save',
+    headers: { cookie, origin },
+    payload,
+  });
+  assert.equal(retry.json().save.revision, 1);
+  const reused = await app.inject({
+    method: 'POST',
+    url: '/api/save',
+    headers: { cookie, origin },
+    payload: { ...payload, state: { ...state, money: 999 } },
+  });
+  assert.equal(reused.statusCode, 409);
+  const conflict = await app.inject({
+    method: 'POST',
+    url: '/api/save',
+    headers: { cookie, origin },
+    payload: { ...payload, mutationId: '9630956c-9999-4000-8000-2fcff1c68d30' },
+  });
+  assert.equal(conflict.statusCode, 409);
+  const restore = await app.inject({ method: 'GET', url: '/api/save', headers: { cookie } });
+  assert.deepEqual(restore.json().save.state, state);
+  const isolated = await app.inject({
+    method: 'GET',
+    url: '/api/save',
+    headers: { cookie: otherCookie },
+  });
+  assert.equal(isolated.json().save, null);
+  const next = await app.inject({
+    method: 'POST',
+    url: '/api/save',
+    headers: { cookie, origin },
+    payload: {
+      ...payload,
+      revision: 1,
+      mutationId: '9630956c-9999-4000-8000-2fcff1c68d31',
+      state: { ...state, money: 200 },
+    },
+  });
+  assert.equal(next.statusCode, 200);
+  assert.equal(next.json().save.revision, 2);
+  assert.equal(store.saves.size, 1);
+  await app.close();
+});
+
+test('cloud backups reject invalid payloads and oversized bodies', async () => {
+  const store = new MemoryStore();
+  const app = await buildApp({ store, clientOrigin: origin, secureCookies: true, sessionDays: 30 });
+  const registration = await app.inject({
+    method: 'POST',
+    url: '/api/auth/register',
+    headers: { origin },
+    payload: {
+      displayName: 'Save tests',
+      email: 'save@example.com',
+      password: 'a long unique test passphrase',
+    },
+  });
+  const cookie = (registration.headers['set-cookie'] as string).split(';', 1)[0];
+  const payload = {
+    revision: 0,
+    mutationId: '9630956c-9999-4000-8000-2fcff1c68d29',
+    state: { version: 2, money: 1, upgrades: {}, farms: {}, inventory: {} },
+  };
+  for (const value of [
+    null,
+    {},
+    { ...payload, revision: -1 },
+    { ...payload, mutationId: 'bad' },
+    { ...payload, state: { ...payload.state, upgrades: [] } },
+    { ...payload, state: { ...payload.state, money: 1.5 } },
+  ]) {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/save',
+      headers: { cookie, origin, 'content-type': 'application/json' },
+      payload: JSON.stringify(value),
+    });
+    assert.equal(response.statusCode, 400);
+  }
+  const huge = await app.inject({
+    method: 'POST',
+    url: '/api/save',
+    headers: { cookie, origin },
+    payload: { ...payload, state: { ...payload.state, junk: 'x'.repeat(2_000_000) } },
+  });
+  assert.equal(huge.statusCode, 413);
+  assert.equal(store.saves.size, 0);
   await app.close();
 });

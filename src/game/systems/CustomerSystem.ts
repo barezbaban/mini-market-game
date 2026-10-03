@@ -1,6 +1,7 @@
 import { GAME_CONFIG } from '../data/gameConfig';
 import { emptyItems, productById } from '../data/products';
 import { cartCapacity } from '../data/upgrades';
+import { REGULARS } from '../data/career';
 import type { CustomerData, GameState, ProductId, Vec2 } from '../types';
 import { InventorySystem, itemCount } from './InventorySystem';
 import { canStand, clearWalk, walkRoute } from './Navigation';
@@ -15,7 +16,7 @@ export const remainingCustomerNeed = (customer: CustomerData): number =>
   Math.max(
     0,
     Math.min(
-      2 - itemCount(customer.basket),
+      (customer.basketCapacity ?? 2) - itemCount(customer.basket),
       customer.targetQuantity - customer.basket[customer.targetProduct],
     ),
   );
@@ -143,16 +144,24 @@ export class CustomerSystem {
     const choices = this.state.unlockedProducts.filter((id) => this.shoppersFor(id).length < 3);
     if (!choices.length) return;
     const id = this.nextId++;
+    const regulars = REGULARS.filter((entry) => choices.includes(entry.product));
+    const regular =
+      this.state.totalServed >= 10 && id % 8 === 0 && regulars.length
+        ? regulars[Math.floor(id / 8) % regulars.length]
+        : undefined;
     const available = choices.filter((product) => this.state.shelves[product] > 0);
-    const targets = available.length ? available : choices;
+    const targets = available.length && id % 4 !== 0 ? available : choices;
+    const basketCapacity = Math.min(6, 2 + this.state.upgrades.expansion);
     const customer: CustomerData = {
       id,
       ...GAME_CONFIG.customerSpawn,
       state: 'ENTERING',
-      targetProduct: targets[(id - 1) % targets.length],
-      targetQuantity: id % 2 === 0 ? 2 : 1,
+      targetProduct: regular?.product ?? targets[(id - 1) % targets.length],
+      targetQuantity: 1 + ((id - 1) % basketCapacity),
+      basketCapacity,
+      ...(regular ? { regularId: regular.id } : {}),
       basket: emptyItems(),
-      color: COLORS[(id - 1) % COLORS.length],
+      color: regular?.color ?? COLORS[(id - 1) % COLORS.length],
       waitTime: 0,
       path: [
         { ...GAME_CONFIG.cartStation },
@@ -165,6 +174,9 @@ export class CustomerSystem {
   }
 
   private joinCheckout(customer: CustomerData): void {
+    // A shopping route can cross the payment lane. Wait for a gap before
+    // joining it; queue collision checks only run on subsequent frames.
+    if (orderedQueue(this.state).some((other) => distance(customer, other) < 26)) return;
     customer.state = 'MOVING_TO_CHECKOUT';
     customer.checkoutWaitElapsed = 0;
     customer.queueOrder = this.nextQueueOrder++;
@@ -219,12 +231,20 @@ export class CustomerSystem {
     const second = this.state.unlockedProducts.find(
       (id) =>
         id !== customer.targetProduct &&
+        !customer.basket[id] &&
         this.state.shelves[id] > 0 &&
         this.shoppersFor(id).length < 3,
     );
-    if (customer.id % 3 === 0 && itemCount(customer.basket) < 2 && second) {
+    if (
+      customer.id % 3 === 0 &&
+      itemCount(customer.basket) < (customer.basketCapacity ?? 2) &&
+      second
+    ) {
       customer.targetProduct = second;
-      customer.targetQuantity = 1;
+      customer.targetQuantity = Math.min(
+        2,
+        (customer.basketCapacity ?? 2) - itemCount(customer.basket),
+      );
       customer.waitTime = 0;
       this.routeToShelf(customer);
     } else this.joinCheckout(customer);

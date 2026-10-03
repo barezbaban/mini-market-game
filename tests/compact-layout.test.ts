@@ -213,6 +213,8 @@ describe('compact store layout', () => {
   it('repairs existing walking routes when a newly unlocked department adds furniture', () => {
     const engine = new GameEngine();
     engine.state.money = 10000;
+    engine.state.xp = 300;
+    engine.state.totalServed = 20;
     engine.state.customers = [
       {
         id: 1,

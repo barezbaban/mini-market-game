@@ -30,9 +30,17 @@ function verifyBuffers(state: GameState): void {
       );
   }
   for (const customer of state.customers) {
-    bounded(itemCount(customer.basket), 2, `customer ${customer.id} basket`);
+    bounded(
+      itemCount(customer.basket),
+      customer.basketCapacity ?? 2,
+      `customer ${customer.id} basket`,
+    );
     for (const product of PRODUCTS)
-      bounded(customer.basket[product.id], 2, `customer ${customer.id}/${product.id}`);
+      bounded(
+        customer.basket[product.id],
+        customer.basketCapacity ?? 2,
+        `customer ${customer.id}/${product.id}`,
+      );
   }
   for (const product of PRODUCTS) {
     bounded(state.inventory[product.id], state.inventoryCapacity, `player/${product.id}`);
@@ -61,6 +69,8 @@ function verifyBuffers(state: GameState): void {
 
 function establishStore(marketing: number, speed: number, capacity: number): GameEngine {
   const engine = new GameEngine();
+  engine.state.xp = 19000;
+  engine.state.totalServed = 260;
   engine.economy.earn(1_000_000);
   const levels: Partial<Record<UpgradeId, number>> = {
     expansion: 4,
@@ -217,7 +227,7 @@ describe('expanded store endurance through real production', () => {
       expect(duration - lastSaleAt, 'cashier still receives customers at the end').toBeLessThan(
         60_000,
       );
-      expect(engine.state.totalServed).toBe(paidIds.size);
+      expect(engine.state.totalServed).toBe(260 + paidIds.size);
       expect(engine.state.money).toBe(startingMoney + paidValue);
       expect(engine.state.totalEarned).toBe(startingEarned + paidValue);
       expect(engine.state.xp).toBeGreaterThan(startingXp);

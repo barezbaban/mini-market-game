@@ -4,6 +4,7 @@ interface FloatLabel {
   element: HTMLSpanElement;
   event: GameEvent;
   started: number;
+  lift: number;
 }
 type Project = (
   x: number,
@@ -33,7 +34,7 @@ export class FloatingText {
     element.textContent = event.text;
     element.hidden = false;
     this.layer.append(element);
-    this.active.push({ element, event, started: time });
+    this.active.push({ element, event, started: time, lift: 0 });
   }
 
   update(time: number): void {
@@ -44,11 +45,43 @@ export class FloatingText {
         this.pool.push(label.element);
         return false;
       }
-      const position = this.project(label.event.x, label.event.y, 0.85 + age * 0.55);
-      label.element.style.transform = `translate(${position.x}px, ${position.y}px) translate(-50%, -100%)`;
-      label.element.style.opacity = position.visible ? String(Math.min(1, (1 - age) * 2)) : '0';
       return true;
     });
+    if (!this.active.length) return;
+
+    // Batch layout reads before writes; at most 16 short-lived labels are present.
+    const viewportWidth = this.layer.clientWidth;
+    const measurements = this.active.map((label) => ({
+      label,
+      width: label.element.offsetWidth,
+      height: label.element.offsetHeight,
+    }));
+    const placed: { left: number; top: number; right: number; bottom: number }[] = [];
+    const gap = 6;
+    for (const { label, width, height } of measurements) {
+      const age = (time - label.started) / 1200;
+      const position = this.project(label.event.x, label.event.y, 0.85 + age * 0.55);
+      label.element.style.opacity = position.visible ? String(Math.min(1, (1 - age) * 2)) : '0';
+      if (!position.visible) continue;
+      const left = Math.max(12, Math.min(viewportWidth - width - 12, position.x - width / 2));
+      let top = position.y - height - label.lift;
+      // Stack screen-space collisions, not world distances: zoom changes the spacing.
+      // Bottom-to-top order means each rectangle needs only one collision check.
+      for (const other of placed) {
+        if (
+          left < other.right + gap &&
+          left + width + gap > other.left &&
+          top < other.bottom + gap &&
+          top + height + gap > other.top
+        )
+          top = other.top - height - gap;
+      }
+      // Keep a label in its lane when an older message fades, rather than jumping down.
+      label.lift = Math.max(label.lift, position.y - height - top);
+      placed.push({ left, top, right: left + width, bottom: top + height });
+      placed.sort((a, b) => b.top - a.top);
+      label.element.style.transform = `translate(${left}px, ${top}px)`;
+    }
   }
 
   dispose(): void {

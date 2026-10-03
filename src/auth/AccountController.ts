@@ -1,11 +1,13 @@
 import { AuthClient, AuthError, type AuthUser } from './AuthClient';
 import { icon } from '../game/ui/icons';
+import { mountCloudSavePanel, type CloudSaveActions } from './CloudSavePanel';
 
 type Mode = 'login' | 'register' | 'account' | 'unavailable';
 
 interface AccountLifecycle {
   opened(): void;
   closed(): void;
+  cloud?: CloudSaveActions;
 }
 
 const messageFor = (error: unknown): string =>
@@ -36,7 +38,7 @@ export class AccountController {
     try {
       this.user = (await this.client.session()).user;
       this.updateButton();
-      if (!this.user) this.open();
+      // Guest play is a first-class path; do not interrupt the first harvest.
     } catch {
       this.mode = 'unavailable';
       this.updateButton();
@@ -76,20 +78,32 @@ export class AccountController {
     if (this.mode === 'account' && this.user) {
       this.dialog.innerHTML = `
         <div class="dialog-heading"><div class="auth-brand">${icon('account', 25)}<span>Player account</span></div><button class="icon-button" id="auth-close" aria-label="Close account">${icon('close')}</button></div>
-        <div class="account-card"><span class="account-avatar">${this.user.displayName.slice(0, 1).toUpperCase()}</span><div><strong id="account-name"></strong><small id="account-email"></small></div></div>
-        <p>Your login is active. Cloud progress will be connected in the next save implementation.</p>
+        <div class="account-card"><span class="account-avatar"></span><div><strong id="account-name"></strong><small id="account-email"></small></div></div>
+        <div id="cloud-panel"></div><p class="auth-message" id="account-message" role="status"></p>
         <button class="secondary-button auth-wide" id="auth-logout">Sign out</button>`;
+      this.dialog.querySelector('.account-avatar')!.textContent = this.user.displayName
+        .slice(0, 1)
+        .toUpperCase();
+      this.dialog.querySelector('#account-message')!.textContent = message;
+      if (this.lifecycle.cloud)
+        mountCloudSavePanel(
+          this.dialog.querySelector('#cloud-panel')!,
+          this.client,
+          this.lifecycle.cloud,
+        );
       this.dialog.querySelector('#account-name')!.textContent = this.user.displayName;
       this.dialog.querySelector('#account-email')!.textContent = this.user.email;
       this.dialog.querySelector('#auth-close')!.addEventListener('click', () => this.close());
-      this.dialog.querySelector('#auth-logout')!.addEventListener('click', () => void this.logout());
+      this.dialog
+        .querySelector('#auth-logout')!
+        .addEventListener('click', () => void this.logout());
       return;
     }
     const registering = this.mode === 'register';
     this.dialog.innerHTML = `
       <div class="auth-brand">${icon('account', 27)}<span>KurdMart account</span></div>
       <h2>${registering ? 'Create your player account.' : 'Welcome back.'}</h2>
-      <p>${registering ? 'Use an account to prepare for cloud saves and leaderboards.' : 'Sign in to continue with your player account.'}</p>
+      <p>${registering ? 'An account lets you keep a manual cloud backup. Guest play is always available.' : 'Sign in to manage your cloud backup. Your local market stays unchanged.'}</p>
       <div class="auth-tabs" role="tablist" aria-label="Account access">
         <button role="tab" id="auth-login-tab" aria-selected="${!registering}">Sign in</button>
         <button role="tab" id="auth-register-tab" aria-selected="${registering}">Create account</button>
@@ -114,10 +128,12 @@ export class AccountController {
       this.render();
     });
     this.dialog.querySelector('#auth-guest')!.addEventListener('click', () => this.close());
-    this.dialog.querySelector<HTMLFormElement>('#auth-form')!.addEventListener('submit', (event) => {
-      event.preventDefault();
-      void this.submit(event.currentTarget as HTMLFormElement);
-    });
+    this.dialog
+      .querySelector<HTMLFormElement>('#auth-form')!
+      .addEventListener('submit', (event) => {
+        event.preventDefault();
+        void this.submit(event.currentTarget as HTMLFormElement);
+      });
   }
 
   private async submit(form: HTMLFormElement): Promise<void> {

@@ -366,6 +366,7 @@ test('drive-through vehicle shows its item list and accepts one item at a time',
       const { engine, world } = window.__MARKET__;
       window.__MARKET__.setPaused(true);
       engine.economy.earn(2_000);
+      engine.state.totalServed = 10;
       engine.purchaseUpgrade('driveThrough');
       engine.state.driveThroughOrders = [
         {
@@ -574,6 +575,8 @@ for (const [width, height] of [
     expect(box!.x + box!.width).toBeLessThanOrEqual(width + 1);
     expect(box!.y + box!.height).toBeLessThanOrEqual(height + 1);
     await expect(page.locator('#money-value')).toBeVisible();
+    if (await page.locator('#toolbar-toggle').isVisible())
+      await page.locator('#toolbar-toggle').click();
     await expect(page.getByRole('button', { name: 'Open settings' })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,

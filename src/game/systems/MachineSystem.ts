@@ -58,8 +58,15 @@ export class MachineSystem {
       let remaining = deltaMs;
       while (remaining > 0) {
         if (!machine.processing) {
+          if (this.state.career.machinePolicies[definition.id] === 'paused') break;
+          const capacity = 2 * this.state.upgrades[definition.upgrade];
+          if (
+            this.state.career.batchModes[definition.id] === 'full' &&
+            (machine.input < capacity || definition.bufferCapacity - machine.output < capacity)
+          )
+            break;
           const batch = Math.min(
-            2 * this.state.upgrades[definition.upgrade],
+            capacity,
             machine.input,
             Math.max(0, definition.bufferCapacity - machine.output),
           );

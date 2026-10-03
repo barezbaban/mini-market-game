@@ -16,6 +16,7 @@ import {
 import type { BufferGeometry, Material, Texture } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GAME_CONFIG } from '../data/gameConfig';
+import { SHOP_STYLES } from '../data/career';
 import { clampCameraZoom } from '../data/cameraConfig';
 import { PRODUCTS } from '../data/products';
 import { cartCapacity, checkoutDuration } from '../data/upgrades';
@@ -158,12 +159,14 @@ export class WorldRenderer {
   private initialized = false;
   private lastState: GameState | null = null;
   private storeDoorOpen = 0;
+  private lowPower = false;
+  private brand?: WorldLabel;
 
   constructor(private readonly host: HTMLElement) {
     this.renderer = new WebGLRenderer({
       antialias: true,
       alpha: false,
-      powerPreference: 'high-performance',
+      powerPreference: 'default',
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     this.renderer.outputColorSpace = SRGBColorSpace;
@@ -337,6 +340,13 @@ export class WorldRenderer {
 
   update(state: GameState, timeMs: number, deltaMs: number, trashProgress = 0): void {
     this.lastState = state;
+    if (this.lowPower !== state.lowPower) {
+      this.lowPower = state.lowPower;
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, state.lowPower ? 1 : 1.5));
+      this.resize();
+    }
+    const style = SHOP_STYLES.find((s) => s.id === state.career.style)!;
+    this.brand?.setText(style.sign, '#ffffff', style.color);
     this.setZoom(state.cameraZoom);
     const dx = state.player.x - this.previousPlayer.x;
     const dy = state.player.y - this.previousPlayer.y;
@@ -806,6 +816,7 @@ export class WorldRenderer {
       foreground: '#ffffff',
       mount: 'surface',
     });
+    this.brand = brand;
     brand.object.position.set(0, 0, 0.052);
     // Keep the work area and queue visibly distinct without oversized floating signs.
     const checkout = toWorld({ x: 1100, y: 760 });

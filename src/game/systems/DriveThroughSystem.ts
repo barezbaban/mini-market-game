@@ -151,7 +151,12 @@ export class DriveThroughSystem {
     this.state.driveThroughCheckoutProgress = 0;
     this.state.driveThroughServed += 1;
     this.state.totalServed += 1;
-    const earnedXp = awardSaleXp(this.state, driveThroughTotal(order.requested), this.emit);
+    const earnedXp = awardSaleXp(
+      this.state,
+      driveThroughTotal(order.requested),
+      this.emit,
+      order.requested,
+    );
     order.state = 'LEAVING';
     this.emit({
       type: 'checkout',

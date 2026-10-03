@@ -74,7 +74,11 @@ export class CashSecurityDisplays {
     const spot = ring(root, GAME_CONFIG.cashCollectRadius / 100, C.gold, 0.035);
     spot.position.y = 0.075;
     const plaque = new Group();
-    plaque.position.set(0, 0.2, 0.48);
+    // Checkout piles are just inside the front wall. Keep their entire sign
+    // above the wall cap and on the tray side, rather than intersecting the wall.
+    const nearStoreWall = id !== 'drive';
+    plaque.position.set(0, nearStoreWall ? 0.44 : 0.2, nearStoreWall ? 0.28 : 0.48);
+    if (nearStoreWall) block(root, 0, 0.25, 0.2, 0.05, 0.32, 0.05, C.wood);
     plaque.rotation.x = -0.55;
     root.add(plaque);
     block(plaque, 0, 0, 0, 1.32, 0.28, 0.03, C.green);

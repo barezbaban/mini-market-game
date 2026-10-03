@@ -28,8 +28,10 @@ function expanded(): GameEngine {
   const engine = new GameEngine();
   engine.state.money = 100000;
   engine.state.xp = xpForLevel(20);
+  engine.state.totalServed = 140;
   for (let area = 0; area < 3; area++) engine.purchaseUpgrade('expansion');
   engine.purchaseUpgrade('corn');
+  engine.state.totalServed = 0; // Count only the transactions exercised below.
   return engine;
 }
 
@@ -37,19 +39,20 @@ describe('optional rush hour', () => {
   it('starts once, counts only new paid orders, awards XP once and keeps cash manual', () => {
     const engine = new GameEngine();
     engine.state.totalServed = 100;
+    engine.state.shelves.tomato = 1;
     expect(engine.rush.start()).toBe(true);
     expect(engine.rush.start()).toBe(false);
     engine.rush.update(1000);
     expect(engine.state.rush.completed).toBe(0);
-    engine.state.totalServed += 8;
+    engine.state.totalServed += 6;
     engine.rush.update(50);
     expect(engine.state.rush.result).toBe('won');
-    expect(engine.state.xp).toBe(100);
+    expect(engine.state.xp).toBe(75);
     expect(engine.state.money).toBe(0);
     expect(engine.rush.start()).toBe(false);
     const restored = new GameEngine(validateSave(engine.snapshot())!);
     restored.rush.update(500);
-    expect(restored.state.xp).toBe(100);
+    expect(restored.state.xp).toBe(75);
     restored.rush.update(RUSH.cooldown);
     expect(restored.rush.start()).toBe(true);
     expect(restored.state.rush.completed).toBe(0);
@@ -57,8 +60,10 @@ describe('optional rush hour', () => {
   it('times out without taking money or awarding a partial bonus', () => {
     const engine = new GameEngine();
     engine.state.money = 80;
+    engine.state.totalServed = 10;
+    engine.state.shelves.tomato = 1;
     engine.rush.start();
-    engine.state.totalServed = 4;
+    engine.state.totalServed += 4;
     engine.rush.update(RUSH.duration);
     expect(engine.state.rush).toMatchObject({ remainingMs: 0, result: 'missed', completed: 4 });
     expect(engine.state.xp).toBe(0);
@@ -66,7 +71,9 @@ describe('optional rush hour', () => {
   });
   it('preserves an active countdown across saves without offline progress', () => {
     const engine = new GameEngine();
-    engine.rush.start();
+    engine.state.totalServed = 10;
+    engine.state.shelves.tomato = 1;
+    expect(engine.rush.start()).toBe(true);
     engine.rush.update(12345);
     expect(validateSave(engine.snapshot())!.rush).toEqual(engine.state.rush);
   });
@@ -74,6 +81,8 @@ describe('optional rush hour', () => {
     const normal = new GameEngine();
     const busy = new GameEngine();
     normal.state.upgrades.carts = busy.state.upgrades.carts = 7;
+    busy.state.totalServed = 10;
+    busy.state.shelves.tomato = 1;
     busy.rush.start();
     for (let i = 0; i < 200; i++) {
       normal.customers.update(50);
@@ -160,6 +169,8 @@ describe('grilled corn and equipment upgrades', () => {
     const engine = new GameEngine();
     engine.state.money = 100000;
     expect(engine.purchaseUpgrade('grillMachine')).toBe(false);
+    engine.state.xp = xpForLevel(9);
+    engine.state.totalServed = 140;
     for (let i = 0; i < 3; i++) engine.purchaseUpgrade('expansion');
     expect(engine.purchaseUpgrade('grillMachine')).toBe(false);
     engine.purchaseUpgrade('corn');
@@ -173,6 +184,7 @@ describe('grilled corn and equipment upgrades', () => {
     engine.machines.update(50); // Mid-batch speed purchase cannot create negative time.
     expect(engine.state.machines.grill.output).toBe(2);
     expect(engine.state.upgrades.grillMachine).toBe(1);
+    engine.state.xp = 0; // Isolate the independent level-5 speed requirement.
     expect(engine.purchaseUpgrade('machineSpeed')).toBe(false); // Next tier is player level 5.
   });
   it('sells grilled corn through checkout and leaves the payment in its cash pile', () => {

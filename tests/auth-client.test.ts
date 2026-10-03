@@ -8,12 +8,60 @@ const json = (body: unknown, status = 200) =>
   });
 
 describe('AuthClient', () => {
-  it('normalizes account fields and uses cookie credentials without persisting the password', async () => {
-    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
-      json({ user: { id: 'p1', email: 'player@example.com', displayName: 'Player' } }),
+  it('uses revisioned cookie-authenticated cloud requests and exposes conflicts without retrying blindly', async () => {
+    const state = { version: 2, money: 20 };
+    const saved = {
+      revision: 1,
+      mutationId: 'test-mutation',
+      state,
+      updatedAt: '2026-10-01T10:00:00Z',
+    };
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(json({ save: null }))
+      .mockResolvedValueOnce(json({ save: saved }))
+      .mockResolvedValueOnce(json({ code: 'SAVE_CONFLICT', message: 'Review cloud first.' }, 409));
+    const client = new AuthClient('https://api.example.com', fetcher);
+    await expect(client.readCloudSave()).resolves.toBeNull();
+    await expect(client.writeCloudSave(0, saved.mutationId, state)).resolves.toEqual(saved);
+    expect(fetcher).toHaveBeenNthCalledWith(
+      2,
+      'https://api.example.com/api/save',
+      expect.objectContaining({
+        credentials: 'include',
+        body: JSON.stringify({ revision: 0, mutationId: saved.mutationId, state }),
+      }),
     );
+    await expect(client.writeCloudSave(0, 'other', state)).rejects.toMatchObject({
+      status: 409,
+      code: 'SAVE_CONFLICT',
+    });
+    expect(fetcher).toHaveBeenCalledTimes(3);
+    expect(state.money).toBe(20);
+  });
+  it('rejects malformed cloud responses and preserves caller state when offline', async () => {
+    const state = { money: 25 };
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(json({ save: {} }))
+      .mockRejectedValueOnce(new TypeError('offline'));
+    const client = new AuthClient('https://api.example.com', fetcher);
+    await expect(client.readCloudSave()).rejects.toBeInstanceOf(AuthError);
+    await expect(client.writeCloudSave(0, 'same-retry-id', state)).rejects.toMatchObject({
+      code: 'NETWORK_ERROR',
+    });
+    expect(state).toEqual({ money: 25 });
+  });
+  it('normalizes account fields and uses cookie credentials without persisting the password', async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        json({ user: { id: 'p1', email: 'player@example.com', displayName: 'Player' } }),
+      );
     const client = new AuthClient('https://api.example.com/', fetcher);
-    await expect(client.login(' PLAYER@EXAMPLE.COM ', 'a long private passphrase')).resolves.toEqual({
+    await expect(
+      client.login(' PLAYER@EXAMPLE.COM ', 'a long private passphrase'),
+    ).resolves.toEqual({
       id: 'p1',
       email: 'player@example.com',
       displayName: 'Player',
@@ -45,7 +93,9 @@ describe('AuthClient', () => {
   it('does not display an account-enumerating server error', async () => {
     const client = new AuthClient(
       'https://api.example.com',
-      vi.fn<typeof fetch>().mockResolvedValue(json({ message: 'That account does not exist.' }, 401)),
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(json({ message: 'That account does not exist.' }, 401)),
     );
     await expect(client.login('missing@example.com', 'wrong')).rejects.toMatchObject({
       message: 'Email or password is incorrect.',

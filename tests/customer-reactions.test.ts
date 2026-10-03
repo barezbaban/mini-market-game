@@ -80,7 +80,7 @@ describe('small, event-only customer reactions', () => {
         waitTime: 60000,
       });
       engine.state.customers = [customer];
-      engine.checkout.update(1000);
+      engine.checkout.update(4500);
       expect(engine.state.totalServed).toBe(1);
       expect(customer.state).toBe('LEAVING');
       expect(customer.waitTime).toBe(0);

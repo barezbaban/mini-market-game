@@ -5,6 +5,7 @@ import {
   upgradeAvailable,
   upgradeCost,
   requiredPlayerLevel,
+  requiredOrders,
   playerLevel,
   SHELF_COLUMNS,
 } from '../data/upgrades';
@@ -23,6 +24,7 @@ export function createWorker(id: number): WorkerData {
     target: { ...position },
     path: [],
     actionElapsed: 0,
+    priority: 'balanced',
   };
 }
 
@@ -66,7 +68,9 @@ export class UpgradeSystem {
         text:
           playerLevel(this.state.xp) < requiredPlayerLevel(this.state, id)
             ? `Reach player level ${requiredPlayerLevel(this.state, id)} to unlock this upgrade`
-            : 'Unlock the required area or staff first',
+            : this.state.totalServed < requiredOrders(this.state, id)
+              ? `Complete ${requiredOrders(this.state, id)} paid orders before opening this service`
+              : 'Unlock the required area or staff first',
         ...upgrade.position,
       });
       return false;
@@ -81,6 +85,9 @@ export class UpgradeSystem {
       return false;
     }
     this.state.upgrades[id] += 1;
+    if (id === 'accountant' && this.state.upgrades.accountant === 1)
+      this.state.career.accountantCheckpoint = this.state.totalServed;
+    this.state.career.firstActions.upgrade ??= this.state.elapsed;
     if (id === 'driveThrough')
       this.state.driveThroughSpawnElapsed = GAME_CONFIG.driveThroughSpawnInterval - 2500;
     applyUpgradeEffects(this.state);

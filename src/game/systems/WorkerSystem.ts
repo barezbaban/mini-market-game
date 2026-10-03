@@ -50,6 +50,13 @@ export class WorkerSystem {
   private machineRoom(id: MachineId, actor: WorkerData): number {
     if (!this.machines.isUnlocked(id)) return 0;
     const definition = MACHINES.find((machine) => machine.id === id)!;
+    const policy = this.state.career.machinePolicies[id];
+    if (policy === 'paused') return 0;
+    const target = Math.min(
+      this.state.shelfCapacities[definition.input],
+      this.state.career.stockTargets[definition.input],
+    );
+    if (policy === 'shelf-first' && this.state.shelves[definition.input] < target) return 0;
     const machine = this.state.machines[id];
     const reserved = this.state.workers.reduce((total, worker) => {
       if (worker.id === actor.id || worker.machine !== id) return total;
@@ -167,6 +174,45 @@ export class WorkerSystem {
     const delivery = this.deliverCarried(worker);
     if (delivery) return delivery;
     if (itemCount(worker.basket) >= helperCapacity(this.state)) return null;
+    // Preferences fall back to useful work once their priority is satisfied.
+    const urgent = this.state.customers.filter(
+      (c) => c.state === 'WAITING_FOR_PRODUCT' && !this.state.shelves[c.targetProduct],
+    );
+    const priority = worker.priority ?? 'balanced';
+    const productJobs = (id: ProductId): Array<() => Job | null> => [
+      () => this.harvestJob(worker, id),
+      ...MACHINES.filter((m) => m.output === id).flatMap((m) => [
+        () => this.collectJob(worker, m.id),
+        () => this.harvestJob(worker, m.input, m.id),
+      ]),
+    ];
+    if (priority !== 'balanced') {
+      const preferred =
+        priority === 'machines'
+          ? [
+              ...MACHINES.map((m) => () => this.collectJob(worker, m.id)),
+              ...MACHINES.map((m) => () => this.harvestJob(worker, m.input, m.id)),
+            ]
+          : priority === 'shelves'
+            ? urgent.flatMap((c) => productJobs(c.targetProduct))
+            : productJobs(priority);
+      for (const choose of preferred) {
+        const job = choose();
+        if (job) return job;
+      }
+    }
+    for (const machine of MACHINES) {
+      const policy = this.state.career.machinePolicies[machine.id];
+      if (policy !== 'processing-first' && policy !== 'shelf-first') continue;
+      const job =
+        policy === 'processing-first'
+          ? (this.collectJob(worker, machine.id) ??
+            this.harvestJob(worker, machine.input, machine.id))
+          : this.state.shelves[machine.input] < this.state.career.stockTargets[machine.input]
+            ? this.harvestJob(worker, machine.input)
+            : null;
+      if (job) return job;
+    }
     // A stable round-robin list means adding a crop or filling one shelf cannot
     // continually push another crop or a processor behind the same first job.
     const jobs: Array<() => Job | null> = [

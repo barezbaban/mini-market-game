@@ -228,7 +228,7 @@ describe('player-collected cash', () => {
     engine = new GameEngine(validateSave(engine.snapshot())!);
     expect(engine.state.customers[0].state).toBe('SECOND_PAYING');
     expect(engine.state.secondCheckoutProgress).toBe(500);
-    advance(engine, 500);
+    advance(engine, 4000);
     expect(engine.state.totalServed).toBe(1);
     expect(engine.state.cashStacks.second.amount).toBe(5);
     advance(engine, 3000);
@@ -258,7 +258,7 @@ describe('player-collected cash', () => {
 });
 
 describe('cash security and net rescue', () => {
-  it('steals and recovers the entire large pile, including across reloads', () => {
+  it('caps theft at $250 and conserves the whole pile across rescue and reloads', () => {
     let engine = new GameEngine();
     engine.state.player = { x: 200, y: 450 };
     engine.economy.deposit('store', 123456);
@@ -271,21 +271,23 @@ describe('cash security and net rescue', () => {
       path: [],
     };
     engine.security.update(50);
-    expect(engine.state.security.thief).toMatchObject({ phase: 'FLEEING', stolen: 123456 });
-    expect(engine.state.cashStacks.store.amount).toBe(0);
+    expect(engine.state.security.thief).toMatchObject({ phase: 'FLEEING', stolen: 250 });
+    expect(engine.state.cashStacks.store.amount).toBe(123206);
     engine = new GameEngine(validateSave(engine.snapshot())!);
-    expect(engine.state.security.thief?.stolen).toBe(123456);
+    expect(engine.state.security.thief?.stolen).toBe(250);
     engine.state.player = { x: GAME_CONFIG.storeCash.x - 50, y: GAME_CONFIG.storeCash.y };
     engine.security.update(50);
     expect(engine.state.security.thief?.phase).toBe('CAUGHT');
-    expect(engine.state.money).toBe(123456);
+    expect(engine.state.money).toBe(250);
     engine = new GameEngine(validateSave(engine.snapshot())!);
     engine.security.update(50);
+    expect(engine.state.money).toBe(250);
+    collectTakings(engine);
     expect(engine.state.money).toBe(123456);
     expect(engine.state.totalEarned).toBe(123456);
   });
 
-  it('waits three minutes, approaches visibly, then steals after a six-second warning', () => {
+  it('waits three minutes, approaches visibly, then takes 25% after a twelve-second warning', () => {
     const engine = new GameEngine();
     engine.state.player = { x: 200, y: 450 };
     engine.economy.deposit('store', 120);
@@ -308,8 +310,8 @@ describe('cash security and net rescue', () => {
     securityAdvance(engine, GAME_CONFIG.thiefStealTime - 50);
     expect(engine.state.cashStacks.store.amount).toBe(120);
     engine.security.update(50);
-    expect(engine.state.security.thief).toMatchObject({ phase: 'FLEEING', stolen: 120 });
-    expect(engine.state.cashStacks.store.amount).toBe(0);
+    expect(engine.state.security.thief).toMatchObject({ phase: 'FLEEING', stolen: 30 });
+    expect(engine.state.cashStacks.store.amount).toBe(90);
     expect(engine.state.money).toBe(0);
     expect(engine.state.totalEarned).toBe(120);
   });

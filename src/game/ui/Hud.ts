@@ -2,6 +2,7 @@ import { PRODUCTS } from '../data/products';
 import { GAME_CONFIG } from '../data/gameConfig';
 import { CASH_POINTS, uncollectedCash } from '../data/cashPoints';
 import { playerLevel, xpForLevel } from '../data/upgrades';
+import { nextBusinessGoal } from '../data/career';
 import type { GameState } from '../types';
 import { icon, productIcon } from './icons';
 
@@ -43,15 +44,19 @@ export class Hud {
             <div class="hud-right">
               <div class="basket-card"><button class="basket-heading" id="inventory-toggle" aria-label="Show basket contents" aria-expanded="false" aria-controls="inventory-detail"><span>${icon('basket', 17)} Basket</span><span id="basket-count">0 / 8</span>${icon('chevron', 12)}</button><div id="inventory-items" class="inventory-items"></div><div id="inventory-detail" class="inventory-detail" hidden></div></div>
               <nav class="toolbar" aria-label="Game controls">
+                <button class="icon-button" id="toolbar-toggle" aria-label="More controls" title="More controls" aria-expanded="false" aria-controls="extra-controls"><span aria-hidden="true">•••</span></button>
+                <div id="extra-controls" class="extra-controls">
                 <button class="icon-button" id="account-button" aria-label="Open player account" title="Player account">${icon('account')}</button>
                 <button class="icon-button" id="help-button" aria-label="How to play" title="How to play">${icon('help')}</button>
                 <button class="icon-button" id="sound-button" aria-label="Turn sound off" title="Sound on">${icon('sound')}</button>
                 <button class="icon-button" id="pause-button" aria-label="Pause game" title="Pause">${icon('pause')}</button>
                 <button class="icon-button" id="settings-button" aria-label="Open settings" title="Settings">${icon('settings')}</button>
+                </div>
               </nav>
             </div>
           </div>
           <div class="objective"><span class="objective-spark">${icon('leaf', 21)}</span><div id="objective-text"></div></div>
+          <div id="goal-guide" class="goal-guide" hidden aria-live="off"><span>➜</span><small></small></div>
           <div id="security-banner" class="security-banner" role="status" aria-live="polite" hidden></div>
           <button id="sprint-button" class="sprint-button" aria-label="Hold to sprint" title="Hold Shift or this button to sprint"><span>Sprint</span><small>Hold / Shift</small><span class="sprint-track"><span id="sprint-energy"></span></span></button>
           <div id="joystick" class="joystick" aria-label="Touch movement joystick"><div class="joystick-knob">${icon('close', 22)}</div></div>
@@ -84,6 +89,11 @@ export class Hud {
     root.querySelector('#settings-button')!.addEventListener('click', actions.settings);
     root.querySelector('#help-button')!.addEventListener('click', actions.help);
     root.querySelector('#manage-button')!.addEventListener('click', actions.manage);
+    root.querySelector('#toolbar-toggle')!.addEventListener('click', () => {
+      const toolbar = root.querySelector('.toolbar')!;
+      const open = toolbar.classList.toggle('expanded');
+      root.querySelector('#toolbar-toggle')!.setAttribute('aria-expanded', String(open));
+    });
     const inventoryToggle = root.querySelector<HTMLButtonElement>('#inventory-toggle')!;
     inventoryToggle.addEventListener('click', () => {
       this.inventoryDetail.hidden = !this.inventoryDetail.hidden;
@@ -101,7 +111,7 @@ export class Hud {
     rushStatus.hidden = !state.rush.remainingMs;
     if (state.rush.remainingMs) {
       const seconds = Math.ceil(state.rush.remainingMs / 1000);
-      rushStatus.textContent = `Rush ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')} · ${state.rush.completed}/8 orders`;
+      rushStatus.textContent = `Rush ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')} · ${state.rush.completed}/${state.rush.goal} orders`;
       rushStatus.classList.toggle('urgent', seconds <= 15);
     }
     document
@@ -172,6 +182,8 @@ export class Hud {
       nearTrash,
       nearDriveThrough,
       pending,
+      state.career.claimed.join(':'),
+      state.career.contractsCompleted,
       state.driveThroughOrders
         .map((order) => `${order.id}:${order.state}:${Object.values(order.delivered).join('.')}`)
         .join('|'),
@@ -224,9 +236,10 @@ export class Hud {
       ],
     ];
     const hint = hints[Math.min(state.tutorialStep, hints.length - 1)];
+    const goal = nextBusinessGoal(state);
     this.hint.innerHTML =
       state.tutorialStep >= 6
-        ? `<strong>${state.totalServed} happy customers</strong><span>Manage your farms, machines and growing team.</span>`
+        ? `<strong>${goal.title}</strong><span>${goal.detail}</span>`
         : `<strong>${hint[0]}</strong><span>${hint[1]}</span>`;
     if (nearTrash)
       this.hint.innerHTML = count
@@ -253,8 +266,6 @@ export class Hud {
           : `<strong>Drive-through order</strong><span>Bring ${remaining || 'the last item'} here from your basket.</span>`;
       }
     }
-    if (pending && state.tutorialStep >= 6 && !nearDriveThrough && !nearTrash)
-      this.hint.innerHTML = `<strong>$${pending.toLocaleString()} waiting to collect</strong><span>Walk up to a cash pile. Step away before collecting another batch.</span>`;
     this.soundButton.innerHTML = icon(state.soundEnabled ? 'sound' : 'mute');
     this.soundButton.setAttribute(
       'aria-label',
@@ -263,10 +274,16 @@ export class Hud {
     this.soundButton.title = state.soundEnabled ? 'Sound on' : 'Sound off';
   }
 
-  setPaused(paused: boolean): void {
+  setPaused(paused: boolean, safe = false): void {
     document.querySelector<HTMLElement>('#pause-overlay')!.hidden = !paused;
     this.pauseButton.innerHTML = icon(paused ? 'play' : 'pause');
     this.pauseButton.setAttribute('aria-label', paused ? 'Resume game' : 'Pause game');
+    document.querySelector('#pause-overlay h2')!.textContent = safe
+      ? 'Your market is paused.'
+      : 'Controls paused.';
+    document.querySelector('#pause-overlay p')!.textContent = safe
+      ? 'Safe pause stops the shop, rush-hour timers and theft. Resume whenever you are ready.'
+      : 'Your market and rush-hour timers keep running. Theft is protected while controls are paused. Enable Safe pause in Settings to stop everything.';
   }
 
   setSaved(success: boolean): void {

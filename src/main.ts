@@ -1,5 +1,6 @@
 import '../styles/main.css';
 import { AccountController } from './auth/AccountController';
+import { helpContent } from './game/ui/HelpPanel';
 import { AuthClient } from './auth/AuthClient';
 import { GAME_CONFIG } from './game/data/gameConfig';
 import { CAMERA_ZOOM, clampCameraZoom } from './game/data/cameraConfig';
@@ -12,6 +13,8 @@ import {
   upgradeById,
   upgradeCost,
   requiredPlayerLevel,
+  requiredOrders,
+  checkoutDuration,
   LEVEL_MILESTONES,
   SHELF_COLUMNS,
   shelfRows,
@@ -23,12 +26,28 @@ import { GameEngine } from './game/systems/GameEngine';
 import { SaveSystem } from './game/systems/SaveSystem';
 import { Hud } from './game/ui/Hud';
 import { icon, productIcon } from './game/ui/icons';
-import type { UpgradeDefinition, UpgradeId } from './game/types';
+import { goalsPanel, insightPanel, productionPanel, staffPanel } from './game/ui/BusinessPanels';
+import { recommendedUpgrades } from './game/systems/BusinessInsights';
+import { RUSH_TIERS, rushRequirement, type RushTier } from './game/systems/RushHourSystem';
+import { workerPriority } from './game/systems/validateCareer';
+import { mountSettingsExtras } from './game/ui/SettingsExtras';
+import type {
+  BusinessContract,
+  MachineId,
+  ProductId,
+  ShopStyle,
+  UpgradeDefinition,
+  UpgradeId,
+} from './game/types';
 
 const save = new SaveSystem({
   read: () => localStorage.getItem(GAME_CONFIG.saveKey),
   write: (value) => localStorage.setItem(GAME_CONFIG.saveKey, value),
   clear: () => localStorage.removeItem(GAME_CONFIG.saveKey),
+  backup: (value) => localStorage.setItem(`${GAME_CONFIG.saveKey}.backup`, value),
+  readBackup: () => localStorage.getItem(`${GAME_CONFIG.saveKey}.backup`),
+  backupRecovery: (value) => localStorage.setItem(`${GAME_CONFIG.saveKey}.recovery`, value),
+  readRecovery: () => localStorage.getItem(`${GAME_CONFIG.saveKey}.recovery`),
 });
 const engine = new GameEngine(save.load());
 const audio = new AudioManager();
@@ -39,7 +58,9 @@ let ready = false;
 let dialogWasPaused = false;
 let managementWasPaused = false;
 let managementSessionActive = false;
-let managementCategory: UpgradeDefinition['category'] = 'store';
+type ManagementCategory = UpgradeDefinition['category'] | 'goals';
+let managementCategory: ManagementCategory = 'store';
+let selectedRushTier: RushTier = 'gentle';
 let managementMessage = '';
 let managementStateKey = '';
 let accountWasPaused = false;
@@ -82,6 +103,20 @@ const accountController = new AccountController(
     closed: () => {
       if (!accountWasPaused) setPaused(false);
     },
+    cloud: {
+      snapshot: () => JSON.parse(JSON.stringify(engine.snapshot())) as Record<string, unknown>,
+      preview: (text) => {
+        const state = save.previewImport(text);
+        return `level ${playerLevel(state.xp)}, $${state.money.toLocaleString()}, ${state.totalServed} paid orders`;
+      },
+      restore: (text) => {
+        if (!save.restore(text))
+          throw new Error(save.lastError ?? 'Could not restore this backup.');
+        resetting = true;
+        runtime.setPaused(true);
+        location.reload();
+      },
+    },
   },
 );
 void accountController.initialize();
@@ -90,6 +125,7 @@ function setPaused(value: boolean): void {
   if (!ready) return;
   paused = value;
   runtime.setControlsBlocked(paused);
+  runtime.setPaused(paused && engine.state.safePause);
   if (paused) {
     runtime.persist();
   } else {
@@ -97,7 +133,7 @@ function setPaused(value: boolean): void {
     audio.unlock();
     document.querySelector<HTMLElement>('#game-canvas')!.focus({ preventScroll: true });
   }
-  hud.setPaused(paused);
+  hud.setPaused(paused, engine.state.safePause);
 }
 
 function toggleSound(): void {
@@ -126,9 +162,19 @@ function showDialog(kind: 'settings' | 'help'): void {
       ? `<section class="zoom-setting" aria-label="Camera settings"><div class="zoom-heading"><label for="camera-zoom">Camera zoom</label><output id="camera-zoom-value" for="camera-zoom">${zoomPercent}%</output></div><input id="camera-zoom" type="range" min="${CAMERA_ZOOM.min * 100}" max="${CAMERA_ZOOM.max * 100}" step="${CAMERA_ZOOM.step * 100}" value="${zoomPercent}" aria-valuetext="${zoomPercent}% zoom" aria-describedby="camera-zoom-hint"><div class="zoom-scale" aria-hidden="true"><span>Wider view</span><span>Closer view</span></div><div class="zoom-actions"><small id="camera-zoom-hint">Applies immediately and saves on this device.</small><button id="reset-zoom" class="secondary-button" ${engine.state.cameraZoom === CAMERA_ZOOM.default ? 'disabled' : ''}>Reset zoom</button></div></section>`
       : '') +
     (kind === 'help'
-      ? `<p>Your farm, your shelves, your growing team.</p><ol><li>Your compact shop has two shelf rows, checkouts on the right, and a wide glass entrance at the front. Farms sit in a three-column yard, with processors between the shop and fields. Departments open within this footprint instead of extending sideways.</li><li>Try <strong>Manage → Start rush hour</strong>: serve 8 orders in 90 seconds for 100 bonus XP. Timers keep running in Pause and Manage. Hiding or closing the browser tab suspends the market. Small faces appear only for an empty shelf, after 30 seconds in the payment queue, or briefly after a completed purchase. Customers leave after two minutes of waiting; serve them before they leave.</li><li>Use <strong>Settings</strong> for separate sound-effect and music volume. On touch screens, drag the world or joystick to walk and hold Sprint with your other thumb. Stand in the gold circles to move items automatically; no tiny item dragging is needed.</li><li>Build a <strong>corn grill</strong> in the processing row outside to sell grilled corn. Equipment speed upgrades accelerate every processor.</li><li>Move with <strong>WASD, arrow keys, the joystick, or dragging the world.</strong> Hold <strong>Shift or Sprint</strong> while moving for a short burst. Release and let stamina recover.</li><li>Stand near ripe farm plots to collect produce, then carry it to a matching shelf. Shelves start with 3 rows and 12 spaces. Buy extra rows in Manage at player levels 3, 10, and 20 to reach 24 spaces.</li><li>Customers take a cart outside, walk through the sliding entrance, and show what they need in a thought cloud. Their selected products appear inside the cart.</li><li>Your store starts with three carts. Each cart upgrade adds one cart. Grow to 10, then unlock five more at player levels 20, 22, 24, 26, and 28.</li><li>Take unwanted carried items to the <strong>trash bin</strong> beside the team office. Stay close for one second to empty your basket.</li><li>Stand beside checkout to serve customers. Sales earn 5 XP per customer and 2 XP per item, but <strong>cash stays in the pile</strong>. Walk into its gold circle to collect it. Only collected money can be spent. Step away before collecting another batch; standing there will not bank new payments.</li><li>Cash piles have <strong>no storage limit</strong>, and registers keep selling while money waits. The display stays small; its label shows the amount. Collect regularly because neglected cash can be stolen. At player level <strong>20</strong>, buy a second staffed checkout in Manage after hiring your first cashier. It has its own cash pile and shares cashier speed upgrades.</li><li>After <strong>three minutes</strong> of unattended cash, a thief may arrive. A warning gives you time to collect or intercept them. Bring the thief inside your visible <strong>net circle</strong> to catch them automatically and recover stolen cash. A hired helper will come to guard them; otherwise your net holds them. Police walk in and escort them out. Escaped cash is lost.</li><li>Buy the <strong>drive-through service</strong> in Manage. Bring the requested items to the drive window one at a time, then stay to process payment. Its separate cash pile has no storage limit and must still be collected by you.</li><li>The drive-through runner loads requested stock from shelves. The separate drive-through cashier processes completed payments and stacks the cash. Neither works until hired; neither banks money for you.</li><li>Open <strong>Manage</strong> to expand the store, add farm plots, build machines, hire staff, and purchase every upgrade. The level roadmap shows future unlocks; reaching a level makes upgrades available to buy, not free.</li><li>Carry tomatoes to the cannery, coffee beans to the grinder, or milk to the dairy kitchen. Stand close to supply ingredients and collect finished products when your basket has room.</li><li>Helpers harvest, supply machines, collect finished goods, and restock shelves. Upgrade their baskets and speed to keep things moving.</li></ol><p>The production department opens first, then the coffee corner, carrot garden, and dairy meadow. Your market saves automatically on this device, including stacked cash and any active thief encounter. Theft timers also keep running in menus. Hidden tabs and closed games do not advance them.</p>`
+      ? helpContent()
       : `<div class="setting-row"><span>Market sounds<small>Original melodies & little rewards</small></span><button id="dialog-sound" class="secondary-button">${engine.state.soundEnabled ? 'Sound on' : 'Sound off'}</button></div><div class="setting-row audio-setting"><label for="effects-volume">Sound effects<small>Pickups, stocking and register chimes</small></label><input id="effects-volume" type="range" min="0" max="100" value="${Math.round(engine.state.effectsVolume * 100)}" aria-label="Sound effects volume"></div><div class="setting-row audio-setting"><label for="music-volume">Background music<small>Cheerful original tune · set to 0 to mute</small></label><input id="music-volume" type="range" min="0" max="100" value="${Math.round(engine.state.musicVolume * 100)}" aria-label="Background music volume"></div><div class="setting-row"><span>Your little business<small>${engine.state.totalServed} customers · $${engine.state.totalEarned} lifetime earned</small></span>${icon('leaf')}</div><div class="setting-row"><span>A fresh beginning<small>Erase this device’s market progress</small></span><button id="reset-button" class="danger-button">Reset game</button></div><p>Your market is saved automatically in this browser. Clearing browser data also clears your save.</p>`);
   dialog.querySelector('#dialog-close')!.addEventListener('click', () => dialog.close());
+  if (kind === 'settings')
+    mountSettingsExtras(dialog, engine, save, {
+      persist: () => runtime.persist(),
+      pauseChanged: () => setPaused(paused),
+      restoreReady: () => {
+        resetting = true;
+        runtime.setPaused(true);
+        location.reload();
+      },
+    });
   const zoomSlider = dialog.querySelector<HTMLInputElement>('#camera-zoom');
   const applyZoom = (value: number) => {
     engine.state.cameraZoom = clampCameraZoom(value);
@@ -180,11 +226,12 @@ function showDialog(kind: 'settings' | 'help'): void {
 }
 
 const managementTabs: Array<{
-  id: UpgradeDefinition['category'];
+  id: ManagementCategory;
   title: string;
   icon: string;
   subtitle: string;
 }> = [
+  { id: 'goals', title: 'Goals', icon: 'star', subtitle: 'Build a business at your own pace.' },
   { id: 'store', title: 'Store', icon: 'manage', subtitle: 'Make room for the next good thing.' },
   {
     id: 'farms',
@@ -342,8 +389,10 @@ function upgradePresentation(upgrade: UpgradeDefinition): {
         'Each new level multiplies every helper’s walking speed by 1.10. Ten speed levels in total.';
       break;
     case 'cashier':
-      result.current = level ? `${(1 / 1.25 ** (level - 1)).toFixed(2)}s / customer` : 'Not hired';
-      result.next = `${(1 / 1.25 ** (next - 1)).toFixed(2)}s / customer`;
+      result.current = level
+        ? `${(checkoutDuration(state) / 1000).toFixed(2)}s / customer`
+        : 'Not hired';
+      result.next = `${(4.5 / 1.25 ** (next - 1)).toFixed(2)}s / customer`;
       result.detail =
         'Your cashier serves customers and keeps their payments in a compact cash pile with no storage limit. Collect it yourself before a thief visits. Each tier after hiring multiplies service speed by 1.25.';
       break;
@@ -360,10 +409,10 @@ function upgradePresentation(upgrade: UpgradeDefinition): {
         'Increase arrival rate by 20% of the base rate per upgrade. More arrivals need free carts and stocked shelves; only completed sales earn XP. Advanced tiers open at player levels 20, 25, and 30.';
       break;
     case 'accountant':
-      result.current = level ? `${level * 5} XP / 10s` : 'Not hired';
-      result.next = `${next * 5} XP / 10s`;
+      result.current = level ? `${level * 2} bonus XP / 5 orders` : 'Not hired';
+      result.next = `${next * 2} bonus XP / 5 orders`;
       result.detail =
-        'Your accountant earns passive player XP while the market is running. Every level adds 5 XP each 10 seconds.';
+        'Audits new paid orders every 10 seconds. Every five fulfilled orders earn 2 bonus XP per accountant tier. No sales means no passive XP.';
       break;
     case 'driveThrough':
       result.current = level ? 'Lane open' : 'Not built';
@@ -408,6 +457,9 @@ function upgradeRequirement(upgrade: UpgradeDefinition): string {
     });
   const level = requiredPlayerLevel(engine.state, upgrade.id);
   if (playerLevel(engine.state.xp) < level) requirements.unshift(`player level ${level}`);
+  const orders = requiredOrders(engine.state, upgrade.id);
+  if (engine.state.totalServed < orders)
+    requirements.push(`${orders} paid orders (${engine.state.totalServed}/${orders})`);
   return requirements.join(' and ');
 }
 
@@ -425,27 +477,40 @@ function progressionOverview(): string {
   const next = LEVEL_MILESTONES.find((milestone) => milestone.level > level);
   const remaining = xpForLevel(level + 1) - state.xp;
   const headline = next
-    ? `Level ${next.level} unlocks ${next.rewards.map(({ id, tier }) => milestoneReward(id, tier)).join(' · ')}`
+    ? `Level ${next.level} unlocks ${next.rewards
+        .slice(0, 2)
+        .map(({ id, tier }) => milestoneReward(id, tier))
+        .join(' · ')}${next.rewards.length > 2 ? ' and more' : ''}`
     : 'All milestone tiers unlocked — finish your upgrades in Manage.';
   return `<section class="progression-overview" aria-label="Player progression"><strong>${headline}</strong><p>${remaining.toLocaleString()} XP to level ${level + 1} · ${state.totalServed.toLocaleString()} customers served</p><p>Every paid order: <b>5 XP for the customer + 2 XP per item.</b> Store and drive-through sales both count. Reaching a level unlocks upgrades to buy with money.</p><details><summary>View level rewards</summary><ol class="milestone-list">${LEVEL_MILESTONES.map((milestone) => `<li class="${milestone.level <= level ? 'unlocked' : ''}"><span>Level ${milestone.level}<small>${milestone.level <= level ? 'Unlocked' : `${Math.max(0, xpForLevel(milestone.level) - state.xp).toLocaleString()} XP away`}</small></span><span>${milestone.rewards.map(({ id, tier }) => milestoneReward(id, tier)).join(' · ')}</span></li>`).join('')}</ol></details></section>`;
 }
 
 function renderManagement(): void {
   const dialog = document.querySelector<HTMLDialogElement>('#management-dialog')!;
-  const rewardsOpen = dialog.querySelector('details')?.open ?? false;
+  const openDetails = new Set(
+    [...dialog.querySelectorAll('details[open]')].map(
+      (d) => d.querySelector('summary')?.textContent,
+    ),
+  );
   const previousFocus = dialog.contains(document.activeElement)
     ? document.activeElement?.id
     : undefined;
   const scrollTop = dialog.querySelector('.management-content')?.scrollTop ?? 0;
   const tab = managementTabs.find((entry) => entry.id === managementCategory)!;
   const state = engine.state;
-  const rushCard = `<section class="rush-card" aria-label="Rush hour challenge"><div><strong>Rush hour · 90 seconds</strong><p>Serve 8 store or drive-through orders for 100 bonus XP. Double customer arrivals, limited by your carts. No cash penalty if time runs out. Timers keep running while you manage.</p><small id="management-rush-result"></small></div><button id="start-rush" class="primary-button"></button></section>`;
+  const recommended = recommendedUpgrades(state);
+  const rushCard = `<section class="rush-card" aria-label="Rush hour challenge"><div><strong>Optional rush hour · 90 seconds</strong><p>Pick a challenge that fits your shop. No cash penalty. ${state.safePause ? 'Safe pause freezes challenge timers in menus.' : 'Timers keep running in Manage.'}</p><label class="management-control">Challenge<select id="rush-tier" aria-label="Rush hour difficulty">${RUSH_TIERS.map((t) => `<option value="${t.id}" ${selectedRushTier === t.id ? 'selected' : ''}>${t.name} · ${t.goal} orders · ${t.xp} XP</option>`).join('')}</select></label><small id="management-rush-result"></small></div><button id="start-rush" class="primary-button"></button></section>`;
   dialog.innerHTML = `<div class="management-header"><div><span class="eyebrow">YOUR LITTLE BUSINESS</span><h2>Make room to grow.</h2></div><button class="icon-button" id="management-close" aria-label="Close management">${icon('close')}</button></div>
     <div class="management-summary"><span>${icon('coin', 18)} <strong id="management-money">$${state.money.toLocaleString()}</strong></span><span>${icon('star', 16)} <span id="management-xp"></span></span><span>${state.workers.length} ${state.workers.length === 1 ? 'helper' : 'helpers'} working</span></div>
     <div class="management-tabs" role="tablist" aria-label="Management categories">${managementTabs.map((entry) => `<button id="management-tab-${entry.id}" role="tab" aria-selected="${entry.id === managementCategory}" aria-controls="management-panel" tabindex="${entry.id === managementCategory ? 0 : -1}" data-category="${entry.id}">${icon(entry.icon, 18)}${entry.title}</button>`).join('')}</div>
-    <div class="management-content" id="management-panel" role="tabpanel" aria-labelledby="management-tab-${managementCategory}" tabindex="0">${progressionOverview()}${rushCard}<p class="management-intro">${tab.subtitle}</p><div class="upgrade-grid">${UPGRADES.filter(
+    <div class="management-content" id="management-panel" role="tabpanel" aria-labelledby="management-tab-${managementCategory}" tabindex="0">${managementCategory === 'goals' ? `${goalsPanel(state)}${rushCard}<details class="future-upgrades"><summary>Player-level roadmap</summary>${progressionOverview()}</details>` : insightPanel(state)}${managementCategory === 'staff' ? staffPanel(state) : ''}${managementCategory === 'machines' ? productionPanel(state) : ''}<p class="management-intro">${tab.subtitle}</p><div class="upgrade-grid">${UPGRADES.filter(
       (upgrade) => upgrade.category === managementCategory,
     )
+      .sort(
+        (a, b) =>
+          Number(upgradeAvailable(state, b.id)) - Number(upgradeAvailable(state, a.id)) ||
+          Number(recommended.includes(b.id)) - Number(recommended.includes(a.id)),
+      )
       .map((upgrade) => {
         const presentation = upgradePresentation(upgrade);
         const maxed = state.upgrades[upgrade.id] >= upgrade.maxLevel;
@@ -472,12 +537,17 @@ function renderManagement(): void {
                   ].includes(upgrade.id)
                 ? `Hire · $${cost.toLocaleString()}`
                 : `Buy · $${cost.toLocaleString()}`;
-        return `<article class="upgrade-card ${maxed ? 'maxed' : ''} ${available ? '' : 'unavailable'}" data-upgrade="${upgrade.id}"><div class="upgrade-card-heading"><span class="upgrade-symbol">${product ? productIcon(product.id) : icon(upgrade.icon, 25)}</span><div><small>${presentation.level}</small><h3>${upgrade.name}</h3></div></div><div class="upgrade-effect"><span>${presentation.current}</span>${maxed ? icon('check', 16) : `${icon('arrow', 16)}<strong>${presentation.next}</strong>`}</div><p>${presentation.detail}</p>${!available && !maxed ? `<div class="upgrade-requirement">${icon('lock', 13)} Requires ${upgradeRequirement(upgrade)}</div>` : ''}<div class="upgrade-purchase"><span class="upgrade-cost">${maxed ? 'All set' : `$${cost.toLocaleString()}`}</span><button id="buy-${upgrade.id}" class="upgrade-buy" data-buy-upgrade="${upgrade.id}" ${maxed || !available || !affordable ? 'disabled' : ''} aria-label="${maxed ? `${upgrade.name}: fully upgraded` : `Buy ${upgrade.name} for $${cost}`}">${buttonLabel}</button></div></article>`;
+        const card = `<article class="upgrade-card ${maxed ? 'maxed' : ''} ${available ? '' : 'unavailable'}" data-upgrade="${upgrade.id}"><div class="upgrade-card-heading"><span class="upgrade-symbol">${product ? productIcon(product.id) : icon(upgrade.icon, 25)}</span><div><small>${recommended.includes(upgrade.id) ? 'SUGGESTED · ' : ''}${presentation.level}</small><h3>${upgrade.name}</h3></div></div><div class="upgrade-effect"><span>${presentation.current}</span>${maxed ? icon('check', 16) : `${icon('arrow', 16)}<strong>${presentation.next}</strong>`}</div><p>${presentation.detail}</p>${!available && !maxed ? `<div class="upgrade-requirement">${icon('lock', 13)} Requires ${upgradeRequirement(upgrade)}</div>` : ''}<div class="upgrade-purchase"><span class="upgrade-cost">${maxed ? 'All set' : `$${cost.toLocaleString()}`}</span><button id="buy-${upgrade.id}" class="upgrade-buy" data-buy-upgrade="${upgrade.id}" ${maxed || !available || !affordable ? 'disabled' : ''} aria-label="${maxed ? `${upgrade.name}: fully upgraded` : `Buy ${upgrade.name} for $${cost}`}">${buttonLabel}</button></div></article>`;
+        return !available && !maxed
+          ? `<details class="locked-upgrade"><summary>${upgrade.name}<small>${upgradeRequirement(upgrade)}</small></summary>${card}</details>`
+          : card;
       })
       .join(
         '',
-      )}</div></div><div id="management-status" class="management-status" role="status" aria-live="polite">${managementMessage || 'Your market keeps running while you plan. Only player controls are paused.'}</div>`;
-  dialog.querySelector('details')!.open = rewardsOpen;
+      )}</div></div><div id="management-status" class="management-status" role="status" aria-live="polite">${managementMessage || (state.safePause ? 'Safe pause is on. Your market and timers are paused.' : 'Your market keeps running. Theft is protected while menus are open.')}</div>`;
+  dialog.querySelectorAll('details').forEach((d) => {
+    d.open = openDetails.has(d.querySelector('summary')?.textContent);
+  });
   managementStateKey = currentManagementStateKey();
   refreshManagementValues(dialog);
   dialog.querySelector<HTMLElement>('.management-content')!.scrollTop = scrollTop;
@@ -493,7 +563,16 @@ function renderManagement(): void {
 function currentManagementStateKey(): string {
   const state = engine.state;
   // Only rebuild upgrade cards when their prices, requirements or affordability change.
-  return JSON.stringify([state.money, playerLevel(state.xp), state.workers.length, state.upgrades]);
+  return JSON.stringify([
+    state.money,
+    playerLevel(state.xp),
+    state.totalServed,
+    state.workers.length,
+    state.upgrades,
+    state.career.claimed,
+    state.career.contractsCompleted,
+    state.career.style,
+  ]);
 }
 
 function refreshManagementValues(dialog: HTMLDialogElement): void {
@@ -502,22 +581,23 @@ function refreshManagementValues(dialog: HTMLDialogElement): void {
     const node = dialog.querySelector(selector);
     if (node && node.textContent !== text) node.textContent = text;
   };
-  const start = dialog.querySelector<HTMLButtonElement>('#start-rush')!;
-  start.disabled = rush.remainingMs > 0 || rush.cooldownMs > 0;
+  const start = dialog.querySelector<HTMLButtonElement>('#start-rush');
+  const requirement = rushRequirement(engine.state, selectedRushTier);
+  if (start) start.disabled = rush.remainingMs > 0 || rush.cooldownMs > 0 || Boolean(requirement);
   setText(
     '#start-rush',
     rush.remainingMs
-      ? `In progress · ${Math.ceil(rush.remainingMs / 1000)}s · ${rush.completed}/8 orders`
+      ? `In progress · ${Math.ceil(rush.remainingMs / 1000)}s · ${rush.completed}/${rush.goal} orders`
       : rush.cooldownMs
         ? `Ready in ${Math.ceil(rush.cooldownMs / 1000)}s`
-        : 'Start rush hour',
+        : requirement || 'Start rush hour',
   );
   setText(
     '#management-rush-result',
     rush.result === 'won'
-      ? 'Last rush: completed! +100 XP.'
+      ? `Last rush: completed! +${rush.rewardXp} XP.`
       : rush.result === 'missed'
-        ? `Last rush: ${rush.completed}/8 orders. Restock and try again.`
+        ? `Last rush: ${rush.completed}/${rush.goal} orders. Restock and try again.`
         : 'Optional challenge. Stock your shelves before starting.',
   );
   setText('#management-xp', `Level ${playerLevel(xp)} · ${xp.toLocaleString()} XP`);
@@ -537,6 +617,14 @@ function refreshManagementValues(dialog: HTMLDialogElement): void {
 function refreshManagement(): void {
   const dialog = document.querySelector<HTMLDialogElement>('#management-dialog')!;
   if (!managementSessionActive || !dialog.open) return;
+  // Do not replace a native picker or partially typed target when a sale arrives.
+  if (
+    dialog.contains(document.activeElement) &&
+    document.activeElement?.matches('select, input:not([type="radio"])')
+  ) {
+    refreshManagementValues(dialog);
+    return;
+  }
   if (managementStateKey !== currentManagementStateKey()) renderManagement();
   else refreshManagementValues(dialog);
 }
@@ -555,7 +643,7 @@ function closeManagement(): void {
 managementDialog.addEventListener('click', (event) => {
   const target = event.target as Element;
   if (target.closest('#start-rush')) {
-    if (engine.rush.start()) {
+    if (engine.rush.start(selectedRushTier)) {
       runtime.persist();
       managementWasPaused = false;
       closeManagement();
@@ -568,10 +656,36 @@ managementDialog.addEventListener('click', (event) => {
   }
   const tab = target.closest<HTMLButtonElement>('[data-category]');
   if (tab) {
-    managementCategory = tab.dataset.category as UpgradeDefinition['category'];
+    managementCategory = tab.dataset.category as ManagementCategory;
     managementMessage = '';
+    managementDialog.querySelector('.management-content')!.scrollTop = 0;
     renderManagement();
     managementDialog.querySelector<HTMLElement>(`#management-tab-${managementCategory}`)!.focus();
+    return;
+  }
+  const goal = target.closest<HTMLButtonElement>('[data-claim-goal]');
+  const contract = target.closest<HTMLButtonElement>('[data-contract]');
+  const style = target.closest<HTMLButtonElement>('[data-style]');
+  if (goal || contract || style || target.closest('#claim-contract, #cancel-contract')) {
+    if (target.closest('button:disabled')) return;
+    let changed = false;
+    if (goal) changed = engine.career.claimMilestone(goal.dataset.claimGoal!);
+    else if (contract)
+      changed = engine.career.acceptContract(contract.dataset.contract as BusinessContract['kind']);
+    else if (style) changed = engine.career.setStyle(style.dataset.style as ShopStyle);
+    else if (target.closest('#claim-contract')) changed = engine.career.claimContract();
+    else if (
+      confirm('Abandon this optional contract? Progress on it will be cleared; no money is lost.')
+    ) {
+      engine.career.cancelContract();
+      changed = true;
+    }
+    if (changed) {
+      runtime.persist();
+      hud.update(engine.state);
+      managementMessage = 'Saved. Your next goal is ready when you are.';
+    }
+    renderManagement();
     return;
   }
   const button = target.closest<HTMLButtonElement>('[data-buy-upgrade]');
@@ -592,6 +706,52 @@ managementDialog.addEventListener('click', (event) => {
   }
   renderManagement();
 });
+managementDialog.addEventListener('change', (event) => {
+  const control = event.target as HTMLInputElement | HTMLSelectElement;
+  if (control.id === 'rush-tier') {
+    if (RUSH_TIERS.some((t) => t.id === control.value))
+      selectedRushTier = control.value as RushTier;
+    refreshManagementValues(managementDialog);
+    return;
+  }
+  if (control.dataset.workerPriority) {
+    const worker = engine.state.workers.find(
+      (w) => w.id === Number(control.dataset.workerPriority),
+    );
+    if (worker) {
+      worker.priority = workerPriority(control.value, engine.state);
+      const note = managementDialog.querySelector(`#helper-${worker.id}-focus-note`);
+      if (note && control.dataset.focusDescription)
+        note.textContent = control.dataset.focusDescription;
+    }
+  } else if (control.dataset.machinePolicy) {
+    const id = control.dataset.machinePolicy as MachineId;
+    if (
+      MACHINES.some((m) => m.id === id) &&
+      ['balanced', 'shelf-first', 'processing-first', 'paused'].includes(control.value)
+    )
+      engine.state.career.machinePolicies[id] =
+        control.value as (typeof engine.state.career.machinePolicies)[MachineId];
+  } else if (control.dataset.batchMode) {
+    const id = control.dataset.batchMode as MachineId;
+    if (MACHINES.some((m) => m.id === id))
+      engine.state.career.batchModes[id] = control.value === 'full' ? 'full' : 'quick';
+  } else if (control.dataset.stockTarget) {
+    const id = control.dataset.stockTarget as ProductId;
+    const value = Number(control.value);
+    if (PRODUCTS.some((p) => p.id === id) && Number.isFinite(value))
+      engine.state.career.stockTargets[id] = Math.max(
+        0,
+        Math.min(engine.state.shelfCapacities[id], Math.floor(value)),
+      );
+    control.value = String(engine.state.career.stockTargets[id]);
+  } else return;
+  runtime.persist();
+  managementMessage =
+    'Plan saved. Helpers finish their current delivery before following the new priority.';
+  const status = managementDialog.querySelector('#management-status');
+  if (status) status.textContent = managementMessage;
+});
 managementDialog.addEventListener('keydown', (event) => {
   if (!(event.target instanceof HTMLElement) || event.target.getAttribute('role') !== 'tab') return;
   const index = managementTabs.findIndex((tab) => tab.id === managementCategory);
@@ -608,6 +768,7 @@ managementDialog.addEventListener('keydown', (event) => {
   if (nextIndex < 0) return;
   event.preventDefault();
   managementCategory = managementTabs[nextIndex].id;
+  managementDialog.querySelector('.management-content')!.scrollTop = 0;
   renderManagement();
   managementDialog.querySelector<HTMLElement>(`#management-tab-${managementCategory}`)!.focus();
 });

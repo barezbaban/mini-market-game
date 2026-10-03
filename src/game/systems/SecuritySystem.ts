@@ -159,8 +159,9 @@ export class SecuritySystem {
         return;
       }
       if (thief.elapsed >= GAME_CONFIG.thiefStealTime) {
-        thief.stolen = stack.amount;
-        stack.amount = 0;
+        // An interruption can cost a portion, never an entire long session's takings.
+        thief.stolen = Math.min(250, Math.max(1, Math.ceil(stack.amount * 0.25)));
+        stack.amount -= thief.stolen;
         stack.unattendedMs = 0;
         this.emit({
           type: 'notice',

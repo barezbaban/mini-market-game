@@ -12,6 +12,7 @@ test('purchased shelf rows are visible, capacity labels match stock, and upgrade
   await page.locator('#manage-button').click();
   await expect(page.locator('#buy-shelf')).toBeDisabled();
   await expect(page.locator('[data-upgrade="shelf"]')).toContainText('Requires player level 3');
+  await page.locator('#management-tab-goals').click();
   await expect(page.locator('.progression-overview')).toContainText(
     '5 XP for the customer + 2 XP per item',
   );
@@ -20,6 +21,7 @@ test('purchased shelf rows are visible, capacity labels match stock, and upgrade
     window.__MARKET__.engine.state.xp = 19_000;
   });
   await page.locator('#manage-button').click();
+  await page.locator('#management-tab-store').click();
   for (let row = 4; row <= 6; row++) {
     await page.locator('#buy-shelf').click();
     await expect(page.locator('[data-upgrade="shelf"]')).toContainText(
@@ -77,6 +79,8 @@ test('level 20 unlocks one extra cart and the mobile roadmap stays inside the sc
   await expect(page.locator('[data-upgrade="carts"]')).toContainText('11 carts');
   await expect(page.locator('[data-upgrade="carts"]')).toContainText('Requires player level 22');
   await expect(page.locator('#buy-carts')).toBeDisabled();
+  await page.locator('#management-tab-goals').click();
+  await page.getByText('Player-level roadmap', { exact: true }).click();
   await page.locator('.progression-overview summary').click();
   await expect(page.locator('.milestone-list')).toBeVisible();
   expect(

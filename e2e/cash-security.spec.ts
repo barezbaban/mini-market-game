@@ -20,6 +20,58 @@ async function paint(page: Page): Promise<void> {
   });
 }
 
+test('both checkout cash signs clear the front wall at every zoom setting', async ({ page }) => {
+  await open(page);
+  await page.evaluate(() => {
+    const { engine, setPaused } = window.__MARKET__;
+    setPaused(true);
+    engine.state.upgrades.secondCashier = 1;
+    engine.economy.deposit('store', 5);
+    engine.economy.deposit('second', 9999);
+    document.querySelector<HTMLElement>('#pause-overlay')!.style.display = 'none';
+    document.querySelector<HTMLElement>('#debug-panel')!.hidden = true;
+  });
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const zoom of [0.75, 1, 1.75]) {
+      for (const id of ['store', 'second'] as const) {
+        const sign = await page.evaluate(
+          ({ id, zoom }) => {
+            const { world, engine } = window.__MARKET__;
+            const root = world.scene.getObjectByName(`cash-stack-${id}`)!;
+            const label = world.scene.getObjectByName(`label:cash:${id}:status`)!;
+            engine.state.player = { x: id === 'store' ? 1040 : 1310, y: 800 };
+            engine.state.cameraZoom = zoom;
+            for (let frame = 0; frame < 35; frame++)
+              world.update(engine.state, engine.state.elapsed, 100);
+            world.scene.updateMatrixWorld(true);
+            const corners = [-0.5, 0.5].flatMap((x) =>
+              [-0.5, 0.5].map((y) => {
+                const worldPoint = label.localToWorld(label.position.clone().set(x, y, 0));
+                const local = root.worldToLocal(worldPoint.clone());
+                const projected = worldPoint.project(world.camera);
+                return { height: local.y, front: local.z * 100 + 845, screen: projected.toArray() };
+              }),
+            );
+            return { corners, text: label.userData.worldLabel.text };
+          },
+          { id, zoom },
+        );
+        expect(sign.text).toBe(id === 'store' ? 'PICK UP $5' : 'PICK UP $9,999');
+        for (const corner of sign.corners) {
+          // Front wall: top at 0.235 world units, rear face at map y=890.
+          expect(corner.height).toBeGreaterThan(0.26);
+          expect(corner.front).toBeLessThan(890);
+          expect(Math.abs(corner.screen[0])).toBeLessThan(1);
+          expect(Math.abs(corner.screen[1])).toBeLessThan(1);
+        }
+        if (id === 'store')
+          await page.screenshot({ path: `/private/tmp/kurdmart-cash-sign-${width}-${zoom}.png` });
+      }
+    }
+  }
+});
+
 test('large cash balances stay compact, readable and open on desktop and phone', async ({
   page,
 }) => {
@@ -31,6 +83,7 @@ test('large cash balances stay compact, readable and open on desktop and phone',
     setPaused(true);
     engine.state.money = 10000;
     engine.state.xp = 19000;
+    engine.state.totalServed = 10;
     engine.purchaseUpgrade('cashier');
     engine.purchaseUpgrade('secondCashier');
     engine.purchaseUpgrade('driveThrough');

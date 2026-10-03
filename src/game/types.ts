@@ -67,6 +67,31 @@ export interface SecurityState {
   recovered: number;
 }
 export type ItemCounts = Record<ProductId, number>;
+export type WorkerPriority = 'balanced' | 'shelves' | 'machines' | ProductId;
+export type ShopStyle = 'classic' | 'sunflower' | 'lavender';
+export interface BusinessContract {
+  kind: 'produce' | 'variety' | 'drive';
+  goals: ItemCounts;
+  baseline: ItemCounts;
+  ordersAtStart: number;
+  targetOrders: number;
+  rewardMoney: number;
+  rewardXp: number;
+}
+export interface CareerState {
+  version: 1;
+  sold: ItemCounts;
+  claimed: string[];
+  contractsCompleted: number;
+  contract: BusinessContract | null;
+  regularVisits: Record<string, number>;
+  accountantCheckpoint: number;
+  stockTargets: ItemCounts;
+  machinePolicies: Record<MachineId, 'balanced' | 'shelf-first' | 'processing-first' | 'paused'>;
+  batchModes: Record<MachineId, 'quick' | 'full'>;
+  style: ShopStyle;
+  firstActions: Record<string, number>;
+}
 export interface ProductDefinition {
   id: ProductId;
   name: string;
@@ -101,6 +126,8 @@ export interface UpgradeDefinition {
   requires?: Partial<Record<UpgradeId, number>>;
   /** Purchased upgrade level → minimum player level. Omitted tiers are available from level 1. */
   playerLevels?: Record<number, number>;
+  /** Lifetime fulfilled orders required for each newly purchased tier. */
+  ordersRequired?: Record<number, number>;
 }
 export interface FarmPlotState {
   ready: number;
@@ -140,6 +167,7 @@ export interface WorkerData {
   machine?: MachineId;
   path: Vec2[];
   actionElapsed: number;
+  priority?: WorkerPriority;
 }
 export type CustomerState =
   | 'ENTERING'
@@ -168,6 +196,8 @@ export interface CustomerData {
   /** Stationary checkout waiting only; shelf waits do not trigger the queue reaction. */
   checkoutWaitElapsed?: number;
   unhappy?: boolean;
+  basketCapacity?: number;
+  regularId?: string;
   path: Vec2[];
 }
 export type DriveThroughState =
@@ -215,6 +245,9 @@ export interface GameState {
   effectsVolume: number;
   musicVolume: number;
   cameraZoom: number;
+  lowPower: boolean;
+  safePause: boolean;
+  career: CareerState;
   returnedStock: ItemCounts;
   totalWalkouts: number;
   rush: {
@@ -223,6 +256,9 @@ export interface GameState {
     servedAtStart: number;
     completed: number;
     result: 'none' | 'won' | 'missed';
+    tier: 'gentle' | 'busy' | 'festival';
+    goal: number;
+    rewardXp: number;
   };
   machines: Record<MachineId, MachineState>;
   workers: WorkerData[];
@@ -244,4 +280,8 @@ export interface SaveRepository {
   read(): string | null;
   write(value: string): void;
   clear(): void;
+  backup?(value: string): void;
+  readBackup?(): string | null;
+  backupRecovery?(value: string): void;
+  readRecovery?(): string | null;
 }

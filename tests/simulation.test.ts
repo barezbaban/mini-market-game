@@ -255,7 +255,7 @@ describe('upgrades', () => {
       expect(engine.purchaseUpgrade(id)).toBe(true);
     expect(engine.purchaseUpgrade('corn')).toBe(false);
     expect(engine.purchaseUpgrade('shelf')).toBe(false);
-    expect(engine.state.money).toBe(1000 - 100 - 90 - 150 - 300);
+    expect(engine.state.money).toBe(1000 - 60 - 90 - 150 - 220);
     expect(engine.state.inventoryCapacity).toBe(12);
     expect(engine.state.shelfCapacities.tomato).toBe(12);
     expect(engine.state.shelfCapacities.egg).toBe(12);
@@ -341,7 +341,7 @@ describe('customers and checkout', () => {
 
   it('runs stocked shelves through shopping, a queue, and cashier payment without the player', () => {
     const engine = new GameEngine();
-    engine.state.money = 300;
+    engine.state.money = 220;
     engine.purchaseUpgrade('cashier');
     engine.state.shelves.tomato = 8;
     engine.state.shelves.egg = 8;
@@ -437,7 +437,7 @@ describe('save integrity and recovery', () => {
     const resumed = new GameEngine(restored);
     advance(resumed, 450);
     expect(resumed.state.totalServed).toBe(1);
-    expect(resumed.state.money).toBe(750);
+    expect(resumed.state.money).toBe(790);
     expect(resumed.state.cashStacks.store.amount).toBe(12);
   });
 
@@ -464,7 +464,7 @@ describe('save integrity and recovery', () => {
     expect(unavailable.load().money).toBe(0);
     expect(unavailable.status).toBe('unavailable');
     expect(unavailable.save(createInitialState())).toBe(false);
-    expect(unavailable.lastError).toBe('Quota full');
+    expect(unavailable.lastError).toBe('Storage blocked'); // Failed reads must block overwrites.
     expect(unavailable.reset()).toBe(false);
   });
 

@@ -12,17 +12,21 @@ for (const viewport of [
     await page.goto('./?debug=true');
     await page.waitForFunction(() => window.__MARKET__?.ready);
     await page.locator('#manage-button').click();
+    await page.locator('#management-tab-goals').click();
     const before = await page.evaluate((queueStart) => {
       const { engine } = window.__MARKET__;
       const state = engine.state;
       state.cashier = true;
-      state.totalServed = 7;
+      state.totalServed = 17;
+      state.shelves.tomato = 12;
       Object.assign(state.rush, {
         remainingMs: 15000,
         cooldownMs: 0,
-        servedAtStart: 0,
+        servedAtStart: 10,
         completed: 7,
         result: 'none',
+        goal: 8,
+        rewardXp: 100,
       });
       Object.assign(state.farms.tomato.plots[0], { ready: 0, elapsed: 2900 });
       state.customers = [
@@ -48,6 +52,9 @@ for (const viewport of [
     await expect
       .poll(() => page.evaluate(() => window.__MARKET__.engine.state.rush.result))
       .toBe('won');
+    await expect
+      .poll(() => page.evaluate(() => window.__MARKET__.engine.state.totalServed))
+      .toBe(18);
     await page.keyboard.up('d');
     const after = await page.evaluate(() => window.__MARKET__.engine.snapshot());
     expect(after.player).toEqual(before.player);
@@ -61,8 +68,11 @@ for (const viewport of [
     // Shorten only this isolated fixture's cooldown. Let the real animation loop finish it.
     await page.evaluate(() => {
       window.__MARKET__.engine.state.rush.cooldownMs = 2400;
+      document
+        .querySelector<HTMLDetailsElement>('.progression-overview')!
+        .parentElement!.setAttribute('open', '');
       document.querySelector<HTMLDetailsElement>('.progression-overview details')!.open = true;
-      document.querySelector<HTMLElement>('#management-tab-store')!.focus();
+      document.querySelector<HTMLElement>('#management-tab-goals')!.focus();
       document.querySelector<HTMLElement>('.management-content')!.scrollTop = 180;
       document.querySelector('#start-rush')!.setAttribute('data-retained-node', 'yes');
     });
@@ -70,7 +80,7 @@ for (const viewport of [
     await expect(page.locator('#start-rush')).toBeEnabled();
     await expect(page.locator('#start-rush')).toHaveText('Start rush hour');
     await expect(page.locator('#start-rush')).toHaveAttribute('data-retained-node', 'yes');
-    await expect(page.locator('#management-tab-store')).toBeFocused();
+    await expect(page.locator('#management-tab-goals')).toBeFocused();
     expect(
       await page
         .locator('.progression-overview details')
@@ -86,7 +96,7 @@ for (const viewport of [
     await page.evaluate(() => {
       window.__MARKET__.engine.state.rush.remainingMs = 250;
     });
-    await expect(page.locator('#management-rush-result')).toContainText('Last rush: 0/8');
+    await expect(page.locator('#management-rush-result')).toContainText('Last rush: 0/6');
     await expect(page.locator('#start-rush')).toHaveText(/Ready in/);
     const cooldown = await page.evaluate(() => window.__MARKET__.engine.state.rush.cooldownMs);
     await page.locator('#management-close').click();
@@ -104,6 +114,7 @@ test('hidden tabs suspend timers without catch-up and return to a live Manage sc
   await page.goto('./?debug=true');
   await page.waitForFunction(() => window.__MARKET__?.ready);
   await page.locator('#manage-button').click();
+  await page.locator('#management-tab-goals').click();
   const hiddenAt = await page.evaluate(() => {
     window.__MARKET__.engine.state.rush.cooldownMs = 10000;
     // Exercise the lifecycle listener deterministically without changing the user's browser tabs.

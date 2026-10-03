@@ -32,7 +32,7 @@ export const UPGRADES: UpgradeDefinition[] = [
     id: 'inventory',
     name: 'Bigger basket',
     description: 'Carry 4 more items per level',
-    cost: 100,
+    cost: 60,
     costGrowth: 1.65,
     type: 'capacity',
     maxLevel: 8,
@@ -96,7 +96,7 @@ export const UPGRADES: UpgradeDefinition[] = [
     id: 'cashier',
     name: 'Cashier',
     description: 'Hire, then serve 25% faster per level',
-    cost: 300,
+    cost: 220,
     costGrowth: 1.5,
     type: 'worker',
     maxLevel: 8,
@@ -113,6 +113,8 @@ export const UPGRADES: UpgradeDefinition[] = [
     costGrowth: 2,
     type: 'area',
     maxLevel: 4,
+    playerLevels: { 1: 3, 2: 6, 3: 9, 4: 12 },
+    ordersRequired: { 1: 20, 2: 65, 3: 140, 4: 260 },
     position: { ...GAME_CONFIG.playerStart },
     icon: 'shelf',
     category: 'store',
@@ -140,6 +142,7 @@ export const UPGRADES: UpgradeDefinition[] = [
     costGrowth: 1.35,
     type: 'plot',
     maxLevel: 4,
+    playerLevels: { 2: 4, 3: 8, 4: 11 },
     position: { x: 260, y: 1130 },
     icon: 'tomato',
     category: 'farms',
@@ -152,6 +155,7 @@ export const UPGRADES: UpgradeDefinition[] = [
     costGrowth: 1.35,
     type: 'plot',
     maxLevel: 4,
+    playerLevels: { 2: 4, 3: 8, 4: 11 },
     position: { x: 700, y: 1130 },
     icon: 'egg',
     category: 'farms',
@@ -164,6 +168,7 @@ export const UPGRADES: UpgradeDefinition[] = [
     costGrowth: 1.35,
     type: 'plot',
     maxLevel: 4,
+    playerLevels: { 2: 5, 3: 9, 4: 13 },
     position: { x: 1140, y: 1130 },
     icon: 'corn',
     category: 'farms',
@@ -177,6 +182,7 @@ export const UPGRADES: UpgradeDefinition[] = [
     costGrowth: 1.35,
     type: 'plot',
     maxLevel: 4,
+    playerLevels: { 2: 8, 3: 12, 4: 15 },
     position: { x: 260, y: 1390 },
     icon: 'coffee',
     category: 'farms',
@@ -190,6 +196,7 @@ export const UPGRADES: UpgradeDefinition[] = [
     costGrowth: 1.2,
     type: 'plot',
     maxLevel: 7,
+    playerLevels: { 3: 11, 5: 14, 7: 17 },
     position: { x: 700, y: 1390 },
     icon: 'carrot',
     category: 'farms',
@@ -203,6 +210,7 @@ export const UPGRADES: UpgradeDefinition[] = [
     costGrowth: 1.35,
     type: 'plot',
     maxLevel: 4,
+    playerLevels: { 2: 14, 3: 16, 4: 18 },
     position: { x: 1140, y: 1390 },
     icon: 'milk',
     category: 'farms',
@@ -255,6 +263,7 @@ export const UPGRADES: UpgradeDefinition[] = [
     costGrowth: 1.8,
     type: 'worker',
     maxLevel: 3,
+    playerLevels: { 2: 5, 3: 10 },
     position: { ...GAME_CONFIG.helperHub },
     icon: 'worker',
     category: 'staff',
@@ -288,7 +297,7 @@ export const UPGRADES: UpgradeDefinition[] = [
   {
     id: 'accountant',
     name: 'Accountant',
-    description: 'Earn 5 XP per level every 10 seconds',
+    description: 'Earn 2 bonus XP per tier for every 5 fulfilled orders; no idle XP',
     cost: 200,
     costGrowth: 1.5,
     type: 'staff',
@@ -305,6 +314,7 @@ export const UPGRADES: UpgradeDefinition[] = [
     costGrowth: 1,
     type: 'service',
     maxLevel: 1,
+    ordersRequired: { 1: 10 },
     position: { ...GAME_CONFIG.driveThroughPlayerSpot },
     icon: 'car',
     category: 'store',
@@ -348,8 +358,12 @@ export const upgradePrerequisitesMet = (state: GameState, id: UpgradeId): boolea
   );
 export const requiredPlayerLevel = (state: GameState, id: UpgradeId): number =>
   upgradeById(id).playerLevels?.[state.upgrades[id] + 1] ?? 1;
+export const requiredOrders = (state: GameState, id: UpgradeId): number =>
+  upgradeById(id).ordersRequired?.[state.upgrades[id] + 1] ?? 0;
 export const upgradeAvailable = (state: GameState, id: UpgradeId): boolean =>
-  upgradePrerequisitesMet(state, id) && playerLevel(state.xp) >= requiredPlayerLevel(state, id);
+  upgradePrerequisitesMet(state, id) &&
+  playerLevel(state.xp) >= requiredPlayerLevel(state, id) &&
+  state.totalServed >= requiredOrders(state, id);
 export const playerLevel = (xp: number): number =>
   Math.max(1, Math.floor((1 + Math.sqrt(1 + (8 * Math.max(0, xp)) / 100)) / 2));
 export const xpForLevel = (level: number): number => (level - 1) * level * 50;
@@ -369,6 +383,7 @@ export const LEVEL_MILESTONES = [
     ),
   }));
 export const checkoutDuration = (state: GameState): number =>
-  1000 / 1.25 ** Math.max(0, state.upgrades.cashier - 1);
+  // Staff free the player to do other work; speed tiers now relieve a real queue.
+  (state.cashier ? 4500 : 1000) / 1.25 ** Math.max(0, state.upgrades.cashier - 1);
 export const cartCapacity = (state: GameState): number =>
   Math.min(GAME_CONFIG.customerMax, GAME_CONFIG.customerStartCarts + state.upgrades.carts);

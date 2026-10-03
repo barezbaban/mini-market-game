@@ -6,10 +6,15 @@ test('rush-hour countdown runs behind Pause, reward and audio settings survive r
 }) => {
   await page.goto('./?debug=true');
   await page.waitForFunction(() => window.__MARKET__?.ready);
+  await page.evaluate(() => {
+    window.__MARKET__.engine.state.totalServed = 10;
+    window.__MARKET__.engine.state.shelves.tomato = 12;
+  });
   await page.getByRole('button', { name: 'Manage market' }).click();
+  await page.locator('#management-tab-goals').click();
   await page.getByRole('button', { name: 'Start rush hour', exact: true }).click();
   await expect(page.locator('#management-dialog')).not.toBeVisible();
-  await expect(page.locator('#rush-status')).toContainText('0/8 orders');
+  await expect(page.locator('#rush-status')).toContainText('0/6 orders');
   await page.getByRole('button', { name: 'Pause game', exact: true }).click();
   const before = await page.evaluate(() => window.__MARKET__.engine.snapshot());
   await page.keyboard.down('d');
@@ -38,7 +43,7 @@ test('rush-hour countdown runs behind Pause, reward and audio settings survive r
       rush: engine.state.rush,
     };
   });
-  expect(result).toMatchObject({ xp: 100, effects: 0.25, music: 0, rush: { result: 'won' } });
+  expect(result).toMatchObject({ xp: 75, effects: 0.25, music: 0, rush: { result: 'won' } });
 });
 
 test('grill, stock shelf and compact customer mood indicators render in the expanded store', async ({
@@ -50,6 +55,8 @@ test('grill, stock shelf and compact customer mood indicators render in the expa
     const { engine, world, setPaused } = window.__MARKET__;
     setPaused(true);
     engine.state.money = 10000;
+    engine.state.xp = 19000;
+    engine.state.totalServed = 260;
     for (let area = 0; area < 3; area++) engine.purchaseUpgrade('expansion');
     engine.purchaseUpgrade('corn');
     engine.purchaseUpgrade('grillMachine');
@@ -153,7 +160,7 @@ for (const viewport of [
       customer.y = 790;
       customer.basket.tomato = 1;
       engine.state.cashier = true;
-      engine.checkout.update(1000);
+      engine.checkout.update(4500);
       const purchased = snapshot();
       customer.waitTime = 2200;
       const expired = snapshot();
@@ -220,11 +227,13 @@ test('phone controls have large targets, a dead zone, multi-touch sprint and rot
       document.querySelector<HTMLElement>('#debug-panel')!.style.display = 'none';
     });
     await expect(page.locator('#sprint-button')).toBeVisible();
-    for (const button of await page.locator('.toolbar button').all()) {
+    await page.locator('#toolbar-toggle').click();
+    for (const button of await page.locator('.toolbar button:visible').all()) {
       const box = (await button.boundingBox())!;
       expect(box.width).toBeGreaterThanOrEqual(44);
       expect(box.height).toBeGreaterThanOrEqual(44);
     }
+    await page.locator('#toolbar-toggle').click();
     const box = (await page.locator('#joystick').boundingBox())!;
     const sprint = (await page.locator('#sprint-button').boundingBox())!;
     const center = { x: box.x + box.width / 2, y: box.y + box.height / 2, id: 1 };
@@ -258,7 +267,12 @@ test('phone controls have large targets, a dead zone, multi-touch sprint and rot
     expect(await page.evaluate(() => window.__MARKET__.engine.state.player)).toEqual(stopped);
     await page.screenshot({ path: 'test-results/lively-phone-landscape.png' });
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => {
+      window.__MARKET__.engine.state.totalServed = 10;
+      window.__MARKET__.engine.state.shelves.tomato = 12;
+    });
     await page.getByRole('button', { name: 'Manage market' }).click();
+    await page.locator('#management-tab-goals').click();
     await page.getByRole('button', { name: 'Start rush hour', exact: true }).click();
     await expect(page.locator('#rush-status')).toBeVisible();
     await page.screenshot({ path: 'test-results/lively-phone-portrait.png' });

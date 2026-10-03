@@ -124,6 +124,7 @@ describe('drive-through service', () => {
 
   it('departing vehicles continue forward without reversing through the queue', () => {
     const engine = new GameEngine();
+    engine.state.totalServed = 10;
     engine.economy.earn(10_000);
     engine.purchaseUpgrade('driveThrough');
     waitForOrder(engine);
@@ -158,6 +159,8 @@ describe('drive-through service', () => {
     engine.economy.earn(10_000);
     expect(engine.purchaseUpgrade('driveRunner')).toBe(false);
     expect(engine.purchaseUpgrade('driveCashier')).toBe(false);
+    expect(engine.purchaseUpgrade('driveThrough')).toBe(false);
+    engine.state.totalServed = 10;
     expect(engine.purchaseUpgrade('driveThrough')).toBe(true);
     expect(engine.state.upgrades.driveRunner).toBe(0);
     expect(engine.state.upgrades.driveCashier).toBe(0);
@@ -169,6 +172,7 @@ describe('drive-through service', () => {
 
   it('lets the player load requested items one at a time and collect payment', () => {
     const engine = new GameEngine();
+    engine.state.totalServed = 10;
     engine.economy.earn(10_000);
     expect(engine.purchaseUpgrade('driveThrough')).toBe(true);
     waitForOrder(engine);
@@ -193,7 +197,7 @@ describe('drive-through service', () => {
     expect(engine.state.money).toBe(openingMoney);
     expect(engine.state.cashStacks.drive.amount).toBe(driveThroughValue(order));
     expect(engine.state.driveThroughServed).toBe(1);
-    expect(engine.state.totalServed).toBe(1);
+    expect(engine.state.totalServed).toBe(11);
     expect(engine.state.xp).toBe(5 + units * 2);
     advance(engine, GAME_CONFIG.driveThroughCheckoutTime * 2);
     expect(engine.state.xp).toBe(5 + units * 2);
@@ -201,6 +205,7 @@ describe('drive-through service', () => {
 
   it('keeps runner loading and cashier payment as independent jobs', () => {
     const engine = new GameEngine();
+    engine.state.totalServed = 10;
     engine.economy.earn(10_000);
     engine.purchaseUpgrade('driveThrough');
     engine.purchaseUpgrade('driveRunner');
@@ -226,6 +231,7 @@ describe('drive-through service', () => {
 
   it('restores open orders and discards malformed or locked drive-through data', () => {
     const engine = new GameEngine();
+    engine.state.totalServed = 10;
     engine.economy.earn(10_000);
     engine.purchaseUpgrade('driveThrough');
     waitForOrder(engine);

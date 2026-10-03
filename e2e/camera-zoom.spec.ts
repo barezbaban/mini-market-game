@@ -30,6 +30,8 @@ for (const viewport of [
     await page.waitForFunction(() => window.__MARKET__?.ready);
     const normal = await view(page);
     expect(normal.zoom).toBe(1);
+    if (await page.locator('#toolbar-toggle').isVisible())
+      await page.locator('#toolbar-toggle').click();
     await page.getByRole('button', { name: 'Open settings' }).click();
     const slider = page.getByRole('slider', { name: 'Camera zoom' });
     await expect(slider).toHaveValue('100');
@@ -60,6 +62,8 @@ for (const viewport of [
     expect((await view(page)).zoom).toBe(1.75);
     await page.setViewportSize(viewport);
     await expect.poll(async () => (await view(page)).bufferWidth).toBe(close.bufferWidth);
+    if (await page.locator('#toolbar-toggle').isVisible())
+      await page.locator('#toolbar-toggle').click();
     await page.getByRole('button', { name: 'Open settings' }).click();
     await expect(slider).toHaveValue('175');
     await slider.fill('75');

@@ -17,6 +17,7 @@ import { CashCollectionSystem } from './CashCollectionSystem';
 import { SecuritySystem } from './SecuritySystem';
 import { RushHourSystem } from './RushHourSystem';
 import { PatienceSystem } from './PatienceSystem';
+import { CareerSystem } from './CareerSystem';
 import { canStand, repairWalk } from './Navigation';
 
 /** The renderer owns no game rules. This headless simulation runs in browser and tests. */
@@ -35,6 +36,9 @@ export class GameEngine {
   readonly security: SecuritySystem;
   readonly rush: RushHourSystem;
   readonly patience: PatienceSystem;
+  readonly career: CareerSystem;
+  /** Menus keep commerce running, but cannot cost the player a thief encounter. */
+  securityProtected = false;
   private events: GameEvent[] = [];
   private harvestElapsed: number = GAME_CONFIG.harvestInterval;
   private stockElapsed: number = GAME_CONFIG.stockInterval;
@@ -48,6 +52,7 @@ export class GameEngine {
     if (!this.canWalk(state.player)) state.player = { ...GAME_CONFIG.playerStart };
     const emit = (event: GameEvent) => this.events.push(event);
     this.economy = new EconomySystem(state);
+    this.career = new CareerSystem(state, this.economy, emit);
     this.inventory = new InventorySystem(state);
     this.rush = new RushHourSystem(state, emit);
     this.patience = new PatienceSystem(state, this.inventory, emit);
@@ -191,6 +196,7 @@ export class GameEngine {
         ) {
           this.harvestElapsed = 0;
           this.state.tutorialStep = Math.max(this.state.tutorialStep, 2);
+          this.state.career.firstActions.harvest ??= this.state.elapsed;
           this.events.push({ type: 'harvest', text: `+1 ${product.name}`, ...harvestPosition });
         }
         if (this.inventory.room === 0 && this.state.farms[product.id].plots[plotIndex].ready > 0) {
@@ -209,6 +215,7 @@ export class GameEngine {
       ) {
         this.stockElapsed = 0;
         this.state.tutorialStep = Math.max(this.state.tutorialStep, 3);
+        this.state.career.firstActions.stock ??= this.state.elapsed;
         this.events.push({ type: 'stock', text: `+1 ${product.name}`, ...product.shelf });
       }
       if (
@@ -277,7 +284,7 @@ export class GameEngine {
       this.progression.update(step);
       this.driveThrough.update(step);
       this.rush.update(step);
-      this.security.update(step);
+      if (!this.securityProtected) this.security.update(step);
       remaining -= step;
     }
   }

@@ -23,6 +23,13 @@ export interface CreateSession {
 }
 
 export interface AuthStore {
+  readSave?(playerId: string): Promise<CloudSave | null>;
+  writeSave?(
+    playerId: string,
+    revision: number,
+    mutationId: string,
+    state: Record<string, unknown>,
+  ): Promise<{ conflict: boolean; save: CloudSave | null }>;
   createPlayer(player: CreatePlayer): Promise<Player | null>;
   findPlayerByEmail(email: string): Promise<StoredPlayer | null>;
   findPlayerBySessionHash(tokenHash: string): Promise<Player | null>;
@@ -30,4 +37,11 @@ export interface AuthStore {
   deleteSession(tokenHash: string): Promise<void>;
   deleteExpiredSessions(): Promise<void>;
   close?(): Promise<void>;
+}
+
+export interface CloudSave {
+  revision: number;
+  mutationId: string;
+  state: Record<string, unknown>;
+  updatedAt: string;
 }

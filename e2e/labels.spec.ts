@@ -8,6 +8,8 @@ test('drive-through has one mounted title and one active order, even with a full
   await page.evaluate((vehicleSpot) => {
     const { engine } = window.__MARKET__;
     engine.economy.earn(100000);
+    engine.state.xp = 19000;
+    engine.state.totalServed = 260;
     for (const upgrade of [
       'expansion',
       'corn',
@@ -374,6 +376,8 @@ test('labels stay concise through upgrades and compact layouts hide decorative h
   await page.evaluate(() => {
     const { engine, world } = window.__MARKET__;
     engine.economy.earn(100000);
+    engine.state.xp = 19000;
+    engine.state.totalServed = 260;
     for (const id of [
       'expansion',
       'corn',
@@ -412,6 +416,7 @@ test('maximum-height shelves keep both aisle rows and their stock labels separat
     const { engine } = window.__MARKET__;
     engine.state.money = 100000;
     engine.state.xp = 100000;
+    engine.state.totalServed = 260;
     for (const id of [
       'expansion',
       'shelf',
@@ -513,6 +518,8 @@ test('critical signs stay legible and contained in the compact landscape view', 
   await page.evaluate(() => {
     const { engine } = window.__MARKET__;
     engine.economy.earn(100000);
+    engine.state.xp = 19000;
+    engine.state.totalServed = 260;
     for (const id of ['expansion', 'pasteMachine', 'coffeeMachine'] as const)
       while (engine.purchaseUpgrade(id)) {
         // Exercise the real unlock order before checking every expanded area.

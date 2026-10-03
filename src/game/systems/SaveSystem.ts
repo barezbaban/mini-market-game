@@ -23,6 +23,8 @@ import { RUSH } from './RushHourSystem';
 import { CUSTOMER_PATIENCE_MS } from './PatienceSystem';
 import { LAYOUT_VERSION } from '../data/worldLayout';
 import { migrateLayout } from './migrateLayout';
+import { createCareer, REGULARS } from '../data/career';
+import { validateCareer, workerPriority } from './validateCareer';
 
 export function createInitialState(): GameState {
   const state: GameState = {
@@ -77,9 +79,21 @@ export function createInitialState(): GameState {
     effectsVolume: 0.7,
     musicVolume: 0.35,
     cameraZoom: CAMERA_ZOOM.default,
+    lowPower: false,
+    safePause: false,
+    career: createCareer(),
     returnedStock: emptyItems(),
     totalWalkouts: 0,
-    rush: { remainingMs: 0, cooldownMs: 0, servedAtStart: 0, completed: 0, result: 'none' },
+    rush: {
+      remainingMs: 0,
+      cooldownMs: 0,
+      servedAtStart: 0,
+      completed: 0,
+      result: 'none',
+      tier: 'gentle',
+      goal: 6,
+      rewardXp: 75,
+    },
     machines: {
       grill: { input: 0, output: 0, processing: 0, elapsed: 0 },
       paste: { input: 0, output: 0, processing: 0, elapsed: 0 },
@@ -171,14 +185,19 @@ export function validateSave(value: unknown): GameState | null {
   state.effectsVolume = number(raw.effectsVolume, 0.7, 1);
   state.musicVolume = number(raw.musicVolume, 0.35, 1);
   state.cameraZoom = clampCameraZoom(raw.cameraZoom);
+  state.lowPower = raw.lowPower === true;
+  state.safePause = raw.safePause === true;
   state.totalWalkouts = integer(raw.totalWalkouts);
   const rush = object(raw.rush);
   state.rush = {
     remainingMs: number(rush.remainingMs, 0, RUSH.duration),
     cooldownMs: number(rush.cooldownMs, 0, RUSH.cooldown),
     servedAtStart: integer(rush.servedAtStart, state.totalServed, state.totalServed),
-    completed: integer(rush.completed, 0, RUSH.goal),
+    completed: integer(rush.completed, 0, integer(rush.goal, RUSH.goal, 20)),
     result: rush.result === 'won' || rush.result === 'missed' ? rush.result : 'none',
+    tier: rush.tier === 'busy' || rush.tier === 'festival' ? rush.tier : 'gentle',
+    goal: Math.max(1, integer(rush.goal, rush.remainingMs ? RUSH.goal : 6, 20)),
+    rewardXp: integer(rush.rewardXp, rush.remainingMs ? RUSH.xp : 75, 250),
   };
   if (state.rush.result !== 'none' || state.rush.cooldownMs) state.rush.remainingMs = 0;
   const returns = object(raw.returnedStock);
@@ -261,6 +280,7 @@ export function validateSave(value: unknown): GameState | null {
       target: { ...position },
       path: [],
       actionElapsed: 0,
+      priority: workerPriority(original.priority, state),
     };
   });
   const states: CustomerState[] = [
@@ -288,7 +308,8 @@ export function validateSave(value: unknown): GameState | null {
       ids.add(id);
       const basket: ItemCounts = emptyItems();
       const rawBasket = object(customer.basket);
-      let basketRoom = 2;
+      const basketCapacity = Math.max(2, integer(customer.basketCapacity, 2, 6));
+      let basketRoom = basketCapacity;
       for (const item of PRODUCTS) {
         basket[item.id] = state.unlockedProducts.includes(item.id)
           ? integer(rawBasket[item.id], 0, basketRoom)
@@ -304,7 +325,14 @@ export function validateSave(value: unknown): GameState | null {
         ),
         state: customer.state as CustomerState,
         targetProduct: product.id,
-        targetQuantity: Math.max(1, integer(customer.targetQuantity, id % 2 === 0 ? 2 : 1, 2)),
+        targetQuantity: Math.max(
+          1,
+          integer(customer.targetQuantity, id % 2 === 0 ? 2 : 1, basketCapacity),
+        ),
+        ...(customer.basketCapacity !== undefined ? { basketCapacity } : {}),
+        ...(REGULARS.some((r) => r.id === customer.regularId)
+          ? { regularId: String(customer.regularId) }
+          : {}),
         basket,
         color: integer(customer.color, 0x6296d1, 0xffffff),
         waitTime: number(customer.waitTime, 0, 60000),
@@ -345,7 +373,7 @@ export function validateSave(value: unknown): GameState | null {
           'SECOND_PAYING',
           'MOVING_TO_SECOND_CHECKOUT',
         ].includes(restored.state) &&
-        basketRoom === 2
+        basketRoom === basketCapacity
       ) {
         restored.state = 'MOVING_TO_SHELF';
         restored.path = [];
@@ -468,6 +496,7 @@ export function validateSave(value: unknown): GameState | null {
     }
   }
   if (raw.layoutVersion !== LAYOUT_VERSION) migrateLayout(state);
+  state.career = validateCareer(raw.career, state);
   return state;
 }
 
@@ -475,13 +504,16 @@ export type SaveStatus = 'idle' | 'loaded' | 'saved' | 'reset' | 'invalid' | 'un
 
 export class SaveSystem {
   lastError: string | null = null;
+  lastWarning: string | null = null;
   status: SaveStatus = 'idle';
+  private protectOriginal = false;
   constructor(private readonly repository: SaveRepository) {}
 
   load(): GameState {
     try {
       const stored = this.repository.read();
       if (!stored) {
+        this.protectOriginal = false;
         this.status = 'idle';
         this.lastError = null;
         return createInitialState();
@@ -490,9 +522,11 @@ export class SaveSystem {
       if (!state)
         throw new Error('This save uses an unsupported version. A fresh market is ready.');
       this.status = 'loaded';
+      this.protectOriginal = false;
       this.lastError = null;
       return state;
     } catch (error) {
+      this.protectOriginal = true;
       this.status =
         error instanceof SyntaxError ||
         (error instanceof Error && error.message.includes('unsupported version'))
@@ -505,7 +539,18 @@ export class SaveSystem {
   }
 
   save(state: GameState): boolean {
+    if (this.protectOriginal) return false;
     try {
+      const previous = this.repository.read();
+      this.lastWarning = null;
+      if (previous && this.repository.backup) {
+        try {
+          this.repository.backup(previous);
+        } catch {
+          this.lastWarning =
+            'The recovery copy could not be updated. Download a backup in Settings.';
+        }
+      }
       this.repository.write(JSON.stringify(state));
       this.status = 'saved';
       this.lastError = null;
@@ -521,6 +566,7 @@ export class SaveSystem {
   reset(): boolean {
     try {
       this.repository.clear();
+      this.protectOriginal = false;
       this.status = 'reset';
       this.lastError = null;
       return true;
@@ -529,6 +575,75 @@ export class SaveSystem {
       this.lastError =
         error instanceof Error ? error.message : 'Your browser could not reset the save.';
       return false;
+    }
+  }
+
+  export(state: GameState): string {
+    return JSON.stringify(
+      {
+        format: 'KurdMart-backup',
+        formatVersion: 1,
+        exportedAt: new Date().toISOString(),
+        game: state,
+      },
+      null,
+      2,
+    );
+  }
+
+  previewImport(text: string): GameState {
+    if (text.length > 2_000_000) throw new Error('Choose a KurdMart JSON backup under 2 MB.');
+    let value: unknown;
+    try {
+      value = JSON.parse(text);
+    } catch {
+      throw new Error('This file is not valid JSON. Your market has not changed.');
+    }
+    const envelope = object(value);
+    const candidate =
+      envelope.format === 'KurdMart-backup' && envelope.formatVersion === 1
+        ? object(envelope.game)
+        : envelope;
+    const isRecord = (v: unknown) => v !== null && typeof v === 'object' && !Array.isArray(v);
+    if (
+      !isRecord(candidate.upgrades) ||
+      !isRecord(candidate.inventory) ||
+      !isRecord(candidate.farms) ||
+      typeof candidate.money !== 'number' ||
+      !Number.isFinite(candidate.money)
+    )
+      throw new Error('This is not a complete KurdMart backup. Your market has not changed.');
+    const result = validateSave(candidate);
+    if (!result)
+      throw new Error('This backup version is not supported. Your market has not changed.');
+    return result;
+  }
+
+  restore(text: string): boolean {
+    try {
+      const state = this.previewImport(text);
+      const previous = this.repository.read();
+      if (previous && !this.protectOriginal) {
+        // Keep pre-import recovery separate from rolling autosave backups.
+        if (this.repository.backupRecovery) this.repository.backupRecovery(previous);
+        else this.repository.backup?.(previous);
+      }
+      this.repository.write(JSON.stringify(state));
+      this.protectOriginal = false;
+      this.status = 'saved';
+      this.lastError = null;
+      return true;
+    } catch (error) {
+      this.lastError = error instanceof Error ? error.message : 'The backup could not be restored.';
+      return false;
+    }
+  }
+
+  previousBackup(): string | null {
+    try {
+      return this.repository.readRecovery?.() ?? this.repository.readBackup?.() ?? null;
+    } catch {
+      return null;
     }
   }
 }

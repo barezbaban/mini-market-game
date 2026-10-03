@@ -112,6 +112,7 @@ describe('individual farm plots', () => {
 
   it('unlocks one cow, then produces independently from each of five purchased cows', () => {
     const state = fixture({ expansion: 4 });
+    state.xp = 19000;
     const farming = new FarmingSystem(state);
     farming.update(5000);
     expect(plotCount(state, 'milk')).toBe(1);
@@ -238,6 +239,8 @@ describe('multi-level upgrade rules', () => {
       expect(upgrades.purchase(id)).toBe(false);
     expect(upgrades.purchase('shelf')).toBe(false);
     expect(state.money).toBe(10_000);
+    state.xp = 19000;
+    state.totalServed = 260;
     for (let level = 0; level < 4; level += 1) {
       const cost = upgradeCost(state, 'expansion');
       const before = state.money;
@@ -260,6 +263,7 @@ describe('multi-level upgrade rules', () => {
 
   it('hires at most3 helpers and preserves held goods when capacity or speed levels change', () => {
     const state = fixture();
+    state.xp = 4500;
     state.money = 100_000;
     const upgrades = new UpgradeSystem(state, new EconomySystem(state));
     expect(helperCapacity(state)).toBe(2);

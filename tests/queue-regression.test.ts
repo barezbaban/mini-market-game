@@ -113,7 +113,8 @@ describe('checkout queue routing regressions', () => {
     ({ frameMs, marketing, carts, stall }) => {
       let engine = new GameEngine();
       engine.state.upgrades.carts = carts;
-      if (carts > 7) engine.state.xp = 43500;
+      engine.state.xp = 43500;
+      engine.state.totalServed = 260;
       engine.economy.earn(100000);
       for (const id of ['expansion', 'corn', 'pasteMachine', 'coffeeMachine', 'cashier'] as const)
         while (engine.purchaseUpgrade(id)) {
@@ -174,7 +175,9 @@ describe('checkout queue routing regressions', () => {
       let lastSale = 0;
       let salesAtNinetySeconds = 0;
       let time = 0;
-      while (time < 150_000) {
+      // The entry-level staffed register now takes 4.5 seconds; allow a longer
+      // observation while retaining the same no-stall and exact-payment checks.
+      while (time < 180_000) {
         if (time >= 30_000 && !engine.state.cashier) engine.purchaseUpgrade('cashier');
         // Unlimited test stock isolates routing from the player's production schedule.
         for (const product of QUEUE_PRODUCTS) {
@@ -183,7 +186,7 @@ describe('checkout queue routing regressions', () => {
           engine.state.shelves[product.id] += added;
         }
         const beforeSales = engine.state.totalServed;
-        const delta = Math.min(frameMs, 150_000 - time);
+        const delta = Math.min(frameMs, 180_000 - time);
         observation.step(delta);
         time += delta;
         if (engine.state.totalServed > beforeSales) lastSale = time;
@@ -202,7 +205,7 @@ describe('checkout queue routing regressions', () => {
       );
       observation.verify();
       expect(engine.state.totalEarned).toBe(1000 + observation.paidValue);
-      expect(engine.state.money).toBe(1000 - 150 - 90 - 300 + observation.paidValue);
+      expect(engine.state.money).toBe(1000 - 150 - 90 - 220 + observation.paidValue);
       expect(observation.paidValue + unsoldValue(engine)).toBe(suppliedValue);
     },
   );
@@ -222,7 +225,7 @@ describe('checkout queue routing regressions', () => {
       engine.purchaseUpgrade('customers');
       const observation = trackSimulation(engine);
       const framePattern = [8, 16, 33, 80];
-      const end = hireAt + 150_000;
+      const end = hireAt + 180_000;
       let suppliedValue = 0;
       let previousDelivery = -1;
       let salesBeforeFinalThirtySeconds = 0;
@@ -290,7 +293,7 @@ describe('checkout queue routing regressions', () => {
       expect(time - lastSale, 'a stocked cashier does not finish stalled').toBeLessThan(15_000);
       observation.verify();
       expect(engine.state.totalEarned).toBe(1000 + observation.paidValue);
-      expect(engine.state.money).toBe(1000 - 150 - 90 - 300 + observation.paidValue);
+      expect(engine.state.money).toBe(1000 - 150 - 90 - 220 + observation.paidValue);
       expect(observation.paidValue + unsoldValue(engine)).toBe(suppliedValue);
     },
   );
@@ -353,7 +356,7 @@ describe('checkout queue routing regressions', () => {
       ).toBeLessThan(30_000);
       observation.verify();
       expect(engine.state.totalEarned).toBe(1000 + observation.paidValue);
-      expect(engine.state.money).toBe(1000 - 150 - 90 - 300 + observation.paidValue);
+      expect(engine.state.money).toBe(1000 - 150 - 90 - 220 + observation.paidValue);
       expect(observation.paidValue + unsoldValue(engine)).toBe(suppliedValue);
     },
   );

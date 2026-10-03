@@ -1,3 +1,4 @@
+import { Vector2 } from 'three';
 import { GAME_CONFIG } from './data/gameConfig';
 import type { AudioManager } from './managers/AudioManager';
 import { WorldRenderer } from './rendering/WorldRenderer';
@@ -6,6 +7,7 @@ import type { SaveSystem } from './systems/SaveSystem';
 import { FloatingText } from './ui/FloatingText';
 import type { Hud } from './ui/Hud';
 import { MobileControls } from './ui/MobileControls';
+import { guidanceTarget } from './systems/BusinessInsights';
 
 interface RuntimeServices {
   engine: GameEngine;
@@ -20,6 +22,10 @@ export class GameRuntime {
   readonly world: WorldRenderer;
   private readonly controls: MobileControls;
   private readonly floating: FloatingText;
+  private readonly guide = document.querySelector<HTMLElement>('#goal-guide')!;
+  private readonly guideArrow = this.guide.querySelector<HTMLElement>('span')!;
+  private readonly guideLabel = this.guide.querySelector('small')!;
+  private readonly guideViewport = new Vector2();
   private readonly keys = new Set<string>();
   private touchSprint = false;
   private readonly events = new AbortController();
@@ -29,6 +35,7 @@ export class GameRuntime {
   private animationTime = 0;
   private saveTimer = 0;
   private hudTimer = 0;
+  private renderTimer = 0;
   private paused = false;
   private controlsBlocked = false;
   private contextLost = false;
@@ -133,6 +140,7 @@ export class GameRuntime {
     );
     document.querySelector<HTMLElement>('#debug-panel')!.hidden = !this.debug;
     this.world.update(services.engine.state, 0, 0);
+    this.updateGuide();
     services.hud.update(services.engine.state);
     this.frame = requestAnimationFrame((time) => this.tick(time));
   }
@@ -145,7 +153,9 @@ export class GameRuntime {
   /** Menus stop player input, not the shop simulation or its timers. */
   setControlsBlocked(blocked: boolean): void {
     this.controlsBlocked = blocked;
+    this.services.engine.securityProtected = blocked;
     this.clearInput();
+    this.updateGuide();
   }
   private get suspended(): boolean {
     return this.paused || this.contextLost || document.hidden;
@@ -195,11 +205,23 @@ export class GameRuntime {
       }
       audio.update(delta);
       this.saveTimer += delta;
-      if (important || this.saveTimer >= GAME_CONFIG.saveInterval) this.persist();
+      // Coalesce rapid harvest/stock events; explicit purchases and pagehide still flush.
+      if ((important && this.saveTimer >= 2000) || this.saveTimer >= GAME_CONFIG.saveInterval)
+        this.persist();
     }
     // Keep presenting while paused so resizing, camera easing, and test fixtures stay visible.
-    if (!this.contextLost && !document.hidden)
-      this.world.update(engine.state, this.animationTime, delta, engine.trashProgress);
+    this.renderTimer += delta;
+    if (
+      !this.contextLost &&
+      !document.hidden &&
+      (!engine.state.lowPower || this.renderTimer >= 1000 / 30 - 0.5)
+    ) {
+      this.world.update(engine.state, this.animationTime, this.renderTimer, engine.trashProgress);
+      // Project against the camera just rendered, including low-power frames.
+      // The slower HUD cadence makes this world-anchored marker visibly jump.
+      this.updateGuide();
+      this.renderTimer = 0;
+    }
     this.floating.update(this.animationTime);
     this.hudTimer += delta;
     if (this.hudTimer >= 100) {
@@ -217,6 +239,25 @@ export class GameRuntime {
   persist(): void {
     this.saveTimer = 0;
     this.services.hud.setSaved(this.services.save.save(this.services.engine.snapshot()));
+  }
+
+  private updateGuide(): void {
+    const guide = this.guide;
+    const target = guidanceTarget(this.services.engine.state);
+    guide.hidden = !target || this.controlsBlocked;
+    if (!target || this.controlsBlocked) return;
+    const projected = this.world.screenPosition(target.position.x, target.position.y, 0.15);
+    // Use logical render dimensions without triggering DOM layout every frame.
+    const { x: width, y: height } = this.world.renderer.getSize(this.guideViewport);
+    const x = Math.max(45, Math.min(width - 45, projected.x));
+    const y = Math.max(145, Math.min(height - 175, projected.y));
+    guide.style.left = `${x}px`;
+    guide.style.top = `${y}px`;
+    const angle = projected.visible
+      ? 90
+      : (Math.atan2(projected.y - height / 2, projected.x - width / 2) * 180) / Math.PI;
+    this.guideArrow.style.transform = `rotate(${angle}deg)`;
+    if (this.guideLabel.textContent !== target.label) this.guideLabel.textContent = target.label;
   }
 
   dispose(): void {

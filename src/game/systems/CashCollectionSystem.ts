@@ -25,6 +25,7 @@ export class CashCollectionSystem {
       stack.collectionArmed = false;
       const amount = this.economy.collect(point.id);
       if (amount) {
+        this.state.career.firstActions.cash ??= this.state.elapsed;
         this.state.tutorialStep = Math.max(6, this.state.tutorialStep);
         this.emit({ type: 'money', text: `Collected $${amount}`, ...point.position });
       }

@@ -9,7 +9,7 @@ export const GAME_CONFIG = {
   sprintRecovery: 6000,
   cashCollectRadius: 42,
   thiefDelay: 180000,
-  thiefStealTime: 6000,
+  thiefStealTime: 12000,
   thiefCooldown: 90000,
   thiefSpeed: 225,
   netRadius: 65,
