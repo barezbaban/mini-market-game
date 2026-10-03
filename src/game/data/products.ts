@@ -128,7 +128,7 @@ export const PRODUCTS: ProductDefinition[] = [
     unlockCost: 0,
     sprite: 'carrot',
     color: 0xf0953d,
-    shelf: { x: 2010, y: 240 },
+    shelf: { x: 1940, y: 240 },
     farm: { x: 1960, y: 640 },
     kind: 'farm',
     area: 3,
@@ -174,6 +174,25 @@ export const PRODUCTS: ProductDefinition[] = [
     unlockUpgrade: 'dairyMachine',
   },
 ];
+PRODUCTS.push({
+  id: 'grilledCorn',
+  name: 'Grilled corn',
+  plural: 'Grilled corn',
+  icon: 'grilledCorn',
+  productionTime: 6000,
+  yieldPerPlot: 0,
+  sellingPrice: 23,
+  shelfCapacity: 12,
+  unlockCost: 360,
+  sprite: 'grilledCorn',
+  color: 0xdf9b37,
+  shelf: { x: 2140, y: 240 },
+  farm: { x: 2080, y: 830 },
+  kind: 'processed',
+  area: 3,
+  maxPlots: 0,
+  unlockUpgrade: 'grillMachine',
+});
 export const FARM_PRODUCTS = PRODUCTS.filter((product) => product.kind === 'farm');
 export const productById = (id: string): ProductDefinition | undefined =>
   PRODUCTS.find((product) => product.id === id);
@@ -187,6 +206,7 @@ export const emptyItems = (): ItemCounts => ({
   groundCoffee: 0,
   milk: 0,
   cheese: 0,
+  grilledCorn: 0,
 });
 export function plotCount(state: GameState, id: ProductId): number {
   const product = productById(id)!;

@@ -46,6 +46,8 @@ test('management buys every expansion with real costs, caps levels, and preserve
     'coffeeMachine',
     'cowPlots',
     'dairyMachine',
+    'grillMachine',
+    'machineSpeed',
   ];
   let expectedMoney = 1_000_000;
   for (const id of order) {
@@ -61,8 +63,8 @@ test('management buys every expansion with real costs, caps levels, and preserve
   expect(await page.evaluate(() => window.__MARKET__.engine.state.elapsed)).toBe(pausedAt);
   const before = await page.evaluate(() => window.__MARKET__.engine.snapshot());
   expect(before.workers).toHaveLength(3);
-  expect(before.unlockedProducts).toHaveLength(9);
-  expect(Object.values(before.shelfCapacities)).toEqual(Array(9).fill(24));
+  expect(before.unlockedProducts).toHaveLength(10);
+  expect(Object.values(before.shelfCapacities)).toEqual(Array(10).fill(24));
   expect(before.upgrades.helperCapacity).toBe(4);
   expect(before.upgrades.helperSpeed).toBe(9);
   await page.reload();

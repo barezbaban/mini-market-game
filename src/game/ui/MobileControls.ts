@@ -8,6 +8,7 @@ export class MobileControls {
   private readonly knob: HTMLElement;
   private readonly events = new AbortController();
   private floating = false;
+  private captureTarget: HTMLElement | null = null;
 
   constructor(
     private readonly element: HTMLElement,
@@ -21,16 +22,19 @@ export class MobileControls {
       surface?.focus({ preventScroll: true });
       this.pointer = event.pointerId;
       this.floating = floating;
-      (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+      this.captureTarget = event.currentTarget as HTMLElement;
+      this.captureTarget.setPointerCapture(event.pointerId);
       if (floating) {
         const parent = element.parentElement!.getBoundingClientRect();
         element.classList.add('dragging-surface');
         element.style.display = 'flex';
-        element.style.left = `${event.clientX - parent.left - element.clientWidth / 2}px`;
-        element.style.top = `${event.clientY - parent.top - element.clientHeight / 2}px`;
+        element.style.left = `${Math.max(0, Math.min(parent.width - element.clientWidth, event.clientX - parent.left - element.clientWidth / 2))}px`;
+        element.style.top = `${Math.max(0, Math.min(parent.height - element.clientHeight, event.clientY - parent.top - element.clientHeight / 2))}px`;
       }
       const box = element.getBoundingClientRect();
       this.center = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+      // At screen edges, a tap must not move the player just because the stick was clamped.
+      if (floating) this.center = { x: event.clientX, y: event.clientY };
       this.move(event);
     };
     element.addEventListener('pointerdown', (event) => start(event, false), options);
@@ -44,10 +48,16 @@ export class MobileControls {
     element.addEventListener('lostpointercapture', release, options);
     surface?.addEventListener('lostpointercapture', release, options);
     window.addEventListener('blur', () => this.reset(), options);
+    window.addEventListener('resize', () => this.reset(), options);
+    window.addEventListener('orientationchange', () => this.reset(), options);
   }
 
   reset(): void {
+    const pointer = this.pointer;
     this.pointer = null;
+    if (pointer !== null && this.captureTarget?.hasPointerCapture(pointer))
+      this.captureTarget.releasePointerCapture(pointer);
+    this.captureTarget = null;
     this.vector.x = 0;
     this.vector.y = 0;
     this.knob.style.transform = 'translate(0, 0)';
@@ -74,8 +84,9 @@ export class MobileControls {
     const radius = this.element.clientWidth * 0.3;
     const distance = Math.hypot(dx, dy);
     const scale = Math.min(1, radius / (distance || 1));
-    this.vector.x = (dx * scale) / radius;
-    this.vector.y = (dy * scale) / radius;
+    const magnitude = Math.max(0, (Math.min(1, distance / radius) - 0.12) / 0.88);
+    this.vector.x = distance ? (dx / distance) * magnitude : 0;
+    this.vector.y = distance ? (dy / distance) * magnitude : 0;
     this.knob.style.transform = `translate(${dx * scale}px, ${dy * scale}px)`;
     this.element.classList.add('active');
   }

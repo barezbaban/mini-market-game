@@ -23,6 +23,8 @@ All gameplay timings are in milliseconds. Simulation positions use the configure
 - Progression awards sale XP and the accountant's timed passive XP.
 - Drive-through owns vehicle arrival, ordered item handoff, dedicated staff automation, payment, and departure.
 - Saves serialize validated progression through a storage interface.
+- RushHourSystem owns the optional 90-second challenge, paid-order baseline, one-time XP reward and active-play cooldown. It uses the shared totalServed counter, so both checkout types count, and does not credit currency.
+- PatienceSystem accumulates only shelf/queue waiting time, sends unhappy shoppers through the normal exit, and returns unpaid goods through InventorySystem. Persisted returnedStock retains overflow without violating shelf capacities. Walking, payment and paused time do not consume patience.
 
 The player and cashier both operate the same checkout rules. A customer's transition through the queue, payment, and departure must remain owned by the simulation; rendering should never credit money or remove stock. The level-20 `secondCashier` purchase adds one staffed register fed from the shared queue, with distinct movement/payment states and independent progress.
 
@@ -65,6 +67,10 @@ A network save service will need an asynchronous adapter, authentication, confli
 Local saves belong to the browser profile and site origin. Development and GitHub Pages have separate saves. Clearing site data removes progress; a local save is not a cloud backup.
 
 ## Presentation and assets
+
+AudioManager synthesizes the original melody, bass and event chimes after a user gesture. Separate saved music/effects levels feed gain buses; master mute and pause silence scheduled notes too. Transfer sounds are throttled, active oscillators are capped at 20, and ended nodes disconnect. Music schedules only one beat per update, never an overdue burst. Runtime disposal closes the audio context. Customer mood labels reuse pooled billboard textures and update only when their four-segment state changes.
+
+The corn grill extends the generic processing pipeline with corn → grilledCorn and a dedicated shelf in the carrot-garden wing. machineDuration is shared by simulation, progress rendering and management descriptions; global equipment-speed tiers divide base duration by 1.2 per tier. An in-progress batch may finish immediately after a speed upgrade but never advances with a negative time step.
 
 `src/game/GameRuntime.ts` advances the engine, consumes its events, schedules saves, and presents the state through `WorldRenderer`. It normalizes keyboard and pointer input, observes viewport changes, pauses gameplay when requested, and clears input when focus is lost. Rendering can continue during pause so the scene responds to resizing. A lost WebGL context pauses updates and triggers a save attempt.
 

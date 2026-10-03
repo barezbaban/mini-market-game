@@ -2,7 +2,7 @@ import '../styles/main.css';
 import { AccountController } from './auth/AccountController';
 import { AuthClient } from './auth/AuthClient';
 import { GAME_CONFIG } from './game/data/gameConfig';
-import { MACHINES } from './game/data/machines';
+import { MACHINES, machineDuration } from './game/data/machines';
 import { plotCount, PRODUCTS } from './game/data/products';
 import {
   playerLevel,
@@ -32,6 +32,7 @@ const save = new SaveSystem({
 const engine = new GameEngine(save.load());
 const audio = new AudioManager();
 audio.setEnabled(engine.state.soundEnabled);
+audio.setVolumes(engine.state.effectsVolume, engine.state.musicVolume);
 let paused = false;
 let ready = false;
 let dialogWasPaused = false;
@@ -113,9 +114,19 @@ function showDialog(kind: 'settings' | 'help'): void {
       ? '<p>Gold footprint circles show a place to stand. They turn green when you are close enough to collect, stock, or load items.</p>'
       : '') +
     (kind === 'help'
-      ? `<p>Your farm, your shelves, your growing team.</p><ol><li>Move with <strong>WASD, arrow keys, the joystick, or dragging the world.</strong> Hold <strong>Shift or Sprint</strong> while moving for a short burst. Release and let stamina recover.</li><li>Stand near ripe farm plots to collect produce, then carry it to a matching shelf. Shelves start with 3 rows and 12 spaces. Buy extra rows in Manage at player levels 3, 10, and 20 to reach 24 spaces.</li><li>Customers take a cart outside, walk through the sliding entrance, and show what they need in a thought cloud. Their selected products appear inside the cart.</li><li>Your store starts with three carts. Each cart upgrade adds one cart. Grow to 10, then unlock five more at player levels 20, 22, 24, 26, and 28.</li><li>Take unwanted carried items to the <strong>trash bin</strong> beside the team office. Stay close for one second to empty your basket.</li><li>Stand beside checkout to serve customers. Sales earn 5 XP per customer and 2 XP per item, but <strong>cash stays in the pile</strong>. Walk into its gold circle to collect it. Only collected money can be spent. Step away before collecting another batch; standing there will not bank new payments.</li><li>Cash piles have <strong>no storage limit</strong>, and registers keep selling while money waits. The display stays small; its label shows the amount. Collect regularly because neglected cash can be stolen. At player level <strong>20</strong>, buy a second staffed checkout in Manage after hiring your first cashier. It has its own cash pile and shares cashier speed upgrades.</li><li>After <strong>three minutes</strong> of unattended cash, a thief may arrive. A warning gives you time to collect or intercept them. Bring the thief inside your visible <strong>net circle</strong> to catch them automatically and recover stolen cash. A hired helper will come to guard them; otherwise your net holds them. Police walk in and escort them out. Escaped cash is lost.</li><li>Buy the <strong>drive-through service</strong> in Manage. Bring the requested items to the drive window one at a time, then stay to process payment. Its separate cash pile has no storage limit and must still be collected by you.</li><li>The drive-through runner loads requested stock from shelves. The separate drive-through cashier processes completed payments and stacks the cash. Neither works until hired; neither banks money for you.</li><li>Open <strong>Manage</strong> to expand the store, add farm plots, build machines, hire staff, and purchase every upgrade. The level roadmap shows future unlocks; reaching a level makes upgrades available to buy, not free.</li><li>Carry tomatoes to the cannery, coffee beans to the grinder, or milk to the dairy kitchen. Stand close to supply ingredients and collect finished products when your basket has room.</li><li>Helpers harvest, supply machines, collect finished goods, and restock shelves. Upgrade their baskets and speed to keep things moving.</li></ol><p>The production wing opens first, then the coffee corner, carrot garden, and dairy meadow. Your market saves automatically on this device, including stacked cash and any active thief encounter. Paused or closed games do not advance theft timers.</p>`
-      : `<div class="setting-row"><span>Market sounds<small>Original melodies & little rewards</small></span><button id="dialog-sound" class="secondary-button">${engine.state.soundEnabled ? 'Sound on' : 'Sound off'}</button></div><div class="setting-row"><span>Your little business<small>${engine.state.totalServed} customers · $${engine.state.totalEarned} lifetime earned</small></span>${icon('leaf')}</div><div class="setting-row"><span>A fresh beginning<small>Erase this device’s market progress</small></span><button id="reset-button" class="danger-button">Reset game</button></div><p>Your market is saved automatically in this browser. Clearing browser data also clears your save.</p>`);
+      ? `<p>Your farm, your shelves, your growing team.</p><ol><li>Try <strong>Manage → Start rush hour</strong>: serve 8 orders in 90 seconds for 100 bonus XP. Timers pause with the game. Customer mood bars turn from happy to angry over two minutes of waiting; serve them before they leave.</li><li>Use <strong>Settings</strong> for separate sound-effect and music volume. On touch screens, drag the world or joystick to walk and hold Sprint with your other thumb. Stand in the gold circles to move items automatically; no tiny item dragging is needed.</li><li>Build a <strong>corn grill</strong> in the carrot garden to sell grilled corn. Equipment speed upgrades accelerate every processor.</li><li>Move with <strong>WASD, arrow keys, the joystick, or dragging the world.</strong> Hold <strong>Shift or Sprint</strong> while moving for a short burst. Release and let stamina recover.</li><li>Stand near ripe farm plots to collect produce, then carry it to a matching shelf. Shelves start with 3 rows and 12 spaces. Buy extra rows in Manage at player levels 3, 10, and 20 to reach 24 spaces.</li><li>Customers take a cart outside, walk through the sliding entrance, and show what they need in a thought cloud. Their selected products appear inside the cart.</li><li>Your store starts with three carts. Each cart upgrade adds one cart. Grow to 10, then unlock five more at player levels 20, 22, 24, 26, and 28.</li><li>Take unwanted carried items to the <strong>trash bin</strong> beside the team office. Stay close for one second to empty your basket.</li><li>Stand beside checkout to serve customers. Sales earn 5 XP per customer and 2 XP per item, but <strong>cash stays in the pile</strong>. Walk into its gold circle to collect it. Only collected money can be spent. Step away before collecting another batch; standing there will not bank new payments.</li><li>Cash piles have <strong>no storage limit</strong>, and registers keep selling while money waits. The display stays small; its label shows the amount. Collect regularly because neglected cash can be stolen. At player level <strong>20</strong>, buy a second staffed checkout in Manage after hiring your first cashier. It has its own cash pile and shares cashier speed upgrades.</li><li>After <strong>three minutes</strong> of unattended cash, a thief may arrive. A warning gives you time to collect or intercept them. Bring the thief inside your visible <strong>net circle</strong> to catch them automatically and recover stolen cash. A hired helper will come to guard them; otherwise your net holds them. Police walk in and escort them out. Escaped cash is lost.</li><li>Buy the <strong>drive-through service</strong> in Manage. Bring the requested items to the drive window one at a time, then stay to process payment. Its separate cash pile has no storage limit and must still be collected by you.</li><li>The drive-through runner loads requested stock from shelves. The separate drive-through cashier processes completed payments and stacks the cash. Neither works until hired; neither banks money for you.</li><li>Open <strong>Manage</strong> to expand the store, add farm plots, build machines, hire staff, and purchase every upgrade. The level roadmap shows future unlocks; reaching a level makes upgrades available to buy, not free.</li><li>Carry tomatoes to the cannery, coffee beans to the grinder, or milk to the dairy kitchen. Stand close to supply ingredients and collect finished products when your basket has room.</li><li>Helpers harvest, supply machines, collect finished goods, and restock shelves. Upgrade their baskets and speed to keep things moving.</li></ol><p>The production wing opens first, then the coffee corner, carrot garden, and dairy meadow. Your market saves automatically on this device, including stacked cash and any active thief encounter. Paused or closed games do not advance theft timers.</p>`
+      : `<div class="setting-row"><span>Market sounds<small>Original melodies & little rewards</small></span><button id="dialog-sound" class="secondary-button">${engine.state.soundEnabled ? 'Sound on' : 'Sound off'}</button></div><div class="setting-row audio-setting"><label for="effects-volume">Sound effects<small>Pickups, stocking and register chimes</small></label><input id="effects-volume" type="range" min="0" max="100" value="${Math.round(engine.state.effectsVolume * 100)}" aria-label="Sound effects volume"></div><div class="setting-row audio-setting"><label for="music-volume">Background music<small>Cheerful original tune · set to 0 to mute</small></label><input id="music-volume" type="range" min="0" max="100" value="${Math.round(engine.state.musicVolume * 100)}" aria-label="Background music volume"></div><div class="setting-row"><span>Your little business<small>${engine.state.totalServed} customers · $${engine.state.totalEarned} lifetime earned</small></span>${icon('leaf')}</div><div class="setting-row"><span>A fresh beginning<small>Erase this device’s market progress</small></span><button id="reset-button" class="danger-button">Reset game</button></div><p>Your market is saved automatically in this browser. Clearing browser data also clears your save.</p>`);
   dialog.querySelector('#dialog-close')!.addEventListener('click', () => dialog.close());
+  for (const [id, field] of [
+    ['effects-volume', 'effectsVolume'],
+    ['music-volume', 'musicVolume'],
+  ] as const) {
+    dialog.querySelector<HTMLInputElement>(`#${id}`)?.addEventListener('input', (event) => {
+      engine.state[field] = Number((event.target as HTMLInputElement).value) / 100;
+      audio.setVolumes(engine.state.effectsVolume, engine.state.musicVolume);
+      runtime.persist();
+    });
+  }
   dialog.querySelector('#dialog-sound')?.addEventListener('click', () => {
     toggleSound();
     dialog.querySelector('#dialog-sound')!.textContent = engine.state.soundEnabled
@@ -258,15 +269,28 @@ function upgradePresentation(upgrade: UpgradeDefinition): {
       break;
     case 'pasteMachine':
     case 'coffeeMachine':
+    case 'grillMachine':
     case 'dairyMachine': {
       const machine = MACHINES.find((entry) => entry.upgrade === upgrade.id)!;
       const output =
-        upgrade.id === 'pasteMachine' ? 'cans' : upgrade.id === 'coffeeMachine' ? 'bags' : 'cheese';
+        upgrade.id === 'pasteMachine'
+          ? 'cans'
+          : upgrade.id === 'coffeeMachine'
+            ? 'bags'
+            : upgrade.id === 'grillMachine'
+              ? 'grilled corn'
+              : 'cheese';
       result.current = level ? `Up to ${2 * level} ${output}` : 'Not built';
       result.next = `Up to ${2 * next} ${output} / batch`;
-      result.detail = `${upgrade.id === 'pasteMachine' ? '1 tomato makes 1 can' : upgrade.id === 'coffeeMachine' ? '1 coffee bean makes 1 bag' : '1 milk bottle makes 1 cheese'}. A batch takes ${machine.batchMs / 1000}s and starts with available input. Upgrade its limit from 2 to 4, 6, then 8 ingredients.`;
+      result.detail = `${upgrade.id === 'pasteMachine' ? '1 tomato makes 1 can' : upgrade.id === 'coffeeMachine' ? '1 coffee bean makes 1 bag' : upgrade.id === 'grillMachine' ? '1 corn makes 1 grilled corn, sold for $23. Includes its own shelf' : '1 milk bottle makes 1 cheese'}. A batch takes ${(machineDuration(engine.state, machine) / 1000).toFixed(1)}s and starts with available input. Upgrade its limit from 2 to 4, 6, then 8 ingredients.`;
       break;
     }
+    case 'machineSpeed':
+      result.current = `${(1.2 ** level).toFixed(2)}× production speed`;
+      result.next = `${(1.2 ** next).toFixed(2)}× production speed`;
+      result.detail =
+        'All built and future processors run 20% faster per tier. Batch capacity is upgraded separately. Higher speed tiers unlock at player levels 5, 10 and 20.';
+      break;
     case 'helpers':
       result.current = `${level} ${level === 1 ? 'helper' : 'helpers'}`;
       result.next = `${next} ${next === 1 ? 'helper' : 'helpers'}`;
@@ -383,10 +407,12 @@ function renderManagement(): void {
   const scrollTop = dialog.querySelector('.management-content')?.scrollTop ?? 0;
   const tab = managementTabs.find((entry) => entry.id === managementCategory)!;
   const state = engine.state;
+  const rush = state.rush;
+  const rushCard = `<section class="rush-card" aria-label="Rush hour challenge"><div><strong>Rush hour · 90 seconds</strong><p>Serve 8 store or drive-through orders for 100 bonus XP. Double customer arrivals, limited by your carts. No cash penalty if time runs out.</p><small>${rush.result === 'won' ? 'Last rush: completed! +100 XP.' : rush.result === 'missed' ? `Last rush: ${rush.completed}/8 orders. Restock and try again.` : 'Optional challenge. Stock your shelves before starting.'}</small></div><button id="start-rush" class="primary-button" ${rush.remainingMs || rush.cooldownMs ? 'disabled' : ''}>${rush.remainingMs ? `In progress · ${Math.ceil(rush.remainingMs / 1000)}s` : rush.cooldownMs ? `Ready in ${Math.ceil(rush.cooldownMs / 1000)}s of play` : 'Start rush hour'}</button></section>`;
   dialog.innerHTML = `<div class="management-header"><div><span class="eyebrow">YOUR LITTLE BUSINESS</span><h2>Make room to grow.</h2></div><button class="icon-button" id="management-close" aria-label="Close management">${icon('close')}</button></div>
     <div class="management-summary"><span>${icon('coin', 18)} <strong id="management-money">$${state.money.toLocaleString()}</strong></span><span>${icon('star', 16)} Level ${playerLevel(state.xp)} · ${state.xp.toLocaleString()} XP</span><span>${state.workers.length} ${state.workers.length === 1 ? 'helper' : 'helpers'} working</span></div>
     <div class="management-tabs" role="tablist" aria-label="Management categories">${managementTabs.map((entry) => `<button id="management-tab-${entry.id}" role="tab" aria-selected="${entry.id === managementCategory}" aria-controls="management-panel" tabindex="${entry.id === managementCategory ? 0 : -1}" data-category="${entry.id}">${icon(entry.icon, 18)}${entry.title}</button>`).join('')}</div>
-    <div class="management-content" id="management-panel" role="tabpanel" aria-labelledby="management-tab-${managementCategory}" tabindex="0">${progressionOverview()}<p class="management-intro">${tab.subtitle}</p><div class="upgrade-grid">${UPGRADES.filter(
+    <div class="management-content" id="management-panel" role="tabpanel" aria-labelledby="management-tab-${managementCategory}" tabindex="0">${progressionOverview()}${rushCard}<p class="management-intro">${tab.subtitle}</p><div class="upgrade-grid">${UPGRADES.filter(
       (upgrade) => upgrade.category === managementCategory,
     )
       .map((upgrade) => {
@@ -443,6 +469,14 @@ function closeManagement(): void {
 }
 managementDialog.addEventListener('click', (event) => {
   const target = event.target as Element;
+  if (target.closest('#start-rush')) {
+    if (engine.rush.start()) {
+      runtime.persist();
+      managementWasPaused = false;
+      closeManagement();
+    }
+    return;
+  }
   if (target.closest('#management-close')) {
     closeManagement();
     return;

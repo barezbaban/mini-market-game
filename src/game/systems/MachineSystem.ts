@@ -1,4 +1,4 @@
-import { MACHINES } from '../data/machines';
+import { MACHINES, machineDuration } from '../data/machines';
 import type { GameEvent, GameState, ItemCounts, MachineId } from '../types';
 import { InventorySystem, itemCount } from './InventorySystem';
 
@@ -71,10 +71,11 @@ export class MachineSystem {
           machine.processing = batch;
           machine.elapsed = 0;
         }
-        const step = Math.min(remaining, definition.batchMs - machine.elapsed);
+        const duration = machineDuration(this.state, definition);
+        const step = Math.min(remaining, Math.max(0, duration - machine.elapsed));
         machine.elapsed += step;
         remaining -= step;
-        if (machine.elapsed < definition.batchMs) break;
+        if (machine.elapsed < duration) break;
         const completed = machine.processing;
         machine.output += completed;
         machine.processing = 0;

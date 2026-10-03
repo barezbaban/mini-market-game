@@ -2,7 +2,7 @@ import { CircleGeometry, Group, Mesh, MeshBasicMaterial, Vector3 } from 'three';
 import type { Scene } from 'three';
 import { GAME_CONFIG } from '../../data/gameConfig';
 import { PRODUCTS, plotCount, plotPosition } from '../../data/products';
-import { MACHINES } from '../../data/machines';
+import { MACHINES, machineDuration } from '../../data/machines';
 import { SHELF_COLUMNS, shelfRows } from '../../data/upgrades';
 import {
   farmStandSpot,
@@ -184,7 +184,7 @@ export class StoreDisplays {
       visual.progress.visible = data.processing > 0;
       visual.progress.geometry.setDrawRange(
         0,
-        Math.floor(Math.min(1, data.elapsed / machine.batchMs) * 64) * 6,
+        Math.floor(Math.min(1, data.elapsed / machineDuration(state, machine)) * 64) * 6,
       );
       if (data.processing) visual.rotor.rotation.z = time / 250;
       visual.input.forEach((item, index) => {
@@ -283,6 +283,7 @@ export class StoreDisplays {
         tomatoPaste: '',
         groundCoffee: '',
         cheese: '',
+        grilledCorn: '',
       };
       farmSign = new Group();
       farmSign.name = `farm-sign-${product.id}`;
@@ -456,12 +457,30 @@ export class StoreDisplays {
     const stand = this.createStand(`machine-${machine.id}`, machineStandSpot(machine));
     const body = new Group();
     root.add(body);
-    const color = machine.id === 'paste' ? 0xe88b70 : machine.id === 'coffee' ? 0xb58964 : 0x8ac1cf;
+    const color =
+      machine.id === 'grill'
+        ? 0x5a655b
+        : machine.id === 'paste'
+          ? 0xe88b70
+          : machine.id === 'coffee'
+            ? 0xb58964
+            : 0x8ac1cf;
     block(body, 0, 0.31, 0, 0.94, 0.6, 0.73, color);
     block(body, 0, 0.055, 0, 1.06, 0.11, 0.82, C.green);
     block(body, 0, 0.66, 0, 1.02, 0.12, 0.81, C.cream);
-    disc(body, 0, 0.95, -0.17, 0.26, 0.5, machine.id === 'paste' ? 0xced9c4 : 0xf2d59e);
-    disc(body, 0, 1.22, -0.17, 0.31, 0.055, C.green);
+    if (machine.id === 'grill') {
+      block(body, 0, 0.76, -0.12, 0.78, 0.08, 0.46, 0xb76b33);
+      for (let bar = -3; bar <= 3; bar++)
+        block(body, bar * 0.1, 0.82, -0.12, 0.035, 0.04, 0.46, 0x37423a);
+      for (const x of [-0.23, 0.23]) {
+        const cob = createProduce('grilledCorn');
+        cob.position.set(x, 0.91, -0.1);
+        body.add(cob);
+      }
+    } else {
+      disc(body, 0, 0.95, -0.17, 0.26, 0.5, machine.id === 'paste' ? 0xced9c4 : 0xf2d59e);
+      disc(body, 0, 1.22, -0.17, 0.31, 0.055, C.green);
+    }
     block(body, -0.53, 0.33, 0, 0.21, 0.12, 0.34, C.cream);
     block(body, 0.57, 0.33, 0, 0.3, 0.12, 0.34, C.cream);
     block(body, -0.91, 0.19, 0, 0.57, 0.11, 0.5, C.wood);
@@ -487,7 +506,13 @@ export class StoreDisplays {
     block(rotor, 0, 0, 0.025, 0.04, 0.22, 0.03, C.cream);
     block(body, 0, 1.36, -0.18, 1.18, 0.31, 0.065, C.cream);
     const machineTitle =
-      machine.id === 'paste' ? 'CANNERY' : machine.id === 'coffee' ? 'GRINDER' : 'DAIRY';
+      machine.id === 'grill'
+        ? 'CORN GRILL'
+        : machine.id === 'paste'
+          ? 'CANNERY'
+          : machine.id === 'coffee'
+            ? 'GRINDER'
+            : 'DAIRY';
     const title = label(body, machineTitle, 1.04, 0.27, {
       id: `machine:${machine.id}:title`,
       kind: 'object',

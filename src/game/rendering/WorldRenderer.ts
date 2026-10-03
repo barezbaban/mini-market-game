@@ -19,6 +19,7 @@ import { GAME_CONFIG } from '../data/gameConfig';
 import { PRODUCTS } from '../data/products';
 import { cartCapacity, checkoutDuration } from '../data/upgrades';
 import { remainingCustomerNeed } from '../systems/CustomerSystem';
+import { patienceRemaining } from '../systems/PatienceSystem';
 import type { GameEvent, GameState, ItemCounts, ProductId, Vec2 } from '../types';
 import { driveThroughRemaining } from '../systems/DriveThroughSystem';
 import { createCharacter, createProduce, createTree } from './Models';
@@ -37,6 +38,7 @@ interface CustomerVisual {
   bubble: Group;
   item: Record<ProductId, Group>;
   quantity: WorldLabel;
+  mood: WorldLabel;
 }
 interface ShoppingCartVisual {
   group: Group;
@@ -240,8 +242,8 @@ export class WorldRenderer {
       const bubble = new Group();
       bubble.name = `customer:${index}:thought`;
       const background = sphere(bubble, 0, 0, 0, 0.2, C.white);
-      background.scale.x *= 1.35;
-      background.scale.y *= 0.9;
+      background.scale.x *= 1.5;
+      background.scale.y *= 1.05;
       background.scale.z *= 0.5;
       const nearThought = sphere(bubble, -0.16, -0.18, 0, 0.055, C.white);
       nearThought.scale.z *= 0.55;
@@ -254,7 +256,7 @@ export class WorldRenderer {
       Object.entries(item).forEach(([id, produce]) => {
         produce.name = `customer:${index}:need:${id}`;
         produce.scale.setScalar(0.58);
-        produce.position.set(-0.075, 0, 0.12);
+        produce.position.set(-0.085, 0.055, 0.12);
         bubble.add(produce);
       });
       const quantity = label(bubble, '×1', 0.22, 0.18, {
@@ -264,9 +266,17 @@ export class WorldRenderer {
         foreground: '#17694b',
         border: false,
       });
-      quantity.object.position.set(0.115, -0.005, 0.13);
+      quantity.object.position.set(0.115, 0.055, 0.13);
       bubble.visible = false;
       this.scene.add(bubble);
+      const mood = label(this.scene, '', 0.55, 0.18, {
+        id: `customer:${index}:patience`,
+        kind: 'status',
+        mount: 'billboard',
+        background: '#fff9e8',
+        border: false,
+      });
+      mood.object.visible = false;
       this.customers.push({
         model,
         cart,
@@ -275,6 +285,7 @@ export class WorldRenderer {
         bubble,
         item,
         quantity,
+        mood,
       });
     }
   }
@@ -357,6 +368,7 @@ export class WorldRenderer {
       const customer = state.customers[index];
       visual.model.group.visible = Boolean(customer);
       visual.bubble.visible = false;
+      visual.mood.object.visible = false;
       if (!customer) return;
       if (visual.id !== customer.id) {
         visual.id = customer.id;
@@ -375,10 +387,26 @@ export class WorldRenderer {
       visual.cart.setInventory(customer.basket);
       visual.model.animate(timeMs + customer.id * 131, customerMoving);
       visual.previous = { x: customer.x, y: customer.y };
+      const patience = patienceRemaining(customer);
+      visual.mood.object.visible = customer.state !== 'ENTERING' && customer.state !== 'LEAVING';
+      visual.mood.object.position.copy(toWorld(customer, 0.91));
+      visual.mood.object.scale.set(0.55, 0.18, 1);
+      const segments = Math.ceil(patience * 4);
+      visual.mood.setText(
+        `${patience > 0.5 ? '🙂' : patience > 0.25 ? '😐' : '😠'} ${'▰'.repeat(segments)}${'▱'.repeat(4 - segments)}`,
+        patience > 0.5 ? '#17694b' : patience > 0.25 ? '#956410' : '#af392d',
+      );
       if (['ENTERING', 'MOVING_TO_SHELF', 'WAITING_FOR_PRODUCT'].includes(customer.state)) {
         visual.bubble.visible = true;
         visual.bubble.position.copy(toWorld(customer, 1.18 + Math.sin(timeMs / 500) * 0.025));
         visual.bubble.quaternion.copy(this.camera.quaternion);
+        // Keep mood inside the existing thought cloud instead of stacking another sign overhead.
+        visual.mood.object.visible = true;
+        visual.mood.object.scale.set(0.44, 0.12, 1);
+        visual.mood.object.position
+          .set(0, -0.105, 0.15)
+          .applyQuaternion(this.camera.quaternion)
+          .add(visual.bubble.position);
         PRODUCTS.forEach(({ id }) => {
           visual.item[id].visible = id === customer.targetProduct;
         });

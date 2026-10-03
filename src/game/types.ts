@@ -7,8 +7,9 @@ export type ProductId =
   | 'milk'
   | 'tomatoPaste'
   | 'groundCoffee'
+  | 'grilledCorn'
   | 'cheese';
-export type MachineId = 'paste' | 'coffee' | 'dairy';
+export type MachineId = 'paste' | 'coffee' | 'dairy' | 'grill';
 export type UpgradeId =
   | 'shelf'
   | 'inventory'
@@ -27,6 +28,8 @@ export type UpgradeId =
   | 'pasteMachine'
   | 'coffeeMachine'
   | 'dairyMachine'
+  | 'grillMachine'
+  | 'machineSpeed'
   | 'helpers'
   | 'helperCapacity'
   | 'helperSpeed'
@@ -160,6 +163,9 @@ export interface CustomerData {
   basket: ItemCounts;
   color: number;
   waitTime: number;
+  /** Only time spent waiting for stock or in a stationary checkout queue. */
+  patienceElapsed?: number;
+  unhappy?: boolean;
   path: Vec2[];
 }
 export type DriveThroughState =
@@ -203,6 +209,17 @@ export interface GameState {
   totalHarvested: number;
   elapsed: number;
   soundEnabled: boolean;
+  effectsVolume: number;
+  musicVolume: number;
+  returnedStock: ItemCounts;
+  totalWalkouts: number;
+  rush: {
+    remainingMs: number;
+    cooldownMs: number;
+    servedAtStart: number;
+    completed: number;
+    result: 'none' | 'won' | 'missed';
+  };
   machines: Record<MachineId, MachineState>;
   workers: WorkerData[];
   xp: number;

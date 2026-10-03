@@ -29,6 +29,7 @@ test('drive-through has one mounted title and one active order, even with a full
       tomatoPaste: 0,
       groundCoffee: 0,
       cheese: 0,
+      grilledCorn: 0,
     };
     engine.state.driveThroughOrders = [0, 1, 2].map((index) => ({
       id: 41 + index,

@@ -152,6 +152,11 @@ export function createProduce(id: ProductId): Group {
     }
     at(produce, leaf(0.033, 0.15, 0x64a052), -0.035, -0.015, 0.007).rotation.z = 0.45;
     at(produce, leaf(0.032, 0.16, 0x438b4e), 0.035, -0.025, -0.011).rotation.z = -0.4;
+  } else if (id === 'grilledCorn') {
+    at(produce, roundedBox(0.22, 0.025, 0.16, 0.02, 0xfff3d1), 0, -0.04, 0);
+    at(produce, ball(0.1, 0.05, 0.055, 0xe5b445), 0, 0.014, 0);
+    for (const x of [-0.055, 0, 0.055])
+      at(produce, box(0.013, 0.015, 0.075, 0x855332), x, 0.052, 0);
   } else if (id === 'coffee') {
     const bean = at(produce, ball(0.066, 0.045, 0.09, 0x785044), 0, 0, 0);
     bean.rotation.z = -0.18;

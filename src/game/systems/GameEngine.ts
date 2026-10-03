@@ -15,6 +15,8 @@ import { ProgressionSystem } from './ProgressionSystem';
 import { DriveThroughSystem } from './DriveThroughSystem';
 import { CashCollectionSystem } from './CashCollectionSystem';
 import { SecuritySystem } from './SecuritySystem';
+import { RushHourSystem } from './RushHourSystem';
+import { PatienceSystem } from './PatienceSystem';
 
 /** The renderer owns no game rules. This headless simulation runs in browser and tests. */
 export class GameEngine {
@@ -30,6 +32,8 @@ export class GameEngine {
   readonly driveThrough: DriveThroughSystem;
   readonly cashCollection: CashCollectionSystem;
   readonly security: SecuritySystem;
+  readonly rush: RushHourSystem;
+  readonly patience: PatienceSystem;
   private events: GameEvent[] = [];
   private harvestElapsed: number = GAME_CONFIG.harvestInterval;
   private stockElapsed: number = GAME_CONFIG.stockInterval;
@@ -44,6 +48,8 @@ export class GameEngine {
     const emit = (event: GameEvent) => this.events.push(event);
     this.economy = new EconomySystem(state);
     this.inventory = new InventorySystem(state);
+    this.rush = new RushHourSystem(state, emit);
+    this.patience = new PatienceSystem(state, this.inventory, emit);
     this.farming = new FarmingSystem(state);
     this.customers = new CustomerSystem(state, this.inventory);
     this.checkout = new CheckoutSystem(state, this.economy, emit);
@@ -289,10 +295,12 @@ export class GameEngine {
       this.interact(step);
       this.customers.update(step);
       this.checkout.update(step);
+      this.patience.update(step);
       this.machines.update(step);
       this.workers.update(step);
       this.progression.update(step);
       this.driveThrough.update(step);
+      this.rush.update(step);
       this.security.update(step);
       remaining -= step;
     }

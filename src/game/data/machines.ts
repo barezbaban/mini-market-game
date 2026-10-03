@@ -1,4 +1,6 @@
-import type { MachineDefinition } from '../types';
+import type { GameState, MachineDefinition } from '../types';
+export const machineDuration = (state: GameState, machine: MachineDefinition): number =>
+  machine.batchMs / 1.2 ** state.upgrades.machineSpeed;
 export const MACHINES: MachineDefinition[] = [
   {
     id: 'paste',
@@ -32,5 +34,16 @@ export const MACHINES: MachineDefinition[] = [
     batchMs: 7000,
     bufferCapacity: 24,
     area: 4,
+  },
+  {
+    id: 'grill',
+    name: 'Corn grill',
+    input: 'corn',
+    output: 'grilledCorn',
+    position: { x: 2080, y: 830 },
+    upgrade: 'grillMachine',
+    batchMs: 6000,
+    bufferCapacity: 24,
+    area: 3,
   },
 ];

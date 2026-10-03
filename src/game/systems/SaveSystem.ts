@@ -18,6 +18,8 @@ import type {
   ThiefPhase,
 } from '../types';
 import { applyUpgradeEffects } from './UpgradeSystem';
+import { RUSH } from './RushHourSystem';
+import { CUSTOMER_PATIENCE_MS } from './PatienceSystem';
 
 export function createInitialState(): GameState {
   const state: GameState = {
@@ -68,7 +70,13 @@ export function createInitialState(): GameState {
     totalHarvested: 0,
     elapsed: 0,
     soundEnabled: true,
+    effectsVolume: 0.7,
+    musicVolume: 0.35,
+    returnedStock: emptyItems(),
+    totalWalkouts: 0,
+    rush: { remainingMs: 0, cooldownMs: 0, servedAtStart: 0, completed: 0, result: 'none' },
     machines: {
+      grill: { input: 0, output: 0, processing: 0, elapsed: 0 },
       paste: { input: 0, output: 0, processing: 0, elapsed: 0 },
       coffee: { input: 0, output: 0, processing: 0, elapsed: 0 },
       dairy: { input: 0, output: 0, processing: 0, elapsed: 0 },
@@ -155,6 +163,21 @@ export function validateSave(value: unknown): GameState | null {
   state.elapsed = number(raw.elapsed);
   state.player = point(raw.player, state.player);
   state.soundEnabled = typeof raw.soundEnabled === 'boolean' ? raw.soundEnabled : true;
+  state.effectsVolume = number(raw.effectsVolume, 0.7, 1);
+  state.musicVolume = number(raw.musicVolume, 0.35, 1);
+  state.totalWalkouts = integer(raw.totalWalkouts);
+  const rush = object(raw.rush);
+  state.rush = {
+    remainingMs: number(rush.remainingMs, 0, RUSH.duration),
+    cooldownMs: number(rush.cooldownMs, 0, RUSH.cooldown),
+    servedAtStart: integer(rush.servedAtStart, state.totalServed, state.totalServed),
+    completed: integer(rush.completed, 0, RUSH.goal),
+    result: rush.result === 'won' || rush.result === 'missed' ? rush.result : 'none',
+  };
+  if (state.rush.result !== 'none' || state.rush.cooldownMs) state.rush.remainingMs = 0;
+  const returns = object(raw.returnedStock);
+  for (const { id } of PRODUCTS)
+    state.returnedStock[id] = state.unlockedProducts.includes(id) ? integer(returns[id]) : 0;
   let inventoryRoom = state.inventoryCapacity;
   const inventory = object(raw.inventory);
   const shelves = object(raw.shelves);
@@ -276,6 +299,10 @@ export function validateSave(value: unknown): GameState | null {
         basket,
         color: integer(customer.color, 0x6296d1, 0xffffff),
         waitTime: number(customer.waitTime, 0, 60000),
+        ...(customer.patienceElapsed !== undefined
+          ? { patienceElapsed: number(customer.patienceElapsed, 0, CUSTOMER_PATIENCE_MS) }
+          : {}),
+        ...(customer.unhappy === true ? { unhappy: true } : {}),
         path: Array.isArray(customer.path)
           ? customer.path.slice(0, 16).map((entry) => point(entry, GAME_CONFIG.entrance, true))
           : [],

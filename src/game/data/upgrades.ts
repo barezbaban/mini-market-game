@@ -2,6 +2,33 @@ import { GAME_CONFIG } from './gameConfig';
 import type { GameState, UpgradeDefinition, UpgradeId } from '../types';
 export const UPGRADES: UpgradeDefinition[] = [
   {
+    id: 'grillMachine',
+    name: 'Corn grill',
+    description: 'Turn corn into 2 / 4 / 6 / 8 grilled corn per batch',
+    cost: 360,
+    costGrowth: 1.65,
+    type: 'machine',
+    maxLevel: 4,
+    position: { x: 2080, y: 830 },
+    icon: 'grilledCorn',
+    category: 'machines',
+    requires: { expansion: 3, corn: 1 },
+  },
+  {
+    id: 'machineSpeed',
+    name: 'Equipment speed',
+    description: 'Run all processors 20% faster per tier',
+    cost: 180,
+    costGrowth: 1.8,
+    type: 'speed',
+    maxLevel: 4,
+    position: { x: 1320, y: 580 },
+    icon: 'machine',
+    category: 'machines',
+    requires: { expansion: 1 },
+    playerLevels: { 2: 5, 3: 10, 4: 20 },
+  },
+  {
     id: 'inventory',
     name: 'Bigger basket',
     description: 'Carry 4 more items per level',

@@ -687,6 +687,94 @@ kbd {
   clip: rect(0, 0, 0, 0);
   border: 0;
 }
+.rush-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin: 16px 0;
+  padding: 18px;
+  border: 1px solid #e6c975;
+  border-radius: 16px;
+  background: #fff8df;
+}
+.rush-card p {
+  margin: 6px 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.rush-card small {
+  color: #75602f;
+}
+.rush-card button {
+  flex-shrink: 0;
+  max-width: 190px;
+}
+.rush-status {
+  max-width: 190px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: #fff4c7;
+  color: #64501e;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.rush-status.urgent {
+  background: #ffdfcb;
+  color: #953d23;
+}
+.audio-setting input {
+  width: min(42%, 180px);
+  min-height: 44px;
+  accent-color: #168a65;
+}
+.audio-setting small {
+  display: block;
+  margin-top: 5px;
+}
+@media (pointer: coarse) {
+  button,
+  .icon-button {
+    min-width: 44px;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+  .toolbar {
+    display: grid;
+    grid-template-columns: repeat(3, 44px);
+    gap: 4px;
+  }
+  #sprint-button {
+    display: block;
+    touch-action: none;
+  }
+  .objective {
+    bottom: 122px;
+  }
+}
+@media (max-width: 700px) {
+  .rush-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .rush-card button {
+    max-width: none;
+  }
+  .rush-status {
+    max-width: 145px;
+    font-size: 10px;
+    padding: 6px 8px;
+  }
+  .rush-active .security-banner {
+    top: 250px;
+  }
+}
+@media (pointer: coarse) and (max-width: 700px) {
+  .game-frame .objective {
+    bottom: 124px;
+  }
+}
 @media (pointer: coarse), (max-width: 900px) {
   .joystick {
     display: flex;

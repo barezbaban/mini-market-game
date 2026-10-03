@@ -32,6 +32,8 @@ export function icon(name: string, size = 20): string {
 
 export function productIcon(id: string): string {
   const drawings: Record<string, string> = {
+    grilledCorn:
+      '<ellipse cx="12" cy="16" rx="11" ry="5" fill="#f9edcf"/><rect x="3" y="6" width="18" height="10" rx="5" fill="#e4b441"/><path d="m7 8-1 5m7-5-1 5m6-5-1 5" stroke="#89552d" stroke-width="2"/>',
     tomato:
       '<ellipse cx="12" cy="14" rx="9" ry="8" fill="#e76850"/><path d="m12 9-6-4 5 1 2-4 1 5 5-1-5 4" fill="#4a8657"/><ellipse cx="8" cy="13" rx="2" ry="3" fill="#fba08d"/>',
     egg: '<path d="M20 15c0 5-3.5 7-8 7s-8-2-8-7C4 9 8 2 12 2s8 7 8 13Z" fill="#e1c38d"/><path d="M16 14c0 4-2 6-6 6-3 0-4-2-4-5C6 10 9 4 12 4s4 6 4 10Z" fill="#fff1d3"/>',

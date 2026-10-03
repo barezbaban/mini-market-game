@@ -74,6 +74,7 @@ function establishStore(marketing: number, speed: number, capacity: number): Gam
     pasteMachine: 4,
     coffeeMachine: 4,
     dairyMachine: 4,
+    grillMachine: 4,
     helpers: 3,
     helperSpeed: speed,
     helperCapacity: capacity,
@@ -170,6 +171,7 @@ describe('expanded store endurance through real production', () => {
         for (const customer of engine.state.customers) {
           const before = previous.get(customer.id);
           if (!before || before.state === 'LEAVING' || customer.state !== 'LEAVING') continue;
+          if (customer.unhappy) continue;
           if (paidIds.has(customer.id)) throw new Error(`Customer ${customer.id} paid twice`);
           if (before.order === undefined || before.order < lastQueueOrder)
             throw new Error(`Customer ${customer.id} paid outside FIFO order`);
@@ -201,7 +203,7 @@ describe('expanded store endurance through real production', () => {
         engine.drainEvents();
       }
       expect(reloaded).toBe(true);
-      expect([...everStocked].sort(), 'helpers eventually stock all nine products').toEqual(
+      expect([...everStocked].sort(), 'helpers eventually stock all ten products').toEqual(
         PRODUCTS.map(({ id }) => id).sort(),
       );
       expect(

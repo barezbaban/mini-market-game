@@ -16,6 +16,7 @@ describe('expanded market progression and compatibility', () => {
   it('keeps the player movable when a machine is built under their feet', () => {
     const engine = new GameEngine();
     engine.economy.earn(10000);
+    engine.purchaseUpgrade('corn');
     engine.purchaseUpgrade('expansion');
     engine.purchaseUpgrade('expansion');
     engine.purchaseUpgrade('expansion');

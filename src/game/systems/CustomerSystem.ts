@@ -132,7 +132,7 @@ export class CustomerSystem {
         ? GAME_CONFIG.customerSpawnInterval - 2000
         : state.elapsed % GAME_CONFIG.customerSpawnInterval;
     this.nextId = Math.max(
-      state.totalServed + 1,
+      state.totalServed + state.totalWalkouts + 1,
       ...state.customers.map((customer) => customer.id + 1),
     );
     this.nextQueueOrder = Math.max(
@@ -413,7 +413,10 @@ export class CustomerSystem {
   }
 
   update(deltaMs: number): void {
-    const interval = GAME_CONFIG.customerSpawnInterval / (1 + this.state.upgrades.customers * 0.2);
+    const interval =
+      GAME_CONFIG.customerSpawnInterval /
+      (1 + this.state.upgrades.customers * 0.2) /
+      (this.state.rush.remainingMs ? 2 : 1);
     this.spawnElapsed += deltaMs;
     if (this.spawnElapsed >= interval) {
       if (this.state.customers.length < cartCapacity(this.state)) {

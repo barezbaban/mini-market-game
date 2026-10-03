@@ -37,6 +37,7 @@ export class Hud {
               <div class="money-card" aria-label="Collected money available to spend"><span class="coin" aria-hidden="true">$</span><strong id="money-value">$0</strong></div>
               <div class="level-card" title="Earn XP by serving customers and hiring an accountant"><span id="player-level">LV 1</span><div><span id="xp-label">0 / 100 XP</span><div class="xp-track" role="progressbar" aria-label="Player level progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="xp-fill"></span></div></div></div>
               <button class="manage-button" id="manage-button" aria-label="Manage market">${icon('manage', 18)} <span>Manage</span></button>
+              <span id="rush-status" class="rush-status" role="timer" hidden></span>
               <span id="cash-ready" class="cash-ready" hidden></span>
             </div>
             <div class="hud-right">
@@ -96,6 +97,16 @@ export class Hud {
   }
 
   update(state: GameState): void {
+    const rushStatus = document.querySelector<HTMLElement>('#rush-status')!;
+    rushStatus.hidden = !state.rush.remainingMs;
+    if (state.rush.remainingMs) {
+      const seconds = Math.ceil(state.rush.remainingMs / 1000);
+      rushStatus.textContent = `Rush ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')} · ${state.rush.completed}/8 orders`;
+      rushStatus.classList.toggle('urgent', seconds <= 15);
+    }
+    document
+      .querySelector('#game-frame')!
+      .classList.toggle('rush-active', state.rush.remainingMs > 0);
     const pending = uncollectedCash(state);
     const cashReady = document.querySelector<HTMLElement>('#cash-ready')!;
     cashReady.hidden = pending === 0;

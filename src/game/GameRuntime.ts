@@ -104,6 +104,7 @@ export class GameRuntime {
       (event) => {
         event.preventDefault();
         this.contextLost = true;
+        services.audio.setPaused(true);
         this.persist();
         this.clearInput();
         services.hud.announce('Graphics were interrupted. Your game has been saved.');
@@ -114,6 +115,7 @@ export class GameRuntime {
       'webglcontextrestored',
       () => {
         this.contextLost = false;
+        services.audio.setPaused(this.paused);
       },
       options,
     );
@@ -125,6 +127,7 @@ export class GameRuntime {
 
   setPaused(paused: boolean): void {
     this.paused = paused;
+    this.services.audio.setPaused(paused);
     this.clearInput();
   }
   private clearInput(): void {
@@ -192,6 +195,7 @@ export class GameRuntime {
     this.resizeObserver.disconnect();
     this.events.abort();
     this.controls.dispose();
+    this.services.audio.dispose();
     this.floating.dispose();
     this.world.dispose();
   }
