@@ -1,3 +1,4 @@
+import { shelfStandSpot } from '../data/standSpots';
 import { GAME_CONFIG } from '../data/gameConfig';
 import { emptyItems, productById } from '../data/products';
 import { cartCapacity } from '../data/upgrades';
@@ -130,7 +131,7 @@ export class CustomerSystem {
       0,
       this.shoppersFor(product.id).findIndex((entry) => entry.id === customer.id),
     );
-    return { x: product.shelf.x, y: product.shelf.y + 75 + index * 34 };
+    return shelfStandSpot(product, 75 + index * 34);
   }
 
   private routeToShelf(customer: CustomerData): void {

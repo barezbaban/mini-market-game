@@ -1,3 +1,4 @@
+import { shelfStandSpot } from '../data/standSpots';
 import { t } from '../../i18n';
 import {
   AmbientLight,
@@ -724,8 +725,7 @@ export class WorldRenderer {
   private updateObjective(state: GameState, timeMs: number): void {
     let destination: Vec2 | undefined;
     if (state.tutorialStep <= 1) destination = PRODUCTS[0].farm;
-    else if (state.tutorialStep === 2)
-      destination = { x: PRODUCTS[0].shelf.x, y: PRODUCTS[0].shelf.y + 61 };
+    else if (state.tutorialStep === 2) destination = shelfStandSpot(PRODUCTS[0], 61);
     else if (state.tutorialStep <= 4) destination = GAME_CONFIG.cashierSpot;
     const uncollected = CASH_POINTS.find(({ id }) => state.cashStacks[id].amount > 0);
     if (uncollected && state.tutorialStep >= 5) destination = uncollected.position;

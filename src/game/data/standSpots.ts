@@ -9,10 +9,12 @@ export const farmStandSpot = (id: ProductId, index: number): Vec2 => {
   return { x: plot.x, y: plot.y - 35 };
 };
 
-export const shelfStandSpot = (product: ProductDefinition): Vec2 => ({
-  x: product.shelf.x,
-  y: product.shelf.y + 50,
-});
+export const shelfStandSpot = (product: ProductDefinition, offset = 50): Vec2 => {
+  const { x, y, facing } = product.shelf;
+  if (facing === 'east') return { x: x + offset, y };
+  if (facing === 'west') return { x: x - offset, y };
+  return { x, y: y + offset };
+};
 
 export const machineStandSpot = (machine: MachineDefinition): Vec2 => ({
   x: machine.position.x,

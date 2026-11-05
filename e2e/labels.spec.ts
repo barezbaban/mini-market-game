@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { GAME_CONFIG } from '../src/game/data/gameConfig';
-import { emptyItems } from '../src/game/data/products';
+import { shelfStandSpot } from '../src/game/data/standSpots';
+import { emptyItems, productById } from '../src/game/data/products';
 
 test('drive-through has one mounted title and one active order, even with a full queue', async ({
   page,
@@ -538,7 +539,7 @@ test('critical signs stay legible and contained in the compact landscape view', 
       ids: ['machine:coffee:title', 'machine:coffee:level', 'machine:coffee:status'],
     },
     {
-      position: { x: 700, y: 305 },
+      position: shelfStandSpot(productById('carrot')!, 100),
       ids: ['shelf:carrot:title', 'shelf:carrot:count'],
     },
   ]) {

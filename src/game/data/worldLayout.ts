@@ -3,7 +3,7 @@ import { MACHINES } from './machines';
 import { PRODUCTS, shelfBuilt } from './products';
 import type { GameState, Vec2 } from '../types';
 
-export const LAYOUT_VERSION = 2 as const;
+export const LAYOUT_VERSION = 3 as const;
 export interface Rect {
   left: number;
   right: number;
@@ -27,7 +27,10 @@ export const rectangle = (point: Vec2, halfWidth: number, halfDepth: number): Re
 export function worldSolids(state: GameState): Rect[] {
   const solids = [...STORE_WALLS];
   for (const product of PRODUCTS)
-    if (shelfBuilt(state, product)) solids.push(rectangle(product.shelf, 78, 44));
+    if (shelfBuilt(state, product)) {
+      const side = Boolean(product.shelf.facing);
+      solids.push(rectangle(product.shelf, side ? 44 : 78, side ? 78 : 44));
+    }
   for (const machine of MACHINES)
     if (state.upgrades[machine.upgrade]) solids.push(rectangle(machine.position, 118, 36));
   for (const counter of [

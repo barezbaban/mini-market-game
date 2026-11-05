@@ -29,7 +29,9 @@ describe('floor standing targets', () => {
   it('keeps shelf targets clear of shelves and wholly inside stocking range', () => {
     for (const product of PRODUCTS) {
       const spot = shelfStandSpot(product);
-      expect(spot.y).toBeGreaterThan(product.shelf.y + 44);
+      expect(
+        Math.max(Math.abs(spot.x - product.shelf.x), Math.abs(spot.y - product.shelf.y)),
+      ).toBeGreaterThan(44);
       expect(distance(spot, product.shelf) + STAND_SPOT_RADIUS).toBeLessThanOrEqual(
         GAME_CONFIG.interactionRadius,
       );

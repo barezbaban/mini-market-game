@@ -254,6 +254,8 @@ export class StoreDisplays {
     const shelf = new Group();
     shelf.name = `shelf-${product.id}`;
     shelf.position.copy(point(product.shelf.x, product.shelf.y));
+    const facing = product.shelf.facing;
+    shelf.rotation.y = facing === 'east' ? Math.PI / 2 : facing === 'west' ? -Math.PI / 2 : 0;
     this.scene.add(shelf);
     const stand = this.createStand(`shelf-${product.id}`, shelfStandSpot(product));
     if (!addMarketProp(shelf, 'shelf_base')) block(shelf, 0, 0.14, 0, 1.46, 0.2, 0.72, C.green);
@@ -271,10 +273,15 @@ export class StoreDisplays {
       background: '#fff9e7',
     });
     name.object.position.set(0, 1.14, -0.355);
+    if (facing) {
+      header.rotation.x = -Math.PI / 3;
+      name.object.rotation.x = header.rotation.x;
+      name.object.position.z = header.position.z + 0.026;
+    }
     // A forward, angled stock plate stays readable from the overhead camera.
     const stockPlate = new Group();
     stockPlate.position.set(0, 0.19, 0.53);
-    stockPlate.rotation.x = -0.55;
+    stockPlate.rotation.x = facing ? -Math.PI / 3 : -0.55;
     shelf.add(stockPlate);
     block(stockPlate, 0, 0, 0, 0.85, 0.28, 0.025, C.green);
     const count = label(stockPlate, '0/12', 0.76, 0.25, {
@@ -393,7 +400,7 @@ export class StoreDisplays {
       side.scale.y = 0.84 + extraHeight;
       side.position.y = 0.49 + extraHeight / 2;
     });
-    visual.title.object.position.y = 1.14 + extraHeight;
+    visual.title.object.position.y = 1.14 + extraHeight + (product.shelf.facing ? 0.045 : 0);
     visual.header.position.y = 1.14 + extraHeight;
     visual.rowCount = count;
     if (visual.stock) {

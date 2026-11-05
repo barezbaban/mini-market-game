@@ -1,3 +1,4 @@
+import { shelfStandSpot } from '../data/standSpots';
 import { GAME_CONFIG } from '../data/gameConfig';
 import { PRODUCTS, plotPosition } from '../data/products';
 import { BUSINESS_MILESTONES, nextBusinessGoal } from '../data/career';
@@ -72,7 +73,7 @@ export function guidanceTarget(state: GameState): { position: Vec2; label: strin
   if (state.tutorialStep < 2) return { position: plotPosition('tomato', 0), label: 'Tomatoes' };
   if (state.tutorialStep === 2) {
     const item = PRODUCTS.find((p) => state.inventory[p.id] > 0);
-    if (item) return { position: { x: item.shelf.x, y: item.shelf.y + 65 }, label: 'Stock shelf' };
+    if (item) return { position: shelfStandSpot(item, 65), label: 'Stock shelf' };
     return { position: plotPosition('tomato', 0), label: 'Harvest' };
   }
   if (
@@ -99,8 +100,7 @@ export function guidanceTarget(state: GameState): { position: Vec2; label: strin
       });
       if (nearby >= 0) return { position: plotPosition(carried.id, nearby), label: 'Harvest' };
     }
-    if (carried)
-      return { position: { x: carried.shelf.x, y: carried.shelf.y + 65 }, label: 'Stock shelf' };
+    if (carried) return { position: shelfStandSpot(carried, 65), label: 'Stock shelf' };
     if (itemCount(state.inventory) >= state.inventoryCapacity) return null;
     const crop = PRODUCTS.find(
       (p) =>

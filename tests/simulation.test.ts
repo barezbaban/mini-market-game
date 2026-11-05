@@ -1,3 +1,4 @@
+import { shelfStandSpot } from '../src/game/data/standSpots';
 import { describe, expect, it } from 'vitest';
 import { GAME_CONFIG } from '../src/game/data/gameConfig';
 import { PRODUCTS, emptyItems } from '../src/game/data/products';
@@ -126,7 +127,7 @@ describe('production and player interaction', () => {
     advance(engine, 1000);
     expect(engine.state.inventory.tomato).toBe(3);
     expect(engine.state.totalHarvested).toBe(3);
-    engine.state.player = { x: PRODUCTS[0].shelf.x, y: PRODUCTS[0].shelf.y + 55 };
+    engine.state.player = shelfStandSpot(PRODUCTS[0], 55);
     advance(engine, 1000);
     expect(engine.state.inventory.tomato).toBe(0);
     expect(engine.state.shelves.tomato).toBe(3);
@@ -140,8 +141,7 @@ describe('production and player interaction', () => {
     engine.state.customers = [
       {
         id: 2,
-        x: PRODUCTS[0].shelf.x,
-        y: PRODUCTS[0].shelf.y + 75,
+        ...shelfStandSpot(PRODUCTS[0], 75),
         state: 'WAITING_FOR_PRODUCT',
         targetProduct: 'tomato',
         targetQuantity: 2,
@@ -167,8 +167,7 @@ describe('production and player interaction', () => {
     engine.state.customers = [
       {
         id: 3,
-        x: PRODUCTS[1].shelf.x,
-        y: PRODUCTS[1].shelf.y + 75,
+        ...shelfStandSpot(PRODUCTS[1], 75),
         state: 'WAITING_FOR_PRODUCT',
         targetProduct: 'egg',
         targetQuantity: 1,
@@ -192,9 +191,9 @@ describe('production and player interaction', () => {
     expect(
       Math.hypot(diagonal.state.player.x - start.x, diagonal.state.player.y - start.y),
     ).toBeCloseTo(straight.state.player.x - start.x);
-    straight.state.player = { x: PRODUCTS[0].shelf.x, y: PRODUCTS[0].shelf.y + 70 };
-    straight.update(1000, { x: 0, y: -1 });
-    expect(straight.state.player.y).toBeGreaterThanOrEqual(PRODUCTS[0].shelf.y + 44);
+    straight.state.player = shelfStandSpot(PRODUCTS[0], 70);
+    straight.update(1000, { x: -1, y: 0 });
+    expect(straight.state.player.x).toBeGreaterThanOrEqual(PRODUCTS[0].shelf.x + 44);
   });
 
   it('gives rate-limited feedback for full baskets and shelves', () => {
@@ -209,7 +208,7 @@ describe('production and player interaction', () => {
         .map((event) => event.text),
     ).toEqual(['Basket full — stock a shelf']);
     engine.state.shelves.tomato = 12;
-    engine.state.player = { x: PRODUCTS[0].shelf.x, y: PRODUCTS[0].shelf.y + 55 };
+    engine.state.player = shelfStandSpot(PRODUCTS[0], 55);
     advance(engine, 2900);
     expect(
       engine

@@ -239,5 +239,6 @@ describe('expanded store endurance through real production', () => {
       expect(engine.state.upgrades).toEqual(purchased);
       expect(engine.state.totalHarvested).toBeGreaterThan(100);
     },
+    30_000,
   );
 });

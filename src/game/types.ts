@@ -116,7 +116,7 @@ export interface ProductDefinition {
   unlockCost: number;
   sprite: string;
   color: number;
-  shelf: Vec2;
+  shelf: Vec2 & { facing?: 'east' | 'west' };
   farm: Vec2;
   kind: 'farm' | 'processed';
   area: number;
@@ -230,7 +230,7 @@ export interface DriveThroughOrder {
 }
 export interface GameState {
   version: 2;
-  layoutVersion: 2;
+  layoutVersion: 3;
   money: number;
   inventory: ItemCounts;
   inventoryCapacity: number;

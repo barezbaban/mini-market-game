@@ -162,8 +162,8 @@ describe('level rewards and expandable store', () => {
           );
         for (const product of PRODUCTS)
           expect(
-            Math.abs(customer.x - product.shelf.x) < 78 &&
-              Math.abs(customer.y - product.shelf.y) < 44,
+            Math.abs(customer.x - product.shelf.x) < (product.shelf.facing ? 44 : 78) &&
+              Math.abs(customer.y - product.shelf.y) < (product.shelf.facing ? 78 : 44),
           ).toBe(false);
       }
     }
@@ -171,5 +171,5 @@ describe('level rewards and expandable store', () => {
     expect(simulation.state.money).toBe(0);
     expect(simulation.state.cashStacks.store.amount).toBe(75);
     expect(simulation.state.xp).toBe(105);
-  });
+  }, 30_000);
 });

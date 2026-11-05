@@ -1,3 +1,4 @@
+import { shelfStandSpot } from '../data/standSpots';
 import { GAME_CONFIG } from '../data/gameConfig';
 import { MACHINES } from '../data/machines';
 import { FARM_PRODUCTS, plotCount, plotPosition, productById } from '../data/products';
@@ -156,7 +157,7 @@ export class WorkerSystem {
         return {
           task: 'stock',
           product: id,
-          target: { x: product.shelf.x, y: product.shelf.y + 65 },
+          target: shelfStandSpot(product, 65),
         };
       const machine = MACHINES.find((entry) => entry.input === id && canSupply(entry.id));
       if (machine)

@@ -22,7 +22,7 @@ import { applyUpgradeEffects } from './UpgradeSystem';
 import { RUSH } from './RushHourSystem';
 import { CUSTOMER_PATIENCE_MS } from './PatienceSystem';
 import { LAYOUT_VERSION } from '../data/worldLayout';
-import { migrateLayout } from './migrateLayout';
+import { migrateLayout, migrateShelfRoutes } from './migrateLayout';
 import { createCareer, REGULARS } from '../data/career';
 import { validateCareer, workerPriority } from './validateCareer';
 
@@ -445,7 +445,8 @@ export function validateSave(value: unknown): GameState | null {
   const activeDriveOrder = state.driveThroughOrders.find(
     (order) =>
       ['WAITING_FOR_ITEMS', 'READY_TO_PAY', 'PAYING'].includes(order.state) &&
-      (raw.layoutVersion !== LAYOUT_VERSION || order.x === GAME_CONFIG.driveThroughVehicleSpot.x),
+      ((raw.layoutVersion !== 2 && raw.layoutVersion !== LAYOUT_VERSION) ||
+        order.x === GAME_CONFIG.driveThroughVehicleSpot.x),
   );
   state.driveThroughHandoffProgress =
     activeDriveOrder?.state === 'WAITING_FOR_ITEMS'
@@ -492,7 +493,8 @@ export function validateSave(value: unknown): GameState | null {
         phase === 'CAUGHT' && state.workers.some(({ id }) => id === guardId) ? guardId : null;
     }
   }
-  if (raw.layoutVersion !== LAYOUT_VERSION) migrateLayout(state);
+  if (raw.layoutVersion === 2) migrateShelfRoutes(state);
+  else if (raw.layoutVersion !== LAYOUT_VERSION) migrateLayout(state);
   state.career = validateCareer(raw.career, state);
   return state;
 }

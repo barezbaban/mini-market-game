@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import { emptyItems } from '../src/game/data/products';
+import { shelfStandSpot } from '../src/game/data/standSpots';
+import { emptyItems, productById } from '../src/game/data/products';
 import type { WorldRenderer } from '../src/game/rendering/WorldRenderer';
 import type { GameEngine } from '../src/game/systems/GameEngine';
 import type { SaveSystem } from '../src/game/systems/SaveSystem';
@@ -119,7 +120,7 @@ test('actionable farm, shelf, and machine spots show a floor target that confirm
     world.update(engine.state, 0, 0);
     const farmNearColor = color(farm.name);
     engine.state.inventory.tomato = 1;
-    engine.state.player = { x: 260, y: 517 };
+    engine.state.player = { x: 228, y: 642 };
     world.update(engine.state, 0, 0);
     const shelfAvailable = shelf.visible;
     const shelfNearColor = color(shelf.name);
@@ -157,7 +158,7 @@ test('keyboard harvest, shelf stocking, customer payment, and reload persistence
   await walkTo(page, { x: 260, y: 1130 });
   await expect.poll(async () => (await state(page)).inventory.tomato).toBeGreaterThan(0);
   expect((await state(page)).player.x).toBeLessThan(initial.player.x - 120);
-  await walkTo(page, { x: 260, y: 513 });
+  await walkTo(page, shelfStandSpot(productById('tomato')!));
   await expect.poll(async () => (await state(page)).shelves.tomato).toBeGreaterThan(0);
   await advance(page, 35_000);
   let current = await state(page);
@@ -461,9 +462,12 @@ test('management upgrades, corn production, hired cashier, tutorial and settings
   });
   await advance(page, 11_000);
   expect((await state(page)).inventory.corn).toBeGreaterThanOrEqual(2);
-  await page.evaluate(() => {
-    window.__MARKET__.engine.state.player = { x: 700, y: 515 };
-  });
+  await page.evaluate(
+    (spot) => {
+      window.__MARKET__.engine.state.player = spot;
+    },
+    shelfStandSpot(productById('corn')!),
+  );
   await advance(page, 1200);
   expect((await state(page)).shelves.corn).toBeGreaterThan(0);
   expect((await state(page)).cashier).toBe(true);
