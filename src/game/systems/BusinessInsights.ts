@@ -2,6 +2,7 @@ import { GAME_CONFIG } from '../data/gameConfig';
 import { PRODUCTS, plotPosition } from '../data/products';
 import { BUSINESS_MILESTONES, nextBusinessGoal } from '../data/career';
 import { cartCapacity, UPGRADES, upgradeAvailable } from '../data/upgrades';
+import { itemCount } from './InventorySystem';
 import type { GameState, UpgradeId, Vec2 } from '../types';
 
 export function businessInsight(state: GameState): {
@@ -74,8 +75,47 @@ export function guidanceTarget(state: GameState): { position: Vec2; label: strin
     if (item) return { position: { x: item.shelf.x, y: item.shelf.y + 65 }, label: 'Stock shelf' };
     return { position: plotPosition('tomato', 0), label: 'Harvest' };
   }
-  if (state.tutorialStep < 5) return { position: GAME_CONFIG.cashierSpot, label: 'Serve here' };
+  if (
+    state.tutorialStep < 5 ||
+    (state.tutorialStep >= 6 && !state.career.pinnedGoal && state.career.cashierStockLesson)
+  ) {
+    if (!state.cashier && state.customers.some((c) => ['QUEUEING', 'PAYING'].includes(c.state)))
+      return { position: GAME_CONFIG.cashierSpot, label: 'Serve here' };
+    const carried = PRODUCTS.find(
+      (p) => state.inventory[p.id] > 0 && state.shelves[p.id] < state.shelfCapacities[p.id],
+    );
+    // If the player is already picking, finish a small useful batch instead
+    // of sending them across the store for every single tomato.
+    if (
+      carried?.kind === 'farm' &&
+      state.inventory[carried.id] <
+        Math.min(3, state.shelfCapacities[carried.id] - state.shelves[carried.id]) &&
+      itemCount(state.inventory) < state.inventoryCapacity
+    ) {
+      const nearby = state.farms[carried.id].plots.findIndex((plot, i) => {
+        if (!plot.ready) return false;
+        const p = plotPosition(carried.id, i);
+        return Math.hypot(state.player.x - p.x, state.player.y - p.y) <= 55;
+      });
+      if (nearby >= 0) return { position: plotPosition(carried.id, nearby), label: 'Harvest' };
+    }
+    if (carried)
+      return { position: { x: carried.shelf.x, y: carried.shelf.y + 65 }, label: 'Stock shelf' };
+    if (itemCount(state.inventory) >= state.inventoryCapacity) return null;
+    const crop = PRODUCTS.find(
+      (p) =>
+        state.unlockedProducts.includes(p.id) &&
+        p.kind === 'farm' &&
+        state.farms[p.id].ready > 0 &&
+        state.shelves[p.id] < state.shelfCapacities[p.id],
+    );
+    const readyPlot = crop ? state.farms[crop.id].plots.findIndex((p) => p.ready > 0) : -1;
+    return crop && readyPlot >= 0
+      ? { position: plotPosition(crop.id, readyPlot), label: 'Harvest' }
+      : null;
+  }
   if (state.tutorialStep === 5) return { position: GAME_CONFIG.storeCash, label: 'Collect cash' };
+  if (state.career.pinnedGoal) return null;
   if (
     BUSINESS_MILESTONES.some((m) => !state.career.claimed.includes(m.id) && m.progress(state) >= 1)
   )

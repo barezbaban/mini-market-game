@@ -85,6 +85,8 @@ export class UpgradeSystem {
       return false;
     }
     this.state.upgrades[id] += 1;
+    if (id === 'cashier' && this.state.upgrades.cashier === 1)
+      this.state.career.cashierStockLesson = true;
     if (id === 'accountant' && this.state.upgrades.accountant === 1)
       this.state.career.accountantCheckpoint = this.state.totalServed;
     this.state.career.firstActions.upgrade ??= this.state.elapsed;

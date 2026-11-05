@@ -1,4 +1,5 @@
 import { getLanguage, t } from '../../../i18n';
+import { marketGeometry, addMarketProp } from '../MarketArt';
 import {
   BoxGeometry,
   CanvasTexture,
@@ -61,7 +62,10 @@ export function block(
   color: number,
   rounded = true,
 ): Mesh {
-  const mesh = new Mesh(rounded ? roundedCube : cube, material(color));
+  const mesh = new Mesh(
+    marketGeometry(rounded ? 'kitBevel' : 'kitBlock') ?? (rounded ? roundedCube : cube),
+    material(color),
+  );
   mesh.position.set(x, y, z);
   mesh.scale.set(width, height, depth);
   mesh.castShadow = false;
@@ -79,7 +83,7 @@ export function disc(
   height: number,
   color: number,
 ): Mesh {
-  const mesh = new Mesh(cylinder, material(color));
+  const mesh = new Mesh(marketGeometry('kitDisc') ?? cylinder, material(color));
   mesh.position.set(x, y, z);
   mesh.scale.set(radius, height, radius);
   mesh.castShadow = false;
@@ -96,7 +100,7 @@ export function sphere(
   radius: number,
   color: number,
 ): Mesh {
-  const mesh = new Mesh(ball, material(color));
+  const mesh = new Mesh(marketGeometry('kitBall') ?? ball, material(color));
   mesh.position.set(x, y, z);
   mesh.scale.setScalar(radius);
   mesh.castShadow = false;
@@ -230,6 +234,7 @@ export function crate(parent: Object3D, x: number, y: number, z: number, scale =
   group.position.set(x, y, z);
   group.scale.setScalar(scale);
   parent.add(group);
+  if (addMarketProp(group, 'crate')) return group;
   block(group, 0, 0.035, 0, 0.62, 0.07, 0.45, PALETTE.wood);
   [-1, 1].forEach((side) => {
     block(group, 0, 0.16, side * 0.2, 0.64, 0.24, 0.055, PALETTE.wood);

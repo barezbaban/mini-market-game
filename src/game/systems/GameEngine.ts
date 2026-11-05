@@ -197,7 +197,12 @@ export class GameEngine {
           this.harvestElapsed = 0;
           this.state.tutorialStep = Math.max(this.state.tutorialStep, 2);
           this.state.career.firstActions.harvest ??= this.state.elapsed;
-          this.events.push({ type: 'harvest', text: `+1 ${product.name}`, ...harvestPosition });
+          this.events.push({
+            type: 'harvest',
+            text: `+1 ${product.name}`,
+            ...harvestPosition,
+            handoff: { actor: 'player', product: product.id, action: 'take' },
+          });
         }
         if (this.inventory.room === 0 && this.state.farms[product.id].plots[plotIndex].ready > 0) {
           blocked = {
@@ -216,7 +221,13 @@ export class GameEngine {
         this.stockElapsed = 0;
         this.state.tutorialStep = Math.max(this.state.tutorialStep, 3);
         this.state.career.firstActions.stock ??= this.state.elapsed;
-        this.events.push({ type: 'stock', text: `+1 ${product.name}`, ...product.shelf });
+        this.state.career.cashierStockLesson = false;
+        this.events.push({
+          type: 'stock',
+          text: `+1 ${product.name}`,
+          ...product.shelf,
+          handoff: { actor: 'player', product: product.id, action: 'place' },
+        });
       }
       if (
         distance(this.state.player, product.shelf) <= GAME_CONFIG.interactionRadius &&
@@ -250,6 +261,11 @@ export class GameEngine {
           this.events.push({
             type: 'stock',
             text: collected ? `+${collected} ${productById(machine.output)!.name}` : 'Input loaded',
+            handoff: {
+              actor: 'player',
+              product: collected ? machine.output : machine.input,
+              action: collected ? 'take' : 'place',
+            },
             ...machine.position,
           });
         }

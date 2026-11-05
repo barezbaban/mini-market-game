@@ -1,4 +1,5 @@
 import { html, initializeLanguage, getLanguage, t } from './i18n';
+import { loadMarketArt } from './game/rendering/MarketArt';
 import { confirmAction } from './game/ui/ConfirmDialog';
 import '../styles/main.css';
 import { AccountController } from './auth/AccountController';
@@ -43,6 +44,8 @@ import type {
 } from './game/types';
 
 await initializeLanguage();
+document.querySelector('#app')!.textContent = t('Opening the market…');
+await loadMarketArt();
 
 const save = new SaveSystem({
   read: () => localStorage.getItem(GAME_CONFIG.saveKey),
@@ -402,8 +405,9 @@ function upgradePresentation(upgrade: UpgradeDefinition): {
         ? `${(checkoutDuration(state) / 1000).toFixed(2)}s / customer`
         : 'Not hired';
       result.next = `${(4.5 / 1.25 ** (next - 1)).toFixed(2)}s / customer`;
-      result.detail =
-        'Your cashier serves customers and keeps their payments in a compact cash pile with no storage limit. Collect it yourself before a thief visits. Each tier after hiring multiplies service speed by 1.25.';
+      result.detail = level
+        ? 'Your cashier serves customers and keeps their payments in a compact cash pile with no storage limit. Collect it yourself before a thief visits. Each tier after hiring multiplies service speed by 1.25.'
+        : 'You serve in 1 second. A new cashier takes 4.5 seconds but keeps selling while you harvest. Collect the cash yourself.';
       break;
     case 'secondCashier':
       result.current = level ? '2 staffed checkouts' : '1 checkout';
@@ -662,6 +666,13 @@ function closeManagement(): void {
 }
 managementDialog.addEventListener('click', async (event) => {
   const target = event.target as Element;
+  const pinButton = target.closest<HTMLButtonElement>('[data-pin-goal]');
+  if (pinButton && engine.career.togglePin(pinButton.dataset.pinGoal!)) {
+    runtime.persist();
+    hud.update(engine.state);
+    renderManagement();
+    return;
+  }
   const adjust = target.closest<HTMLButtonElement>('[data-stock-adjust]');
   if (adjust) {
     if (adjust.disabled) return;
@@ -743,6 +754,9 @@ managementDialog.addEventListener('click', async (event) => {
     runtime.world.update(engine.state, engine.state.elapsed, 0);
     if (save.lastError)
       managementMessage = `${upgradeById(id).name} upgraded. Saving is unavailable; keep this tab open.`;
+    else if (id === 'cashier' && engine.state.upgrades.cashier === 1)
+      managementMessage =
+        'Your cashier is on duty. Restock a shelf while they serve, then collect the cash.';
     hud.announce(managementMessage);
   }
   renderManagement();

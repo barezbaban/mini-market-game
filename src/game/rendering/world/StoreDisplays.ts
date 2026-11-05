@@ -1,9 +1,17 @@
-import { CircleGeometry, Group, Mesh, MeshBasicMaterial, Vector3 } from 'three';
+import {
+  CircleGeometry,
+  Group,
+  Matrix4,
+  Mesh,
+  MeshBasicMaterial,
+  Vector3,
+  type InstancedMesh,
+} from 'three';
 import type { Scene } from 'three';
 import { GAME_CONFIG } from '../../data/gameConfig';
 import { PRODUCTS, plotCount, plotPosition } from '../../data/products';
 import { MACHINES, machineDuration } from '../../data/machines';
-import { SHELF_COLUMNS, shelfRows } from '../../data/upgrades';
+import { SHELF_COLUMNS, shelfRows, upgradeById } from '../../data/upgrades';
 import {
   farmStandSpot,
   machineStandSpot,
@@ -19,6 +27,7 @@ import type {
   Vec2,
 } from '../../types';
 import { createChicken, createCow, createProduce } from '../Models';
+import { addMarketProp, marketInstances } from '../MarketArt';
 import { itemCount } from '../../systems/InventorySystem';
 import { block, disc, label, PALETTE as C, ring, sphere } from './WorldKit';
 import type { WorldLabel } from './WorldKit';
@@ -46,6 +55,7 @@ interface ProductVisual {
   shelf: Group;
   stand: StandVisual;
   items: Group[];
+  stock?: InstancedMesh;
   count: WorldLabel;
   title: WorldLabel;
   rows: Group[];
@@ -110,6 +120,10 @@ export class StoreDisplays {
       visual.items.forEach((item, index) => {
         item.visible = unlocked && index < state.shelves[product.id];
       });
+      if (visual.stock)
+        visual.stock.count = unlocked
+          ? Math.min(visual.rowCount * SHELF_COLUMNS, state.shelves[product.id])
+          : 0;
       visual.count.setText(
         unlocked ? `${state.shelves[product.id]}/${state.shelfCapacities[product.id]}` : 'LOCKED',
         unlocked ? '#ffffff' : '#59675e',
@@ -233,7 +247,7 @@ export class StoreDisplays {
     shelf.position.copy(point(product.shelf.x, product.shelf.y));
     this.scene.add(shelf);
     const stand = this.createStand(`shelf-${product.id}`, shelfStandSpot(product));
-    block(shelf, 0, 0.14, 0, 1.46, 0.2, 0.72, C.green);
+    if (!addMarketProp(shelf, 'shelf_base')) block(shelf, 0, 0.14, 0, 1.46, 0.2, 0.72, C.green);
     const back = block(shelf, 0, 0.54, -0.4, 1.44, 0.9, 0.075, C.cream);
     const header = block(shelf, 0, 1.14, -0.4, 1.44, 0.28, 0.075, C.cream);
     const sides = [-0.68, 0.68].map((x) =>
@@ -302,6 +316,7 @@ export class StoreDisplays {
       shelf,
       stand,
       items,
+      stock: marketInstances(product.id, shelfRows(upgradeById('shelf').maxLevel) * SHELF_COLUMNS),
       count,
       plots,
       farmSign,
@@ -312,6 +327,10 @@ export class StoreDisplays {
       rows: [],
       rowCount: 0,
     };
+    if (visual.stock) {
+      visual.stock.name = 'blender:stock:' + product.id;
+      shelf.add(visual.stock);
+    }
     this.resizeShelf(visual, product, 3);
     this.products.set(product.id, visual);
   }
@@ -324,7 +343,7 @@ export class StoreDisplays {
       row.name = `shelf-${product.id}:row-${visual.rows.length + 1}`;
       block(row, 0, 0, 0, 1.44, 0.07, 0.27, C.wood);
       block(row, 0, -0.023, 0.145, 1.44, 0.075, 0.025, product.color);
-      for (let column = 0; column < SHELF_COLUMNS; column++) {
+      for (let column = 0; !visual.stock && column < SHELF_COLUMNS; column++) {
         const produce = createProduce(product.id);
         produce.position.set(-0.47 + column * 0.315, 0.13, 0);
         produce.scale.setScalar(1.05);
@@ -337,6 +356,14 @@ export class StoreDisplays {
     visual.rows.forEach((row, index) => {
       row.visible = index < count;
       row.position.set(0, 0.27 + index * 0.24, 0.25 - index * (0.5 / (count - 1)));
+      if (visual.stock && index < count) {
+        for (let col = 0; col < SHELF_COLUMNS; col++) {
+          const matrix = new Matrix4()
+            .makeScale(1.05, 1.05, 1.05)
+            .setPosition(-0.47 + col * 0.315, row.position.y + 0.13, row.position.z);
+          visual.stock.setMatrixAt(index * SHELF_COLUMNS + col, matrix);
+        }
+      }
     });
     const extraHeight = (count - 3) * 0.24;
     visual.back.scale.y = 1.03 + extraHeight;
@@ -348,6 +375,11 @@ export class StoreDisplays {
     visual.title.object.position.y = 1.14 + extraHeight;
     visual.header.position.y = 1.14 + extraHeight;
     visual.rowCount = count;
+    if (visual.stock) {
+      visual.stock.instanceMatrix.needsUpdate = true;
+      visual.stock.count = count * SHELF_COLUMNS;
+      visual.stock.computeBoundingSphere();
+    }
   }
 
   private createPlot(product: ProductDefinition, index: number): PlotVisual {
@@ -377,32 +409,34 @@ export class StoreDisplays {
       chicken.position.set(0, 0.17, -0.08);
       chicken.scale.setScalar(0.72);
       live.add(chicken);
-    } else if (product.id === 'tomato' || product.id === 'coffee') {
-      disc(live, 0, 0.43, 0, 0.025, 0.57, product.id === 'coffee' ? 0x8c6949 : 0x4d9343);
-      [-1, 1].forEach((side) => {
-        const branch = block(live, side * 0.1, 0.46, 0, 0.25, 0.028, 0.035, 0x4c903e);
-        branch.rotation.z = side * 0.6;
-        const leaf = sphere(
-          live,
-          side * 0.14,
-          0.54,
-          -0.05,
-          0.14,
-          product.id === 'coffee' ? 0x387d47 : 0x5f9f47,
-        );
-        leaf.scale.y *= 0.65;
-      });
-      sphere(live, 0, 0.69, -0.055, 0.13, 0x70a84d);
-    } else if (product.id === 'corn') {
-      [-0.13, 0.13].forEach((x) => {
-        disc(live, x, 0.46, 0, 0.024, 0.6, 0x72a548);
-        const leaf = block(live, x + 0.08, 0.46, 0, 0.25, 0.025, 0.09, 0x62a24a);
-        leaf.rotation.z = 0.55;
-      });
-    } else {
-      for (let stem = -1; stem <= 1; stem += 1) {
-        const leaf = block(live, stem * 0.034, 0.3, 0, 0.035, 0.25, 0.04, 0x57963f);
-        leaf.rotation.z = stem * -0.35;
+    } else if (!addMarketProp(live, 'plant_' + product.id)) {
+      if (product.id === 'tomato' || product.id === 'coffee') {
+        disc(live, 0, 0.43, 0, 0.025, 0.57, product.id === 'coffee' ? 0x8c6949 : 0x4d9343);
+        [-1, 1].forEach((side) => {
+          const branch = block(live, side * 0.1, 0.46, 0, 0.25, 0.028, 0.035, 0x4c903e);
+          branch.rotation.z = side * 0.6;
+          const leaf = sphere(
+            live,
+            side * 0.14,
+            0.54,
+            -0.05,
+            0.14,
+            product.id === 'coffee' ? 0x387d47 : 0x5f9f47,
+          );
+          leaf.scale.y *= 0.65;
+        });
+        sphere(live, 0, 0.69, -0.055, 0.13, 0x70a84d);
+      } else if (product.id === 'corn') {
+        [-0.13, 0.13].forEach((x) => {
+          disc(live, x, 0.46, 0, 0.024, 0.6, 0x72a548);
+          const leaf = block(live, x + 0.08, 0.46, 0, 0.25, 0.025, 0.09, 0x62a24a);
+          leaf.rotation.z = 0.55;
+        });
+      } else {
+        for (let stem = -1; stem <= 1; stem += 1) {
+          const leaf = block(live, stem * 0.034, 0.3, 0, 0.035, 0.25, 0.04, 0x57963f);
+          leaf.rotation.z = stem * -0.35;
+        }
       }
     }
     for (let item = 0; item < Math.max(3, product.yieldPerPlot); item += 1) {
@@ -450,34 +484,38 @@ export class StoreDisplays {
     const stand = this.createStand(`machine-${machine.id}`, machineStandSpot(machine));
     const body = new Group();
     root.add(body);
-    const color =
-      machine.id === 'grill'
-        ? 0x5a655b
-        : machine.id === 'paste'
-          ? 0xe88b70
-          : machine.id === 'coffee'
-            ? 0xb58964
-            : 0x8ac1cf;
-    block(body, 0, 0.31, 0, 0.94, 0.6, 0.73, color);
-    block(body, 0, 0.055, 0, 1.06, 0.11, 0.82, C.green);
-    block(body, 0, 0.66, 0, 1.02, 0.12, 0.81, C.cream);
+    if (!addMarketProp(body, 'machine_' + machine.id)) {
+      const color =
+        machine.id === 'grill'
+          ? 0x5a655b
+          : machine.id === 'paste'
+            ? 0xe88b70
+            : machine.id === 'coffee'
+              ? 0xb58964
+              : 0x8ac1cf;
+      block(body, 0, 0.31, 0, 0.94, 0.6, 0.73, color);
+      block(body, 0, 0.055, 0, 1.06, 0.11, 0.82, C.green);
+      block(body, 0, 0.66, 0, 1.02, 0.12, 0.81, C.cream);
+      if (machine.id === 'grill') {
+        block(body, 0, 0.76, -0.12, 0.78, 0.08, 0.46, 0xb76b33);
+        for (let bar = -3; bar <= 3; bar++)
+          block(body, bar * 0.1, 0.82, -0.12, 0.035, 0.04, 0.46, 0x37423a);
+      } else {
+        disc(body, 0, 0.95, -0.17, 0.26, 0.5, machine.id === 'paste' ? 0xced9c4 : 0xf2d59e);
+        disc(body, 0, 1.22, -0.17, 0.31, 0.055, C.green);
+      }
+      block(body, -0.53, 0.33, 0, 0.21, 0.12, 0.34, C.cream);
+      block(body, 0.57, 0.33, 0, 0.3, 0.12, 0.34, C.cream);
+      block(body, -0.91, 0.19, 0, 0.57, 0.11, 0.5, C.wood);
+      block(body, 0.93, 0.19, 0, 0.54, 0.11, 0.5, C.wood);
+    }
     if (machine.id === 'grill') {
-      block(body, 0, 0.76, -0.12, 0.78, 0.08, 0.46, 0xb76b33);
-      for (let bar = -3; bar <= 3; bar++)
-        block(body, bar * 0.1, 0.82, -0.12, 0.035, 0.04, 0.46, 0x37423a);
       for (const x of [-0.23, 0.23]) {
         const cob = createProduce('grilledCorn');
         cob.position.set(x, 0.91, -0.1);
         body.add(cob);
       }
-    } else {
-      disc(body, 0, 0.95, -0.17, 0.26, 0.5, machine.id === 'paste' ? 0xced9c4 : 0xf2d59e);
-      disc(body, 0, 1.22, -0.17, 0.31, 0.055, C.green);
     }
-    block(body, -0.53, 0.33, 0, 0.21, 0.12, 0.34, C.cream);
-    block(body, 0.57, 0.33, 0, 0.3, 0.12, 0.34, C.cream);
-    block(body, -0.91, 0.19, 0, 0.57, 0.11, 0.5, C.wood);
-    block(body, 0.93, 0.19, 0, 0.54, 0.11, 0.5, C.wood);
     const input: Group[] = [];
     const output: Group[] = [];
     for (let index = 0; index < 8; index += 1) {

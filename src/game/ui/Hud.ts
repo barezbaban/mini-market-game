@@ -3,7 +3,7 @@ import { PRODUCTS } from '../data/products';
 import { GAME_CONFIG } from '../data/gameConfig';
 import { CASH_POINTS, uncollectedCash } from '../data/cashPoints';
 import { playerLevel, xpForLevel } from '../data/upgrades';
-import { nextBusinessGoal } from '../data/career';
+import { nextBusinessGoal, pinnedGoalView } from '../data/career';
 import type { GameState } from '../types';
 import { icon, productIcon } from './icons';
 
@@ -173,11 +173,17 @@ export class Hud {
         state.player.x - GAME_CONFIG.driveThroughPlayerSpot.x,
         state.player.y - GAME_CONFIG.driveThroughPlayerSpot.y,
       ) < 85;
+    const pin = pinnedGoalView(state);
     const key = [
+      state.career.cashierStockLesson,
+      pin?.title,
+      pin?.detail,
       state.money,
       ...Object.values(state.inventory),
       state.inventoryCapacity,
       state.tutorialStep,
+      state.tutorialStep < 5 &&
+        state.customers.some((c) => ['QUEUEING', 'PAYING'].includes(c.state)),
       state.totalServed,
       state.soundEnabled,
       state.xp,
@@ -235,15 +241,30 @@ export class Hud {
       ['Your first harvest', 'Head to the tomato patch.'],
       ['Pick something fresh', 'Stand near ripe plants to collect tomatoes.'],
       ['Fill your first shelf', 'Carry tomatoes to the matching shelf.'],
-      ['The market is open!', 'Customers collect produce from your shelves.'],
+      [
+        'The market is open!',
+        'Keep stocking while shoppers browse. The guide will call you to checkout.',
+      ],
       ['Time to check out', 'Stand on the green spot to serve customers.'],
       [
         'Collect your earnings',
         'Walk to the cash pile beside checkout. Only collected cash can be spent.',
       ],
     ];
-    const hint = hints[Math.min(state.tutorialStep, hints.length - 1)];
-    const goal = nextBusinessGoal(state);
+    const waiting = state.customers.some((c) => ['QUEUEING', 'PAYING'].includes(c.state));
+    const hint =
+      hints[
+        state.tutorialStep === 3 || state.tutorialStep === 4
+          ? waiting
+            ? 4
+            : 3
+          : Math.min(state.tutorialStep, hints.length - 1)
+      ];
+    const goal =
+      pin ??
+      (state.career.cashierStockLesson
+        ? { title: 'Cashier on duty', detail: 'Restock a shelf while your cashier serves.' }
+        : nextBusinessGoal(state));
     this.hint.innerHTML = html(
       state.tutorialStep >= 6
         ? `<strong>${goal.title}</strong><span>${goal.detail}</span>`

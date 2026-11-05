@@ -1,5 +1,24 @@
 /** Management, progression and balancing copy. */
 export const managementCopy: Record<string, string> = {
+  'Cashier on duty': 'کاشێر لەسەر کارە',
+  'Restock a shelf while your cashier serves.':
+    'تا کاشێرەکەت خزمەتی کڕیاران دەکات، ڕەفێک پڕ بکەرەوە.',
+  'You serve in 1 second. A new cashier takes 4.5 seconds but keeps selling while you harvest. Collect the cash yourself.':
+    'تۆ لە ١ چرکەدا خزمەتی کڕیارێک دەکەیت. کاشێری نوێ ٤٫٥ چرکەی دەوێت، بەڵام کاتێک تۆ بەرهەم کۆ دەکەیتەوە، ئەو بەردەوام دەبێت لە فرۆشتن. پارەکە خۆت کۆ بکەرەوە.',
+  'Neighborhood kitchen': 'چێشتخانەی گەڕەک',
+  'Breakfast regular': 'کڕیاری هەمیشەیی بۆ نانی بەیانی',
+  'Corner bookshop': 'کتێبفرۆشییەکەی گۆشەشەقام',
+  'Active contract': 'گرێبەستی چالاک',
+  'Pinned contract': 'گرێبەستی هەڵبژێردراو',
+  'Pin a shop-floor goal': 'ئامانجێک بۆ پیشاندان لە مارکێت هەڵبژێرە',
+  'Ready to claim in Manage → Goals.': 'پاداشتەکە ئامادەیە. لە بەڕێوەبردن ← ئامانجەکان وەریبگرە.',
+  'Cashier report': 'ڕاپۆرتی کاشێر',
+  'Your cashier is on duty. Restock a shelf while they serve, then collect the cash.':
+    'کاشێرەکەت دەستی بە کار کرد. تا کاشێر خزمەتی کڕیاران دەکات، ڕەفێک پڕ بکەرەوە، پاشان پارەکە کۆ بکەرەوە.',
+  'Your cashier served two customers while you were away. Collect the cash at checkout.':
+    'کاتێک لە کاشێر دوور بوویت، کاشێرەکەت خزمەتی دوو کڕیاری کرد. پارەکە لە لای کاشێر کۆ بکەرەوە.',
+  'Keep stocking while shoppers browse. The guide will call you to checkout.':
+    'تا کڕیاران کاڵا هەڵدەبژێرن، ڕەفەکان پڕ بکەرەوە. کاتێک پێویست بوو، نیشانەکە بەرەو کاشێر ڕێنماییت دەکات.',
   Goals: 'ئامانجەکان',
   Store: 'مارکێت',
   Farms: 'کێڵگەکان',

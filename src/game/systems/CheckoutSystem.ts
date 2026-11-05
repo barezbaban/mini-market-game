@@ -68,6 +68,22 @@ export class CheckoutSystem {
     if (this.state[progress] < checkoutDuration(this.state)) return;
     if (!this.economy.deposit(id, amount)) return;
     this.state.totalServed += 1;
+    if (
+      (second || this.state.cashier) &&
+      distance(
+        this.state.player,
+        second ? GAME_CONFIG.secondCashierSpot : GAME_CONFIG.cashierSpot,
+      ) > GAME_CONFIG.interactionRadius
+    ) {
+      this.state.career.cashierAwaySales++;
+      if (this.state.career.cashierAwaySales >= 2) this.state.career.cashierStockLesson = false;
+      if (this.state.career.cashierAwaySales === 2)
+        this.emit({
+          type: 'notice',
+          text: 'Your cashier served two customers while you were away. Collect the cash at checkout.',
+          ...this.state.player,
+        });
+    }
     const earnedXp = awardSaleXp(
       this.state,
       itemCount(customer.basket),

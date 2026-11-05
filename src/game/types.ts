@@ -86,6 +86,9 @@ export interface CareerState {
   contract: BusinessContract | null;
   regularVisits: Record<string, number>;
   accountantCheckpoint: number;
+  cashierAwaySales: number;
+  cashierStockLesson: boolean;
+  pinnedGoal: string | null;
   stockTargets: ItemCounts;
   machinePolicies: Record<MachineId, 'balanced' | 'shelf-first' | 'processing-first' | 'paused'>;
   batchModes: Record<MachineId, 'quick' | 'full'>;
@@ -271,6 +274,12 @@ export interface GameState {
   driveThroughServed: number;
 }
 export interface GameEvent {
+  handoff?: {
+    actor: 'player' | number;
+    product: ProductId;
+    action: 'take' | 'place';
+    station?: Vec2;
+  };
   type: 'harvest' | 'stock' | 'money' | 'upgrade' | 'notice' | 'checkout' | 'discard';
   text: string;
   x: number;

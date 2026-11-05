@@ -7,6 +7,7 @@ import { createCharacter } from '../Models';
 import type { CharacterModel } from '../Models';
 import { block, label, ring, PALETTE as C } from './WorldKit';
 import type { WorldLabel } from './WorldKit';
+import { addMarketProp } from '../MarketArt';
 
 const world = (point: Vec2, height = 0) =>
   new Vector3((point.x - 640) / 100, height, (point.y - 390) / 100);
@@ -66,8 +67,10 @@ export class CashSecurityDisplays {
       const bundle = new Group();
       bundle.name = 'cash-bundle';
       bundle.position.set(((index % 3) - 1) * 0.24, 0.16 + Math.floor(index / 3) * 0.048, 0);
-      block(bundle, 0, 0, 0, 0.21, 0.041, 0.19, 0x53a66a);
-      block(bundle, 0, 0.003, 0, 0.045, 0.044, 0.194, C.cream);
+      if (!addMarketProp(bundle, 'notes')) {
+        block(bundle, 0, 0, 0, 0.21, 0.041, 0.19, 0x53a66a);
+        block(bundle, 0, 0.003, 0, 0.045, 0.044, 0.194, C.cream);
+      }
       root.add(bundle);
       return bundle;
     });
@@ -131,8 +134,10 @@ export class CashSecurityDisplays {
       block(this.thief.group, 0, 0.548, 0.072, 0.13, 0.037, 0.012, 0x273041);
       this.bag = new Group();
       this.bag.position.set(-0.13, 0.23, -0.12);
-      block(this.bag, 0, 0, 0, 0.2, 0.22, 0.17, C.wood);
-      block(this.bag, 0, 0.12, 0, 0.11, 0.035, 0.1, C.cream);
+      if (!addMarketProp(this.bag, 'satchel')) {
+        block(this.bag, 0, 0, 0, 0.2, 0.22, 0.17, C.wood);
+        block(this.bag, 0, 0.12, 0, 0.11, 0.035, 0.1, C.cream);
+      }
       this.thief.group.add(this.bag);
       this.trap = new Mesh(
         new SphereGeometry(0.31, 12, 8),

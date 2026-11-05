@@ -46,6 +46,10 @@ export const textArguments: Record<string, number[]> = {
   '{0} upgraded. Saving is unavailable; keep this tab open.': [0],
 };
 export const soraniPatterns: Array<[string, string]> = [
+  [
+    'Orders served while you were away: {0}',
+    'ژمارەی داواکارییە تەواوکراوەکان کاتێک لە کاشێر دوور بوویت: {0}',
+  ],
   ['{0} upgraded. Saved to this device.', '{0} بەرز کرایەوە. لەسەر ئەم ئامێرە پاشەکەوت کرا.'],
   [
     '{0} upgraded. Saving is unavailable; keep this tab open.',

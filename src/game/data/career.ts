@@ -14,6 +14,8 @@ export const REGULARS = [
   {
     id: 'ava',
     name: 'Ava',
+    badge: 'Neighborhood kitchen',
+    apron: 0x387e60,
     product: 'tomato',
     color: 0xe58b71,
     story: 'Fresh tomatoes for the neighborhood kitchen.',
@@ -21,6 +23,8 @@ export const REGULARS = [
   {
     id: 'dara',
     name: 'Dara',
+    badge: 'Breakfast regular',
+    apron: 0x466e9b,
     product: 'egg',
     color: 0x739ebd,
     story: 'Breakfast supplies, and a familiar friendly face.',
@@ -28,6 +32,8 @@ export const REGULARS = [
   {
     id: 'mina',
     name: 'Mina',
+    badge: 'Corner bookshop',
+    apron: 0x826299,
     product: 'coffee',
     color: 0xa78bb7,
     story: 'Coffee for the little bookshop next door.',
@@ -67,6 +73,9 @@ export function createCareer(): CareerState {
     contract: null,
     regularVisits: Object.fromEntries(REGULARS.map((r) => [r.id, 0])),
     accountantCheckpoint: 0,
+    cashierAwaySales: 0,
+    cashierStockLesson: false,
+    pinnedGoal: null,
     stockTargets: Object.fromEntries(
       PRODUCTS.map(({ id }) => [id, 6]),
     ) as CareerState['stockTargets'],
@@ -164,6 +173,34 @@ export const BUSINESS_MILESTONES: BusinessMilestone[] = [
     progress: (s) => Object.values(s.career.regularVisits).reduce((a, b) => a + b, 0) / 15,
   },
 ];
+
+export function pinnedGoalView(s: GameState): { title: string; detail: string } | null {
+  const id = s.career.pinnedGoal;
+  if (!id) return null;
+  const c = s.career.contract;
+  if (id === 'contract' && c) {
+    const detail =
+      c.kind === 'drive'
+        ? `${Math.min(c.targetOrders, s.driveThroughServed - c.ordersAtStart)}/${c.targetOrders} drive-through orders`
+        : PRODUCTS.filter((p) => c.goals[p.id] > 0)
+            .map(
+              (p) =>
+                `${Math.min(c.goals[p.id], s.career.sold[p.id] - c.baseline[p.id])}/${c.goals[p.id]} ${p.plural}`,
+            )
+            .join(' · ');
+    return { title: 'Pinned contract', detail };
+  }
+  const m = BUSINESS_MILESTONES.find((entry) => entry.id === id);
+  if (!m || s.career.claimed.includes(id)) return null;
+  const progress = Math.min(1, m.progress(s));
+  const detail =
+    progress === 1
+      ? 'Ready to claim in Manage → Goals.'
+      : id === 'first-production'
+        ? `${s.career.sold.tomatoPaste}/12 ${PRODUCTS.find((p) => p.id === 'tomatoPaste')!.plural}`
+        : `${m.description} · ${Math.floor(progress * 100)}% complete`;
+  return { title: m.title, detail };
+}
 
 export function currentChapter(state: GameState): number {
   if (state.upgrades.expansion >= 4) return 4;

@@ -293,6 +293,17 @@ export class WorkerSystem {
       this.emit({
         type: task === 'harvest' ? 'harvest' : 'stock',
         text: `${task === 'harvest' || task === 'collect' ? '+' : '−'}${moved}`,
+        handoff: {
+          actor: worker.id,
+          product,
+          action: task === 'harvest' || task === 'collect' ? 'take' : 'place',
+          station:
+            task === 'harvest'
+              ? plotPosition(product, worker.plotIndex ?? 0)
+              : task === 'stock'
+                ? productById(product)?.shelf
+                : MACHINES.find((m) => m.id === worker.machine)?.position,
+        },
         x: worker.x,
         y: worker.y,
       });

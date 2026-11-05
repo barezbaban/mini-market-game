@@ -20,6 +20,10 @@ export function validateCareer(value: unknown, state: GameState): CareerState {
   const raw = object(value),
     result = createCareer();
   result.contractsCompleted = count(raw.contractsCompleted);
+  result.cashierAwaySales = count(raw.cashierAwaySales, 0, state.totalServed);
+  result.cashierStockLesson = Boolean(
+    state.cashier && raw.cashierStockLesson === true && result.cashierAwaySales < 2,
+  );
   result.accountantCheckpoint = count(
     raw.accountantCheckpoint,
     state.totalServed,
@@ -76,5 +80,10 @@ export function validateCareer(value: unknown, state: GameState): CareerState {
         rewardXp: count(contract.rewardXp, 0, 500),
       };
   }
+  if (raw.pinnedGoal === 'contract' && result.contract) result.pinnedGoal = 'contract';
+  else if (
+    BUSINESS_MILESTONES.some((m) => m.id === raw.pinnedGoal && !result.claimed.includes(m.id))
+  )
+    result.pinnedGoal = String(raw.pinnedGoal);
   return result;
 }

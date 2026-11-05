@@ -8,10 +8,14 @@ import {
   Mesh,
   MeshStandardMaterial,
   SphereGeometry,
+  Vector3,
 } from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import type { ItemCounts, ProductId } from '../types';
 import { emptyItems, PRODUCTS } from '../data/products';
+import { PUSH_CART } from './CartWalk';
+import { ReachMotion, type HandAction } from './ReachMotion';
+import { addMarketProp, marketGeometry } from './MarketArt';
 
 // The whole market shares these resources, including temporary carried products.
 // Removing a model from the scene must not dispose its geometry or material.
@@ -51,7 +55,7 @@ function mesh(geometry: BufferGeometry, color: number): Mesh {
 }
 
 export function box(width: number, height: number, depth: number, color: number): Mesh {
-  const result = mesh(cube, color);
+  const result = mesh(marketGeometry('kitBlock') ?? cube, color);
   result.scale.set(width, height, depth);
   return result;
 }
@@ -63,6 +67,12 @@ export function roundedBox(
   radius: number,
   color: number,
 ): Mesh {
+  const bevel = marketGeometry('kitBevel');
+  if (bevel) {
+    const result = mesh(bevel, color);
+    result.scale.set(width, height, depth);
+    return result;
+  }
   const key = `rounded:${width}:${height}:${depth}:${radius}`;
   let geometry = geometries.get(key);
   if (!geometry) {
@@ -73,12 +83,18 @@ export function roundedBox(
 }
 
 function ball(x: number, y: number, z: number, color: number): Mesh {
-  const result = mesh(sphere, color);
+  const result = mesh(marketGeometry('kitBall') ?? sphere, color);
   result.scale.set(x, y, z);
   return result;
 }
 
 function pill(radius: number, length: number, color: number): Mesh {
+  const capsule = marketGeometry('kitPill');
+  if (capsule) {
+    const result = mesh(capsule, color);
+    result.scale.set(radius, length + 2 * radius, radius);
+    return result;
+  }
   const key = `pill:${radius}:${length}`;
   let geometry = geometries.get(key);
   if (!geometry) {
@@ -89,13 +105,13 @@ function pill(radius: number, length: number, color: number): Mesh {
 }
 
 function tube(radius: number, height: number, color: number): Mesh {
-  const result = mesh(cylinder, color);
+  const result = mesh(marketGeometry('kitDisc') ?? cylinder, color);
   result.scale.set(radius, height, radius);
   return result;
 }
 
 function leaf(width: number, height: number, color: number = PALETTE.leaf): Mesh {
-  const result = mesh(cone, color);
+  const result = mesh(marketGeometry('kitCone') ?? cone, color);
   result.scale.set(width, height, width * 0.32);
   return result;
 }
@@ -110,6 +126,7 @@ function at<T extends Mesh | Group>(parent: Group, child: T, x: number, y: numbe
 export function createProduce(id: ProductId): Group {
   const produce = new Group();
   produce.name = `produce-${id}`;
+  if (addMarketProp(produce, id)) return produce;
 
   if (id === 'tomato') {
     at(produce, ball(0.091, 0.073, 0.087, PALETTE.tomato), 0, 0, 0);
@@ -201,6 +218,7 @@ export function createProduce(id: ProductId): Group {
 export function createTree(): Group {
   const tree = new Group();
   tree.name = 'orchard-tree';
+  if (addMarketProp(tree, 'tree')) return tree;
   at(tree, tube(0.07, 0.64, 0xb78761), 0, 0.32, 0);
   at(tree, tube(0.033, 0.34, 0xb78761), 0.09, 0.57, 0).rotation.z = -0.65;
   at(tree, ball(0.42, 0.4, 0.36, 0x79a97a), 0, 0.92, 0);
@@ -213,6 +231,7 @@ export function createTree(): Group {
 export function createChicken(): Group {
   const chicken = new Group();
   chicken.name = 'hen';
+  if (addMarketProp(chicken, 'hen')) return chicken;
   at(chicken, ball(0.13, 0.115, 0.165, 0xfff5db), 0, 0.16, 0);
   at(chicken, ball(0.075, 0.084, 0.073, 0xfff7e5), 0, 0.265, 0.1);
   const beak = at(chicken, mesh(cone, 0xe9a344), 0, 0.253, 0.19);
@@ -237,6 +256,7 @@ export function createChicken(): Group {
 export function createCow(): Group {
   const cow = new Group();
   cow.name = 'dairy-cow';
+  if (addMarketProp(cow, 'cow')) return cow;
   at(cow, ball(0.27, 0.19, 0.17, 0xf8f5e9), 0, 0.38, -0.03);
   at(cow, ball(0.15, 0.145, 0.14, 0xf8f5e9), 0, 0.48, 0.19);
   at(cow, ball(0.12, 0.06, 0.085, 0xe7acaa), 0, 0.405, 0.29);
@@ -256,8 +276,10 @@ export function createCow(): Group {
 }
 
 export interface CharacterModel {
+  reach(action: HandAction): void;
+  setRegularApron(color: number | null): void;
   group: Group;
-  animate(time: number, moving: boolean): void;
+  animate(time: number, moving: boolean, clipActive?: boolean): void;
   setInventory(items: Partial<ItemCounts>): void;
   setColor(color: number): void;
   setFacing(dx: number, dy: number): void;
@@ -267,6 +289,7 @@ export interface CharacterModel {
 export function createCharacter(
   kind: 'player' | 'customer' | 'cashier',
   color = kind === 'customer' ? 0xe9a458 : PALETTE.teal,
+  pushesCart = false,
 ): CharacterModel {
   const group = new Group();
   group.name = `${kind}-character`;
@@ -274,12 +297,29 @@ export function createCharacter(
   group.add(body);
 
   const torso = at(body, pill(0.09, 0.12, color), 0, 0.34, 0);
-  torso.scale.z = 0.72;
+  torso.scale.z *= 0.72;
   at(body, roundedBox(0.15, 0.081, 0.118, 0.024, PALETTE.ink), 0, 0.233, -0.004);
 
   const limbs: Group[] = [];
   for (const side of [-1, 1]) {
     const leg = at(body, new Group(), side * 0.047, 0.227, 0);
+    if (pushesCart) {
+      const suffix = side < 0 ? 'L' : 'R';
+      const bend = Math.acos(0.203 / 0.224);
+      leg.name = 'CartHip' + suffix;
+      leg.rotation.x = -bend;
+      at(leg, pill(0.032, 0.065, 0x415854), 0, -0.056, 0);
+      const knee = at(leg, new Group(), 0, -0.112, 0);
+      knee.name = 'CartKnee' + suffix;
+      knee.rotation.x = 2 * bend;
+      at(knee, pill(0.025, 0.065, 0x415854), 0, -0.056, 0);
+      const foot = at(knee, new Group(), 0, -0.112, 0);
+      foot.name = 'CartFoot' + suffix;
+      foot.rotation.x = -bend;
+      at(foot, roundedBox(0.07, 0.042, 0.11, 0.016, PALETTE.cream), 0, 0, 0.015);
+      limbs.push(leg);
+      continue;
+    }
     at(leg, pill(0.032, 0.1, 0x415854), 0, -0.077, 0);
     at(leg, roundedBox(0.07, 0.042, 0.11, 0.016, PALETTE.cream), 0, -0.203, 0.019);
     // A short ankle connects the trouser to the shoe without stretching gait.
@@ -293,19 +333,31 @@ export function createCharacter(
     const arm = at(body, new Group(), side * 0.11, 0.405, 0);
     sleeves.push(at(arm, pill(0.036, 0.038, color), 0, -0.031, 0));
     at(arm, pill(0.027, 0.072, PALETTE.skin), 0, -0.095, 0);
-    at(arm, ball(0.03, 0.034, 0.03, PALETTE.skin), 0, -0.151, 0);
+    const hand = at(arm, ball(0.03, 0.034, 0.03, PALETTE.skin), 0, -0.151, 0);
     arm.rotation.z = side * 0.14;
+    if (pushesCart) {
+      hand.name = side < 0 ? 'CartHandL' : 'CartHandR';
+      const reach = new Vector3(
+        side * 0.075,
+        PUSH_CART.handleY * PUSH_CART.scale,
+        PUSH_CART.offset + PUSH_CART.handleZ * PUSH_CART.scale,
+      ).sub(arm.position);
+      arm.scale.y = reach.length() / 0.151;
+      arm.quaternion.setFromUnitVectors(new Vector3(0, -1, 0), reach.normalize());
+    }
     arms.push(arm);
   }
 
   at(body, tube(0.028, 0.051, PALETTE.skin), 0, 0.471, 0);
-  const head = at(body, ball(0.079, 0.091, 0.072, PALETTE.skin), 0, 0.538, 0);
-  // Small features read as a person without dominating the game's silhouette.
-  for (const side of [-1, 1]) {
-    at(body, ball(0.008, 0.009, 0.005, PALETTE.ink), side * 0.026, 0.546, 0.067);
-    at(body, ball(0.013, 0.022, 0.014, PALETTE.skin), side * 0.076, 0.532, 0);
+  if (!addMarketProp(body, 'face')) {
+    at(body, ball(0.079, kind === 'customer' ? 0.088 : 0.091, 0.072, PALETTE.skin), 0, 0.538, 0);
+    // Small features read as a person without dominating the game's silhouette.
+    for (const side of [-1, 1]) {
+      at(body, ball(0.008, 0.009, 0.005, PALETTE.ink), side * 0.026, 0.546, 0.067);
+      at(body, ball(0.013, 0.022, 0.014, PALETTE.skin), side * 0.076, 0.532, 0);
+    }
+    at(body, ball(0.012, 0.01, 0.012, 0xe9ae7c), 0, 0.527, 0.073);
   }
-  at(body, ball(0.012, 0.01, 0.012, 0xe9ae7c), 0, 0.527, 0.073);
 
   let cap: Mesh | undefined;
   if (kind === 'player' || kind === 'cashier') {
@@ -325,11 +377,10 @@ export function createCharacter(
       at(body, box(0.021, 0.15, 0.02, color), side * 0.047, 0.392, 0.06);
     }
     at(body, roundedBox(0.12, 0.12, 0.058, 0.02, 0xcfa672), 0, 0.342, -0.086);
-  } else {
+  } else if (!addMarketProp(body, 'hair')) {
     // A restrained sculpted hair shape leaves the face visible from above.
     at(body, ball(0.081, 0.048, 0.072, 0x75533d), 0, 0.6, -0.012);
     at(body, ball(0.069, 0.066, 0.027, 0x75533d), 0, 0.562, -0.058);
-    head.scale.y = 0.088;
   }
 
   const cargo = at(body, new Group(), 0, 0.31, -0.17);
@@ -343,10 +394,26 @@ export function createCharacter(
   let carrying = false;
   let facing = 0;
   let lastTime = 0;
+  let regularApron: Mesh | undefined;
+  let handMotion: ReachMotion | undefined;
 
   return {
     group,
-    animate(time, moving) {
+    reach(action) {
+      if (pushesCart) return;
+      (handMotion ??= new ReachMotion()).request(action);
+    },
+    setRegularApron(color) {
+      if (color !== null && !regularApron) {
+        regularApron = at(body, roundedBox(0.138, 0.183, 0.022, 0.01, color), 0, 0.325, 0.069);
+        regularApron.name = 'regular-apron';
+      }
+      if (regularApron) {
+        regularApron.visible = color !== null;
+        if (color !== null) regularApron.material = mat(color);
+      }
+    },
+    animate(time, moving, clipActive = false) {
       const delta = lastTime === 0 ? 1 / 60 : Math.min(0.1, Math.max(0, (time - lastTime) / 1000));
       lastTime = time;
       const turn = Math.atan2(
@@ -355,6 +422,14 @@ export function createCharacter(
       );
       group.rotation.y += turn * (1 - Math.exp(-delta * 18));
       const stride = moving ? Math.sin(time * 0.012) : 0;
+      if (pushesCart) {
+        if (!clipActive) {
+          const bend = Math.acos(0.203 / 0.224);
+          limbs[0].rotation.x = -bend + stride * 0.32;
+          limbs[1].rotation.x = -bend - stride * 0.32;
+        }
+        return;
+      }
       const bob = moving
         ? Math.abs(Math.sin(time * 0.012)) * 0.017
         : Math.sin(time * 0.002) * 0.003;
@@ -363,6 +438,12 @@ export function createCharacter(
       limbs[1].rotation.x = -stride * 0.48;
       arms[0].rotation.x = carrying ? -0.45 - stride * 0.08 : -stride * 0.36;
       arms[1].rotation.x = carrying ? -0.45 + stride * 0.08 : stride * 0.36;
+      if (handMotion) {
+        const reach = handMotion.sample(time);
+        arms[0].rotation.x += reach * 0.85;
+        arms[1].rotation.x += reach;
+        body.rotation.x = -reach * 0.1;
+      }
       cargo.rotation.x = moving ? stride * 0.035 : 0;
       cargo.rotation.z = moving ? stride * 0.04 : 0;
     },

@@ -34,6 +34,7 @@ export class CareerSystem {
       return false;
     if (!this.economy.earn(milestone.rewardMoney)) return false;
     this.state.career.claimed.push(id);
+    if (this.state.career.pinnedGoal === id) this.state.career.pinnedGoal = null;
     awardXp(this.state, milestone.rewardXp, this.emit);
     this.emit({
       type: 'upgrade',
@@ -80,7 +81,7 @@ export class CareerSystem {
       return false;
     awardXp(this.state, contract.rewardXp, this.emit);
     this.state.career.contractsCompleted++;
-    this.state.career.contract = null;
+    this.cancelContract();
     this.emit({
       type: 'upgrade',
       text: 'Contract complete! Choose another whenever you like.',
@@ -91,6 +92,19 @@ export class CareerSystem {
 
   cancelContract(): void {
     this.state.career.contract = null;
+    if (this.state.career.pinnedGoal === 'contract') this.state.career.pinnedGoal = null;
+  }
+
+  togglePin(id: string): boolean {
+    const c = this.state.career;
+    if (
+      id === 'contract'
+        ? !c.contract
+        : !BUSINESS_MILESTONES.some((m) => m.id === id && !c.claimed.includes(id))
+    )
+      return false;
+    c.pinnedGoal = c.pinnedGoal === id ? null : id;
+    return true;
   }
 
   setStyle(style: ShopStyle): boolean {

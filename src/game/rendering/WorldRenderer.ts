@@ -6,6 +6,7 @@ import {
   DirectionalLight,
   Group,
   HemisphereLight,
+  InstancedMesh,
   Mesh,
   MeshBasicMaterial,
   OrthographicCamera,
@@ -17,7 +18,7 @@ import {
 import type { BufferGeometry, Material, Texture } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GAME_CONFIG } from '../data/gameConfig';
-import { SHOP_STYLES } from '../data/career';
+import { REGULARS, SHOP_STYLES } from '../data/career';
 import { clampCameraZoom } from '../data/cameraConfig';
 import { PRODUCTS } from '../data/products';
 import { cartCapacity, checkoutDuration } from '../data/upgrades';
@@ -28,6 +29,8 @@ import { customerEmoji } from '../systems/CustomerReactions';
 import type { GameEvent, GameState, ItemCounts, ProductId, Vec2 } from '../types';
 import { driveThroughRemaining } from '../systems/DriveThroughSystem';
 import { createCharacter, createProduce, createTree } from './Models';
+import { CartWalk, loadCartWalk, PUSH_CART } from './CartWalk';
+import { addMarketProp } from './MarketArt';
 import { StoreDisplays } from './world/StoreDisplays';
 import { CashSecurityDisplays } from './world/CashSecurityDisplays';
 import { CASH_POINTS } from '../data/cashPoints';
@@ -37,6 +40,7 @@ import type { WorldLabel } from './world/WorldKit';
 
 interface CustomerVisual {
   model: CharacterModel;
+  walk: CartWalk;
   cart: ShoppingCartVisual;
   id: number;
   previous: Vec2;
@@ -44,6 +48,7 @@ interface CustomerVisual {
   item: Record<ProductId, Group>;
   quantity: WorldLabel;
   mood: WorldLabel;
+  introduction?: WorldLabel;
 }
 interface ShoppingCartVisual {
   group: Group;
@@ -73,17 +78,25 @@ function createShoppingCart(name: string): ShoppingCartVisual {
   const group = new Group();
   group.name = name;
   group.position.set(0, 0, 0.43);
-  const basket = new Group();
-  group.add(basket);
-  block(basket, 0, 0.25, 0.03, 0.4, 0.055, 0.5, C.green);
-  [-0.2, 0.2].forEach((x) => block(basket, x, 0.43, 0.03, 0.035, 0.34, 0.5, C.green));
-  [-0.21, 0.27].forEach((z) => block(basket, 0, 0.43, z, 0.43, 0.34, 0.035, C.green));
-  [-0.16, 0.16].forEach((x) => {
-    block(group, x, 0.47, -0.35, 0.035, 0.46, 0.035, C.green);
-    sphere(group, x, 0.08, -0.16, 0.055, 0x4b5b54);
-    sphere(group, x, 0.08, 0.21, 0.055, 0x4b5b54);
-  });
-  block(group, 0, 0.69, -0.35, 0.43, 0.045, 0.045, C.wood);
+  if (addMarketProp(group, 'cart')) {
+    const grip = new Group();
+    grip.name = 'cart-grip';
+    grip.position.set(0, PUSH_CART.handleY, PUSH_CART.handleZ);
+    group.add(grip);
+  } else {
+    const basket = new Group();
+    group.add(basket);
+    block(basket, 0, 0.25, 0.03, 0.4, 0.055, 0.5, C.green);
+    [-0.2, 0.2].forEach((x) => block(basket, x, 0.43, 0.03, 0.035, 0.34, 0.5, C.green));
+    [-0.21, 0.27].forEach((z) => block(basket, 0, 0.43, z, 0.43, 0.34, 0.035, C.green));
+    [-0.16, 0.16].forEach((x) => {
+      block(group, x, 0.47, -0.35, 0.035, 0.46, 0.035, C.green);
+      sphere(group, x, 0.08, -0.16, 0.055, 0x4b5b54);
+      sphere(group, x, 0.08, 0.21, 0.055, 0x4b5b54);
+    });
+    block(group, 0, PUSH_CART.handleY, PUSH_CART.handleZ, 0.43, 0.045, 0.045, C.wood).name =
+      'cart-grip';
+  }
   const cargo = new Group();
   cargo.name = `${name}:inventory`;
   cargo.position.set(0, 0.31, 0.02);
@@ -122,6 +135,7 @@ export class WorldRenderer {
   private readonly player: CharacterModel;
   private readonly cashier: CharacterModel;
   private readonly customers: CustomerVisual[] = [];
+  private readonly regularGreetings = new Map<number, number>();
   private readonly displays: StoreDisplays;
   private readonly cashDisplays: CashSecurityDisplays;
   private secondCheckout?: {
@@ -239,10 +253,11 @@ export class WorldRenderer {
   // Extra carts must not increase every new player's initial graphics/memory load.
   private ensureCustomerVisuals(count: number): void {
     for (let index = this.customers.length; index < count; index += 1) {
-      const model = createCharacter('customer');
+      const model = createCharacter('customer', undefined, true);
+      loadCartWalk();
       const cart = createShoppingCart(`customer:${index}:cart`);
-      cart.group.scale.setScalar(0.42);
-      cart.group.position.z = 0.25;
+      cart.group.scale.setScalar(PUSH_CART.scale);
+      cart.group.position.z = PUSH_CART.offset;
       model.group.add(cart.group);
       model.group.visible = false;
       this.scene.add(model.group);
@@ -285,6 +300,7 @@ export class WorldRenderer {
       mood.object.visible = false;
       this.customers.push({
         model,
+        walk: new CartWalk(model.group),
         cart,
         id: -1,
         previous: { x: 0, y: 0 },
@@ -385,16 +401,24 @@ export class WorldRenderer {
       checkout.cashier.animate(timeMs, false);
     }
     this.ensureCustomerVisuals(state.customers.length);
+    for (const id of this.regularGreetings.keys())
+      if (!state.customers.some((c) => c.id === id)) this.regularGreetings.delete(id);
     this.customers.forEach((visual, index) => {
       const customer = state.customers[index];
       visual.model.group.visible = Boolean(customer);
       visual.bubble.visible = false;
       visual.mood.object.visible = false;
+      if (visual.introduction) visual.introduction.object.visible = false;
       if (!customer) return;
+      const regular = customer.regularId
+        ? REGULARS.find((r) => r.id === customer.regularId)
+        : undefined;
       if (visual.id !== customer.id) {
         visual.id = customer.id;
+        visual.walk.reset();
         visual.previous = { x: customer.x, y: customer.y };
         visual.model.setColor(customer.color);
+        visual.model.setRegularApron(regular?.apron ?? null);
       }
       const customerDx = customer.x - visual.previous.x;
       const customerDy = customer.y - visual.previous.y;
@@ -406,8 +430,29 @@ export class WorldRenderer {
         visual.model.setFacing(1, 0);
       visual.model.setInventory({});
       visual.cart.setInventory(customer.basket);
-      visual.model.animate(timeMs + customer.id * 131, customerMoving);
+      visual.walk.step(Math.hypot(customerDx, customerDy) / 100, deltaMs);
+      visual.model.animate(timeMs + customer.id * 131, customerMoving, visual.walk.usingClip);
       visual.previous = { x: customer.x, y: customer.y };
+      if (regular) {
+        if (
+          !this.regularGreetings.has(customer.id) &&
+          customer.state === 'ENTERING' &&
+          Math.hypot(customer.x - GAME_CONFIG.entrance.x, customer.y - GAME_CONFIG.entrance.y) < 65
+        )
+          this.regularGreetings.set(customer.id, timeMs + 2600);
+        if ((this.regularGreetings.get(customer.id) ?? -1) > timeMs) {
+          visual.introduction ??= label(visual.model.group, '', 1.6, 0.22, {
+            id: `customer:${index}:regular-intro`,
+            kind: 'status',
+            mount: 'billboard',
+            foreground: '#fff9e9',
+            background: '#28664f',
+          });
+          visual.introduction.setText(`${regular.name} · ${regular.badge}`);
+          visual.introduction.object.position.set(0, 1.52, 0);
+          visual.introduction.object.visible = true;
+        }
+      }
       const emoji = customerEmoji(state, customer);
       visual.mood.object.visible = Boolean(emoji);
       visual.mood.object.position.copy(toWorld(customer, 0.91));
@@ -573,16 +618,21 @@ export class WorldRenderer {
 
   showEvent(event: GameEvent): void {
     if (!this.lastState) return;
-    const product = [...PRODUCTS]
-      .sort((a, b) => b.name.length - a.name.length)
-      .find((entry) => event.text.toLowerCase().includes(entry.name.toLowerCase()));
-    if ((event.type === 'harvest' || event.type === 'stock') && product) {
-      const group = createProduce(product.id);
+    if (event.handoff) {
+      const { actor, product, action } = event.handoff;
+      const index = this.lastState.workers.findIndex((w) => w.id === actor);
+      const person = actor === 'player' ? this.player : this.workers[index]?.model;
+      const position = actor === 'player' ? this.lastState.player : this.lastState.workers[index];
+      if (!position || !person) return;
+      const spot = event.handoff.station ?? event;
+      person.setFacing(spot.x - position.x, spot.y - position.y);
+      person.reach(action);
+      const group = createProduce(product);
       group.scale.setScalar(1.3);
-      const from =
-        event.type === 'harvest' ? toWorld(event, 0.4) : toWorld(this.lastState.player, 1.15);
-      const to =
-        event.type === 'harvest' ? toWorld(this.lastState.player, 1.2) : toWorld(event, 0.72);
+      const station = toWorld(spot, event.type === 'harvest' ? 0.45 : 0.72),
+        hand = toWorld(position, 0.42);
+      const from = action === 'take' ? station : hand,
+        to = action === 'take' ? hand : station;
       group.position.copy(from);
       this.scene.add(group);
       this.transfers.push({ group, from, to, elapsed: 0, duration: 350 });
@@ -604,12 +654,14 @@ export class WorldRenderer {
   }
 
   dispose(): void {
+    this.customers.forEach(({ walk }) => walk.dispose());
     const geometries = new Set<BufferGeometry>();
     const materials = new Set<Material>();
     const textures = new Set<Texture>();
     this.scene.traverse((object) => {
       if (!('material' in object)) return;
       const mesh = object as Mesh;
+      if (mesh instanceof InstancedMesh) mesh.dispose();
       if (mesh.geometry) geometries.add(mesh.geometry);
       const meshMaterials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       meshMaterials.forEach((entry) => {
@@ -833,9 +885,11 @@ export class WorldRenderer {
     bin.position.copy(toWorld(GAME_CONFIG.trash));
     bin.name = 'trash-bin';
     this.scene.add(bin);
-    block(bin, 0, 0.34, 0, 0.52, 0.62, 0.5, C.darkGreen);
-    block(bin, 0, 0.68, -0.015, 0.59, 0.1, 0.57, C.green);
-    block(bin, 0, 0.75, 0.03, 0.18, 0.08, 0.1, C.cream);
+    if (!addMarketProp(bin, 'bin')) {
+      block(bin, 0, 0.34, 0, 0.52, 0.62, 0.5, C.darkGreen);
+      block(bin, 0, 0.68, -0.015, 0.59, 0.1, 0.57, C.green);
+      block(bin, 0, 0.75, 0.03, 0.18, 0.08, 0.1, C.cream);
+    }
     block(bin, 0, 0.4, 0.258, 0.74, 0.4, 0.025, C.cream);
     const title = label(bin, 'TRASH', 0.68, 0.34, {
       id: 'trash:title',
@@ -862,7 +916,8 @@ export class WorldRenderer {
     block(entrance, 0, 0.035, 0.2, 1.65, 0.04, 0.7, C.green);
     [-0.9, 0.9].forEach((x) => block(entrance, x, 0.7, 0, 0.14, 1.4, 0.18, C.cream));
     block(entrance, 0, 1.45, 0, 1.94, 0.23, 0.22, C.green);
-    block(entrance, 0, 1.53, 0.22, 2.18, 0.12, 0.65, C.green);
+    if (!addMarketProp(entrance, 'awning'))
+      block(entrance, 0, 1.53, 0.22, 2.18, 0.12, 0.65, C.green);
     const sign = label(entrance, 'ENTRANCE / EXIT', 1.85, 0.25, {
       id: 'store:entrance',
       kind: 'area',
@@ -1027,32 +1082,41 @@ export class WorldRenderer {
     const car = new Group();
     car.name = `drive:${index}:car`;
     group.add(car);
-    block(car, 0, 0.32, 0, 1.05, 0.38, 0.62, 0xe7775e).userData.paint = true;
-    block(car, -0.05, 0.59, 0, 0.58, 0.25, 0.54, 0xe7775e).userData.paint = true;
-    [-0.28, 0.28].forEach((z) => {
-      block(car, -0.05, 0.61, z, 0.42, 0.16, 0.025, 0xb9e2df);
-      block(car, -0.06, 0.61, z, 0.025, 0.17, 0.03, 0x48534c);
-      [-0.35, 0.35].forEach((x) => {
-        const wheel = disc(car, x, 0.16, z * 1.14, 0.14, 0.08, 0x48534c);
-        wheel.rotation.x = Math.PI / 2;
+    const shell = addMarketProp(car, 'car_paint');
+    if (shell) {
+      shell.userData.paint = true;
+      shell.material = material(0xe7775e);
+      addMarketProp(car, 'car_trim');
+    } else {
+      block(car, 0, 0.32, 0, 1.05, 0.38, 0.62, 0xe7775e).userData.paint = true;
+      block(car, -0.05, 0.59, 0, 0.58, 0.25, 0.54, 0xe7775e).userData.paint = true;
+      [-0.28, 0.28].forEach((z) => {
+        block(car, -0.05, 0.61, z, 0.42, 0.16, 0.025, 0xb9e2df);
+        block(car, -0.06, 0.61, z, 0.025, 0.17, 0.03, 0x48534c);
+        [-0.35, 0.35].forEach((x) => {
+          const wheel = disc(car, x, 0.16, z * 1.14, 0.14, 0.08, 0x48534c);
+          wheel.rotation.x = Math.PI / 2;
+        });
       });
-    });
-    [-0.2, 0.2].forEach((z) => block(car, -0.53, 0.36, z, 0.025, 0.09, 0.12, C.cream));
-    block(car, 0.248, 0.6, 0, 0.025, 0.15, 0.42, 0xb9e2df);
-    block(car, -0.347, 0.6, 0, 0.025, 0.15, 0.42, 0xb9e2df);
+      [-0.2, 0.2].forEach((z) => block(car, -0.53, 0.36, z, 0.025, 0.09, 0.12, C.cream));
+      block(car, 0.248, 0.6, 0, 0.025, 0.15, 0.42, 0xb9e2df);
+      block(car, -0.347, 0.6, 0, 0.025, 0.15, 0.42, 0xb9e2df);
+    }
     const bike = new Group();
     bike.name = `drive:${index}:bike`;
     group.add(bike);
-    [-0.28, 0.28].forEach((x) => {
-      const wheel = disc(bike, x, 0.16, 0, 0.17, 0.045, 0x48534c);
-      wheel.rotation.x = Math.PI / 2;
-    });
-    block(bike, 0, 0.3, 0, 0.62, 0.08, 0.08, 0x5f9fc4);
-    block(bike, 0.12, 0.48, 0, 0.12, 0.34, 0.12, 0x5f9fc4);
-    block(bike, 0.08, 0.6, 0, 0.2, 0.27, 0.22, C.peach);
-    block(bike, -0.22, 0.48, 0, 0.045, 0.2, 0.27, 0x48534c);
-    sphere(bike, 0.08, 0.83, 0, 0.12, C.cream);
-    sphere(bike, 0.08, 0.9, 0, 0.125, 0x5f9fc4);
+    if (!addMarketProp(bike, 'bike')) {
+      [-0.28, 0.28].forEach((x) => {
+        const wheel = disc(bike, x, 0.16, 0, 0.17, 0.045, 0x48534c);
+        wheel.rotation.x = Math.PI / 2;
+      });
+      block(bike, 0, 0.3, 0, 0.62, 0.08, 0.08, 0x5f9fc4);
+      block(bike, 0.12, 0.48, 0, 0.12, 0.34, 0.12, 0x5f9fc4);
+      block(bike, 0.08, 0.6, 0, 0.2, 0.27, 0.22, C.peach);
+      block(bike, -0.22, 0.48, 0, 0.045, 0.2, 0.27, 0x48534c);
+      sphere(bike, 0.08, 0.83, 0, 0.12, C.cream);
+      sphere(bike, 0.08, 0.9, 0, 0.125, 0x5f9fc4);
+    }
     const board = new Group();
     board.name = `drive:${index}:order`;
     block(board, 0, 0, 0, 1.34, 0.67, 0.055, C.white);
@@ -1114,10 +1178,14 @@ export class WorldRenderer {
     ];
     roles.forEach((role, index) => {
       const x = index ? 0.58 : -0.58;
-      block(office, x, 0.4, 0, 0.83, 0.09, 0.55, C.wood);
-      [-0.31, 0.31].forEach((side) => block(office, x + side, 0.2, 0, 0.07, 0.38, 0.4, C.cream));
-      block(office, x, 0.6, -0.11, 0.33, 0.29, 0.045, role.color);
-      block(office, x, 0.6, -0.082, 0.25, 0.19, 0.015, 0xdbefd4);
+      const desk = addMarketProp(office, index ? 'desk_accountant' : 'desk_marketing');
+      if (desk) desk.position.x = x;
+      else {
+        block(office, x, 0.4, 0, 0.83, 0.09, 0.55, C.wood);
+        [-0.31, 0.31].forEach((side) => block(office, x + side, 0.2, 0, 0.07, 0.38, 0.4, C.cream));
+        block(office, x, 0.6, -0.11, 0.33, 0.29, 0.045, role.color);
+        block(office, x, 0.6, -0.082, 0.25, 0.19, 0.015, 0xdbefd4);
+      }
       const title = label(office, role.title, role.upgrade === 'accountant' ? 1.24 : 1.14, 0.26, {
         id: `office:${role.upgrade}:title`,
         kind: 'object',
@@ -1148,13 +1216,15 @@ export class WorldRenderer {
     counter.name = second ? 'second-checkout' : 'checkout-counter';
     counter.position.copy(toWorld(second ? GAME_CONFIG.secondCheckout : GAME_CONFIG.checkout));
     this.scene.add(counter);
-    block(counter, 0, 0.35, -0.08, 0.68, 0.69, 0.84, C.green);
-    block(counter, 0, 0.74, -0.08, 0.81, 0.12, 0.95, C.cream);
-    block(counter, 0, 0.812, 0.11, 0.56, 0.035, 0.43, 0x656e61);
-    block(counter, 0.1, 0.84, -0.29, 0.37, 0.09, 0.27, C.peach);
-    const screen = block(counter, 0.13, 0.985, -0.33, 0.09, 0.25, 0.27, 0x286856);
-    screen.rotation.z = -0.2;
-    block(counter, 0.185, 0.99, -0.33, 0.015, 0.16, 0.2, 0xb0f0bd);
+    if (!addMarketProp(counter, 'till')) {
+      block(counter, 0, 0.35, -0.08, 0.68, 0.69, 0.84, C.green);
+      block(counter, 0, 0.74, -0.08, 0.81, 0.12, 0.95, C.cream);
+      block(counter, 0, 0.812, 0.11, 0.56, 0.035, 0.43, 0x656e61);
+      block(counter, 0.1, 0.84, -0.29, 0.37, 0.09, 0.27, C.peach);
+      const screen = block(counter, 0.13, 0.985, -0.33, 0.09, 0.25, 0.27, 0x286856);
+      screen.rotation.z = -0.2;
+      block(counter, 0.185, 0.99, -0.33, 0.015, 0.16, 0.2, 0xb0f0bd);
+    }
     block(counter, 0, 1.22, -0.2, 1.14, 0.32, 0.07, C.green);
     const checkoutLabel = label(counter, 'CHECKOUT', 1, 0.27, {
       id: second ? 'checkout:second:title' : 'checkout:title',

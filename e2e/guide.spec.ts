@@ -7,14 +7,32 @@ for (const width of [1440, 390]) {
       page,
     }) => {
       await page.setViewportSize({ width, height: 900 });
-      await page.goto('./?debug=true');
+      await page.route('https://fonts.googleapis.com/**', (r) => r.abort());
+      await page.goto('./?debug=true', { waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => window.__MARKET__?.ready);
-      await page.evaluate((lowPower) => {
-        const { engine } = window.__MARKET__;
-        engine.state.tutorialStep = 4;
-        engine.state.player = { x: 1010, y: 810 };
-        engine.state.lowPower = lowPower;
-      }, lowPower);
+      await page.evaluate(
+        ({ lowPower, queueStart }) => {
+          const { engine } = window.__MARKET__;
+          engine.state.tutorialStep = 4;
+          engine.state.customers = [
+            {
+              id: 900,
+              ...queueStart,
+              state: 'QUEUEING',
+              targetProduct: 'tomato',
+              targetQuantity: 1,
+              basket: { ...engine.state.inventory, tomato: 1 },
+              color: 0x88aa66,
+              waitTime: 0,
+              queueOrder: 1,
+              path: [],
+            },
+          ];
+          engine.state.player = { x: 1010, y: 810 };
+          engine.state.lowPower = lowPower;
+        },
+        { lowPower, queueStart: GAME_CONFIG.queueStart },
+      );
       await expect(page.locator('#goal-guide small')).toHaveText('Serve here');
       await page.locator('#game-canvas').focus();
       await page.keyboard.down('ArrowLeft');
