@@ -32,6 +32,15 @@ export function icon(name: string, size = 20): string {
 
 export function productIcon(id: string): string {
   const drawings: Record<string, string> = {
+    strawberry:
+      '<path d="M3 10C3 4 8 5 12 6c4-1 9-2 9 4 0 5-6 12-9 12S3 15 3 10Z" fill="#cc495c"/><path d="m12 8-6-4 5 1 1-4 2 4 4-1-4 4Z" fill="#548349"/><path d="m7 11 1 1m6-1 1 1m-5 3 1 1" stroke="#fff1bf" stroke-width="1.7"/>',
+    wheat:
+      '<path d="M8 22 15 3" stroke="#997c36" stroke-width="2"/><g fill="#edc657"><ellipse cx="10" cy="15" rx="3" ry="5" transform="rotate(-35 10 15)"/><ellipse cx="15" cy="14" rx="3" ry="5" transform="rotate(46 15 14)"/><ellipse cx="11" cy="8" rx="2.5" ry="4.5" transform="rotate(-24 11 8)"/><ellipse cx="16" cy="6" rx="2.5" ry="4.5" transform="rotate(32 16 6)"/></g>',
+    jam: '<rect x="4" y="6" width="16" height="16" rx="5" fill="#ab405f"/><rect x="4" y="3" width="16" height="5" rx="2" fill="#dcb783"/><rect x="6" y="11" width="12" height="7" rx="2" fill="#fff1ce"/><path d="M9 13q3-2 6 0-1 4-3 4t-3-4" fill="#c4485d"/>',
+    bread:
+      '<path d="M2 15C2 8 7 4 14 5s10 7 8 12c-2 4-20 6-20-2Z" fill="#c9874c"/><path d="m7 9 3 4m3-6 3 4m2-3 2 3" stroke="#f6daa4" stroke-width="2" stroke-linecap="round"/>',
+    carrotJuice:
+      '<path d="M9 4h6v3l3 3v10q0 2-2 2H8q-2 0-2-2V10l3-3Z" fill="#eb943e"/><rect x="8" y="2" width="8" height="4" rx="1" fill="#548363"/><rect x="6" y="12" width="12" height="6" fill="#fff1cf"/><path d="m10 17 2-4 2 1Z" fill="#d57a34"/>',
     grilledCorn:
       '<ellipse cx="12" cy="16" rx="11" ry="5" fill="#f9edcf"/><rect x="3" y="6" width="18" height="10" rx="5" fill="#e4b441"/><path d="m7 8-1 5m7-5-1 5m6-5-1 5" stroke="#89552d" stroke-width="2"/>',
     tomato:

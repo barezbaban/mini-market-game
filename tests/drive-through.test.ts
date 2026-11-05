@@ -46,6 +46,11 @@ describe('drive-through service', () => {
       coffeeMachine: 1,
       dairyMachine: 1,
       driveThrough: 1,
+      strawberryBeds: 1,
+      wheatPlots: 1,
+      jamKettle: 1,
+      breadOven: 1,
+      juicePress: 1,
     });
     applyUpgradeEffects(engine.state);
     const seen = new Set<string>();

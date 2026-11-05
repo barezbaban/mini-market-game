@@ -85,6 +85,11 @@ function establishStore(marketing: number, speed: number, capacity: number): Gam
     coffeeMachine: 4,
     dairyMachine: 4,
     grillMachine: 4,
+    strawberryBeds: 2,
+    wheatPlots: 2,
+    jamKettle: 2,
+    breadOven: 2,
+    juicePress: 2,
     helpers: 3,
     helperSpeed: speed,
     helperCapacity: capacity,
@@ -213,7 +218,7 @@ describe('expanded store endurance through real production', () => {
         engine.drainEvents();
       }
       expect(reloaded).toBe(true);
-      expect([...everStocked].sort(), 'helpers eventually stock all ten products').toEqual(
+      expect([...everStocked].sort(), 'helpers eventually stock every product').toEqual(
         PRODUCTS.map(({ id }) => id).sort(),
       );
       expect(

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { emptyItems } from '../src/game/data/products';
 import type { WorldRenderer } from '../src/game/rendering/WorldRenderer';
 import type { GameEngine } from '../src/game/systems/GameEngine';
 import type { SaveSystem } from '../src/game/systems/SaveSystem';
@@ -362,7 +363,7 @@ test('drive-through vehicle shows its item list and accepts one item at a time',
 }) => {
   await openGame(page);
   await page.evaluate(
-    ({ playerSpot, vehicleSpot }) => {
+    ({ playerSpot, vehicleSpot, empty }) => {
       const { engine, world } = window.__MARKET__;
       window.__MARKET__.setPaused(true);
       engine.economy.earn(2_000);
@@ -375,30 +376,8 @@ test('drive-through vehicle shows its item list and accepts one item at a time',
           state: 'WAITING_FOR_ITEMS',
           ...vehicleSpot,
           color: 0xe7775e,
-          requested: {
-            tomato: 2,
-            egg: 1,
-            corn: 0,
-            coffee: 0,
-            carrot: 0,
-            milk: 0,
-            tomatoPaste: 0,
-            groundCoffee: 0,
-            cheese: 0,
-            grilledCorn: 0,
-          },
-          delivered: {
-            tomato: 0,
-            egg: 0,
-            corn: 0,
-            coffee: 0,
-            carrot: 0,
-            milk: 0,
-            tomatoPaste: 0,
-            groundCoffee: 0,
-            cheese: 0,
-            grilledCorn: 0,
-          },
+          requested: { ...empty, tomato: 2, egg: 1 },
+          delivered: { ...empty },
         },
       ];
       engine.state.inventory.tomato = 2;
@@ -409,6 +388,7 @@ test('drive-through vehicle shows its item list and accepts one item at a time',
     {
       playerSpot: GAME_CONFIG.driveThroughPlayerSpot,
       vehicleSpot: GAME_CONFIG.driveThroughVehicleSpot,
+      empty: emptyItems(),
     },
   );
 

@@ -22,6 +22,11 @@ function fullStore() {
     coffeeMachine: 1,
     dairyMachine: 1,
     grillMachine: 1,
+    strawberryBeds: 4,
+    wheatPlots: 4,
+    jamKettle: 1,
+    breadOven: 1,
+    juicePress: 1,
     helpers: 3,
     tomatoPlots: 4,
     eggPlots: 4,
@@ -63,9 +68,9 @@ describe('compact store layout', () => {
     expect(state.totalServed).toBeGreaterThan(30);
   });
 
-  it('fits every department in two shelf rows and a compact three-column farmyard', () => {
-    expect(new Set(PRODUCTS.map((p) => p.shelf.y)).size).toBe(2);
-    expect(new Set(FARM_PRODUCTS.map((p) => p.farm.x)).size).toBe(3);
+  it('fits the optional aisle and crop strips inside the compact store', () => {
+    expect(new Set(PRODUCTS.map((p) => p.shelf.y)).size).toBe(3);
+    expect(new Set(FARM_PRODUCTS.map((p) => p.farm.x)).size).toBe(5);
     expect(new Set(GAME_CONFIG.areaBounds).size).toBe(1);
     expect(GAME_CONFIG.width).toBeLessThanOrEqual(1500);
     expect(Math.abs(GAME_CONFIG.secondCheckout.x - GAME_CONFIG.checkout.x)).toBeLessThan(300);
@@ -85,6 +90,9 @@ describe('compact store layout', () => {
       GAME_CONFIG.driveCash,
       GAME_CONFIG.driveThroughPlayerSpot,
       ...PRODUCTS.map((p) => ({ x: p.shelf.x, y: p.shelf.y + 65 })),
+      ...PRODUCTS.flatMap((p) =>
+        [0, 1, 2].map((slot) => ({ x: p.shelf.x, y: p.shelf.y + 75 + slot * 34 })),
+      ),
       ...FARM_PRODUCTS.flatMap((p) =>
         Array.from({ length: p.maxPlots }, (_, i) => plotPosition(p.id, i)),
       ),

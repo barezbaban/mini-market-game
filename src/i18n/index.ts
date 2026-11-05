@@ -1,7 +1,10 @@
 import { sorani } from './ckb';
 import { soraniPatterns, textArguments } from './patterns';
+import { arabic, arabicPatterns } from './ar';
 
-export type Language = 'en' | 'ckb';
+export type Language = 'en' | 'ckb' | 'ar';
+export const isLanguage = (value: unknown): value is Language =>
+  value === 'en' || value === 'ckb' || value === 'ar';
 export const LANGUAGE_KEY = 'kurdmart.language';
 let language: Language = 'en';
 const cache = new Map<string, string>();
@@ -13,10 +16,10 @@ export function setLanguage(value: Language): void {
 export function readLanguage(search = ''): Language {
   // A shared language link applies only to this URL, not the player's saved preference.
   const requested = new URLSearchParams(search).get('lang');
-  if (requested === 'ckb' || requested === 'en') return requested;
+  if (isLanguage(requested)) return requested;
   try {
     const saved = localStorage.getItem(LANGUAGE_KEY);
-    if (saved === 'en' || saved === 'ckb') return saved;
+    if (isLanguage(saved)) return saved;
   } catch {
     /* Guest play also works without storage permission. */
   }
@@ -24,7 +27,7 @@ export function readLanguage(search = ''): Language {
     const preferred = navigator.languages?.length ? navigator.languages : [navigator.language];
     for (const locale of preferred) {
       const base = locale?.toLowerCase().split('-')[0];
-      if (base === 'ckb' || base === 'en') return base;
+      if (isLanguage(base)) return base;
     }
   }
   return 'en';
@@ -39,32 +42,46 @@ export function storeLanguage(value: Language): boolean {
 }
 
 const normalize = (value: string): string => value.trim().replace(/\s+/g, ' ').toLowerCase();
-const dictionary = new Map(Object.entries(sorani).map(([key, value]) => [normalize(key), value]));
+const buildDictionary = (entries: Record<string, string>) =>
+  new Map(Object.entries(entries).map(([key, value]) => [normalize(key), value]));
+const dictionaries = { ckb: buildDictionary(sorani), ar: buildDictionary(arabic) };
+const compactUnits: Record<Exclude<Language, 'en'>, Record<string, string>> = {
+  ar: { K: 'ألف', M: 'مليون', B: 'مليار', T: 'تريليون' },
+  ckb: { K: 'هەزار', M: 'ملیۆن', B: 'ملیار', T: 'تریلیۆن' },
+};
 // Prefer complete sentences to short unit patterns ("Market level …" before "… level …").
-const patterns = [...soraniPatterns]
-  .sort((a, b) => b[0].replace(/\{\d+\}/g, '').length - a[0].replace(/\{\d+\}/g, '').length)
-  .map(([source, translated]) => {
-    const indices: number[] = [];
-    const escaped = source
-      .split(/(\{\d+\})/)
-      .map((piece) => {
-        if (/^\{\d+\}$/.test(piece)) {
-          const index = Number(piece.slice(1, -1));
-          indices.push(index);
-          return textArguments[source]?.includes(index)
-            ? '(.*?)'
-            : '([+×-]?[\\p{Nd}][\\p{Nd}.,/:\\s\\u066b\\u066c]*(?:[KMBT])?)';
-        }
-        return piece.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
-      })
-      .join('');
-    return { match: new RegExp(`^${escaped}$`, 'iu'), translated, indices };
-  });
+const compilePatterns = (entries: Array<[string, string]>) =>
+  [...entries]
+    .sort((a, b) => b[0].replace(/\{\d+\}/g, '').length - a[0].replace(/\{\d+\}/g, '').length)
+    .map(([source, translated]) => {
+      const indices: number[] = [];
+      const escaped = source
+        .split(/(\{\d+\})/)
+        .map((piece) => {
+          if (/^\{\d+\}$/.test(piece)) {
+            const index = Number(piece.slice(1, -1));
+            indices.push(index);
+            return textArguments[source]?.includes(index)
+              ? '(.*?)'
+              : '([+×-]?[\\p{Nd}][\\p{Nd}.,/:\\s\\u066b\\u066c]*(?:[KMBT])?)';
+          }
+          return piece.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+        })
+        .join('');
+      return { match: new RegExp(`^${escaped}$`, 'iu'), translated, indices };
+    });
+const phrasePatterns = {
+  ckb: compilePatterns(soraniPatterns),
+  ar: compilePatterns(arabicPatterns),
+};
 
 /** Translate only presentation copy. Product IDs, event payloads and save data stay stable. */
 export function t(value: string | null | undefined): string {
   if (value == null) return '';
   if (language === 'en' || !value) return value;
+  const locale = language;
+  const dictionary = dictionaries[locale];
+  const patterns = phrasePatterns[locale];
   const cached = cache.get(value);
   if (cached !== undefined) return cached;
   const protectedValues: string[] = [];
@@ -77,10 +94,10 @@ export function t(value: string | null | undefined): string {
       const counted = /^([+×]?[\p{Nd}.,/\u066b\u066c]+)\s+(.+)$/u.exec(trimmed);
       if (counted && dictionary.has(normalize(counted[2])))
         return `${counted[1]} ${dictionary.get(normalize(counted[2]))}`;
-      if (/^\d+(?:\.\d+)?s$/.test(trimmed)) return `${trimmed.slice(0, -1)} چرکە`;
+      if (/^\d+(?:\.\d+)?s$/.test(trimmed))
+        return `${trimmed.slice(0, -1)} ${language === 'ar' ? 'ث' : 'چرکە'}`;
       const compact = /^(\$?[\d.,]+)([KMBT])$/.exec(trimmed);
-      if (compact)
-        return `${compact[1]} ${{ K: 'هەزار', M: 'ملیۆن', B: 'ملیار', T: 'تریلیۆن' }[compact[2]]}`;
+      if (compact) return `${compact[1]} ${compactUnits[locale][compact[2]]}`;
       for (const { match, translated, indices } of patterns) {
         const found = match.exec(trimmed);
         if (!found) continue;
@@ -91,13 +108,19 @@ export function t(value: string | null | undefined): string {
           return String.fromCharCode(0xe100 + protectedValues.length - 1);
         });
       }
-      // These separators join complete UI phrases, not fragments of Kurdish grammar.
+      // These separators join complete UI phrases and lists.
       for (const separator of [' · ', ' → ', ' + ', ' and ', '\n']) {
         if (trimmed.includes(separator))
           return trimmed
             .split(separator)
             .map((part) => translate(part, depth + 1))
-            .join(separator === ' and ' ? ' و ' : separator);
+            .join(
+              separator === ' and '
+                ? ' و '
+                : language === 'ar' && separator === ' → '
+                  ? ' ← '
+                  : separator,
+            );
       }
     }
     return trimmed;
@@ -109,6 +132,9 @@ export function t(value: string | null | undefined): string {
     )
     // Spaces split Arabic-number runs in bidi. A contiguous ratio keeps current/max order.
     .replace(/([٠-٩])\s*\/\s*([٠-٩])/g, '$1/$2')
+    .replace(/([٠-٩])([.,])(?=[٠-٩])/g, (match, digit: string, separator: string) =>
+      locale === 'ar' ? digit + (separator === '.' ? '٫' : '٬') : match,
+    )
     .replace(
       /[\ue100-\ue1ff]/g,
       (marker) => protectedValues[marker.charCodeAt(0) - 0xe100] ?? marker,
@@ -147,10 +173,10 @@ export function html(markup: string): string {
 export async function initializeLanguage(): Promise<void> {
   setLanguage(readLanguage(window.location.search));
   document.documentElement.lang = language;
-  document.documentElement.dir = language === 'ckb' ? 'rtl' : 'ltr';
+  document.documentElement.dir = language === 'en' ? 'ltr' : 'rtl';
   document.title = t('Mini Market Manager');
-  if (language === 'ckb') {
-    // Font readiness matters for canvas labels: draw joined Kurdish glyphs on the first frame.
+  if (language !== 'en') {
+    // Canvas labels need the Arabic-script font before their first draw.
     await document.fonts.load('700 20px "Noto Sans Arabic"').catch(() => undefined);
   }
 }
@@ -160,5 +186,7 @@ export function errorText(
   message: string,
   fallback = 'The service could not complete the request. Please try again.',
 ): string {
-  return t(language === 'ckb' && !dictionary.has(normalize(message)) ? fallback : message);
+  return t(
+    language !== 'en' && !dictionaries[language].has(normalize(message)) ? fallback : message,
+  );
 }

@@ -9,7 +9,7 @@ import {
 } from 'three';
 import type { Scene } from 'three';
 import { GAME_CONFIG } from '../../data/gameConfig';
-import { PRODUCTS, plotCount, plotPosition } from '../../data/products';
+import { PRODUCTS, plotCount, plotPosition, productById, shelfBuilt } from '../../data/products';
 import { MACHINES, machineDuration } from '../../data/machines';
 import { SHELF_COLUMNS, shelfRows, upgradeById } from '../../data/upgrades';
 import {
@@ -83,13 +83,14 @@ interface MachineVisual {
 export class StoreDisplays {
   private readonly products = new Map<ProductId, ProductVisual>();
   private readonly machines = new Map<MachineId, MachineVisual>();
-  private readonly yards: { floor: Group; area: number }[] = [];
+  private readonly yards: { floor: Group; product: ProductDefinition }[] = [];
   private compactLabels = false;
 
   constructor(private readonly scene: Scene) {
-    this.createFarmYard();
-    PRODUCTS.forEach((product) => this.createProduct(product));
-    MACHINES.forEach((machine) => this.createMachine(machine));
+    PRODUCTS.filter((p) => !p.buildOnPurchase).forEach((p) => this.createProduct(p));
+    MACHINES.filter((m) => !productById(m.output)!.buildOnPurchase).forEach((m) =>
+      this.createMachine(m),
+    );
   }
 
   setCompactLabels(compact: boolean): void {
@@ -98,12 +99,16 @@ export class StoreDisplays {
 
   update(state: GameState, time: number): void {
     const playerHasRoom = itemCount(state.inventory) < state.inventoryCapacity;
-    this.yards.forEach(({ floor, area }) => {
-      floor.visible = state.upgrades.expansion >= area;
+    this.yards.forEach(({ floor, product }) => {
+      floor.visible = shelfBuilt(state, product);
     });
     PRODUCTS.forEach((product) => {
+      const areaOpen = shelfBuilt(state, product);
+      if (!this.products.has(product.id)) {
+        if (!areaOpen) return;
+        this.createProduct(product);
+      }
       const visual = this.products.get(product.id)!;
-      const areaOpen = state.upgrades.expansion >= product.area;
       const unlocked = state.unlockedProducts.includes(product.id);
       visual.shelf.visible = areaOpen;
       if (areaOpen) this.resizeShelf(visual, product, shelfRows(state.upgrades.shelf));
@@ -158,10 +163,14 @@ export class StoreDisplays {
       });
     });
     MACHINES.forEach((machine) => {
-      const visual = this.machines.get(machine.id)!;
       const level = state.upgrades[machine.upgrade];
+      if (!this.machines.has(machine.id)) {
+        if (!level) return;
+        this.createMachine(machine);
+      }
+      const visual = this.machines.get(machine.id)!;
       const data = state.machines[machine.id];
-      visual.root.visible = state.upgrades.expansion >= machine.area;
+      visual.root.visible = shelfBuilt(state, productById(machine.output)!);
       this.updateStand(
         visual.stand,
         state.upgrades.expansion >= machine.area &&
@@ -280,34 +289,46 @@ export class StoreDisplays {
     let farmSign: Group | undefined;
     const plots: PlotVisual[] = [];
     if (product.kind === 'farm') {
-      const farmNames: Record<ProductId, string> = {
+      this.createFarmYard(product);
+      const farmNames: Partial<Record<ProductId, string>> = {
         tomato: 'TOMATO FARM',
         egg: 'CHICKEN COOP',
         corn: 'CORN FIELD',
         coffee: 'COFFEE GROVE',
         carrot: 'CARROT PATCH',
         milk: 'DAIRY COWS',
-        tomatoPaste: '',
-        groundCoffee: '',
-        cheese: '',
-        grilledCorn: '',
+        strawberry: 'STRAWBERRY BEDS',
+        wheat: 'WHEAT FIELD',
       };
       farmSign = new Group();
       farmSign.name = `farm-sign-${product.id}`;
+      // Keep headers out of the two machine aisles. Narrow beds have room for
+      // their sign at the far end; wider farmyards use the open side of the yard.
+      const strip = product.id === 'strawberry' || product.id === 'wheat';
       farmSign.position.copy(
-        point(product.farm.x + (product.id === 'carrot' ? 30 : 0), product.farm.y - 68),
+        strip
+          ? point(product.farm.x, plotPosition(product.id, product.maxPlots - 1).y + 70)
+          : product.id === 'carrot'
+            ? point(product.farm.x, product.farm.y + 145)
+            : point(product.farm.x + 115, product.farm.y + 40),
       );
       this.scene.add(farmSign);
       const signWidth = product.id === 'carrot' ? 1.45 : 1.25;
       block(farmSign, 0, 0.51, 0, signWidth, 0.24, 0.055, C.green);
       block(farmSign, 0, 0.25, 0, 0.045, 0.42, 0.045, C.green);
-      const farmTitle = label(farmSign, farmNames[product.id], signWidth - 0.12, 0.16, {
-        id: `farm:${product.id}:title`,
-        kind: 'area',
-        mount: 'surface',
-        foreground: '#ffffff',
-        border: false,
-      });
+      const farmTitle = label(
+        farmSign,
+        farmNames[product.id] ?? product.plural,
+        signWidth - 0.12,
+        0.16,
+        {
+          id: `farm:${product.id}:title`,
+          kind: 'area',
+          mount: 'surface',
+          foreground: '#ffffff',
+          border: false,
+        },
+      );
       farmTitle.object.position.set(0, 0.51, 0.031);
       for (let index = 0; index < product.maxPlots; index += 1)
         plots.push(this.createPlot(product, index));
@@ -543,7 +564,9 @@ export class StoreDisplays {
           ? 'CANNERY'
           : machine.id === 'coffee'
             ? 'GRINDER'
-            : 'DAIRY';
+            : machine.id === 'dairy'
+              ? 'DAIRY'
+              : machine.name.toUpperCase();
     const title = label(body, machineTitle, 1.04, 0.27, {
       id: `machine:${machine.id}:title`,
       kind: 'object',
@@ -596,14 +619,13 @@ export class StoreDisplays {
     });
   }
 
-  private createFarmYard(): void {
-    for (const product of PRODUCTS.filter((entry) => entry.kind === 'farm')) {
-      const floor = new Group();
-      floor.name = 'farm-yard-' + product.id;
-      floor.position.copy(point(product.farm.x, product.farm.y + 45));
-      this.scene.add(floor);
-      block(floor, 0, -0.014, 0, 3.5, 0.045, 2.22, 0xa8d887);
-      this.yards.push({ floor, area: product.area });
-    }
+  private createFarmYard(product: ProductDefinition): void {
+    const floor = new Group();
+    floor.name = 'farm-yard-' + product.id;
+    const strip = product.id === 'strawberry' || product.id === 'wheat';
+    floor.position.copy(point(product.farm.x, product.farm.y + (strip ? 129 : 45)));
+    this.scene.add(floor);
+    block(floor, 0, -0.014, 0, strip ? 0.9 : 3.5, 0.045, strip ? 3.45 : 2.22, 0xa8d887);
+    this.yards.push({ floor, product });
   }
 }

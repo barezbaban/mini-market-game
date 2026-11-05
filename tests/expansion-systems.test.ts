@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GAME_CONFIG } from '../src/game/data/gameConfig';
 import { MACHINES } from '../src/game/data/machines';
+import { worldSolids, crossesRect } from '../src/game/data/worldLayout';
 import { FARM_PRODUCTS, PRODUCTS, emptyItems, plotCount } from '../src/game/data/products';
 import { upgradeCost } from '../src/game/data/upgrades';
 import { EconomySystem } from '../src/game/systems/EconomySystem';
@@ -444,6 +445,7 @@ describe('autonomous helper flow', () => {
     const sold = new Set<ProductId>();
     let paid = 0;
     let enteredSolid = false;
+    const furniture = worldSolids(state);
     for (let time = 0; time < 300_000; time += 50) {
       const before = new Map(
         state.customers.map((customer) => [
@@ -454,17 +456,7 @@ describe('autonomous helper flow', () => {
       engine.update(50);
       collectTakings(engine);
       for (const customer of state.customers) {
-        enteredSolid ||=
-          (customer.x > 863 + 1e-5 &&
-            customer.x < 937 - 1e-5 &&
-            customer.y > 172 + 1e-5 &&
-            customer.y < 260 - 1e-5) ||
-          PRODUCTS.some(
-            (product) =>
-              Math.abs(customer.x - product.shelf.x) < 78 - 1e-5 &&
-              customer.y > product.shelf.y - 43 + 1e-5 &&
-              customer.y < product.shelf.y + 44 - 1e-5,
-          );
+        enteredSolid ||= furniture.some((rect) => crossesRect(customer, customer, rect));
         const previous = before.get(customer.id);
         if (!previous || previous.state === 'LEAVING' || customer.state !== 'LEAVING') continue;
         for (const product of PRODUCTS) {

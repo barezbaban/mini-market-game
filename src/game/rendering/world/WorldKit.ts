@@ -204,18 +204,18 @@ export function label(
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     context.fillStyle = foreground;
-    const kurdish = getLanguage() === 'ckb';
-    const family = kurdish
+    const rtl = getLanguage() !== 'en';
+    const family = rtl
       ? '"Noto Sans Arabic", sans-serif'
       : '"Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif';
-    context.direction = kurdish && /[\u0621-\u064a\u0671-\u06d3]/.test(next) ? 'rtl' : 'ltr';
-    let size = options.fontSize ?? Math.round(canvas.height * (kurdish ? 0.52 : 0.62));
+    context.direction = rtl && /[\u0621-\u064a\u0671-\u06d3]/.test(next) ? 'rtl' : 'ltr';
+    let size = options.fontSize ?? Math.round(canvas.height * (rtl ? 0.52 : 0.62));
     const maxWidth = canvas.width - canvas.height * 0.32;
     context.font = `800 ${size}px ${family}`;
     const measured = context.measureText(next).width;
     if (measured > maxWidth) {
       size = Math.max(
-        kurdish ? 1 : Math.round(canvas.height * 0.36),
+        rtl ? 1 : Math.round(canvas.height * 0.36),
         Math.floor((size * maxWidth) / measured),
       );
       context.font = `800 ${size}px ${family}`;

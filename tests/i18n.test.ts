@@ -49,7 +49,7 @@ describe('Sorani presentation', () => {
   it('chooses the first supported browser language and does not assume every Kurdish dialect is Sorani', () => {
     vi.stubGlobal('localStorage', { getItem: () => null });
     vi.stubGlobal('navigator', { language: 'ar-IQ', languages: ['ar-IQ', 'ckb-IQ', 'en'] });
-    expect(readLanguage()).toBe('ckb');
+    expect(readLanguage()).toBe('ar');
     vi.stubGlobal('navigator', { language: 'en-GB', languages: ['en-GB', 'ckb-IQ'] });
     expect(readLanguage()).toBe('en');
     vi.stubGlobal('navigator', { language: 'ku-Latn' });

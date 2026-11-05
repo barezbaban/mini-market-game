@@ -120,7 +120,7 @@ export class AccountController {
       <button class="auth-guest-link" id="auth-guest">Play as guest on this device</button>`);
     const status = this.dialog.querySelector<HTMLElement>('#auth-message')!;
     status.textContent = t(message);
-    if (getLanguage() === 'ckb') {
+    if (getLanguage() !== 'en') {
       this.dialog.querySelectorAll<HTMLInputElement>('#auth-form input').forEach((input) => {
         input.dir = input.name === 'displayName' ? 'auto' : 'ltr';
         input.addEventListener('input', () => input.setCustomValidity(''));

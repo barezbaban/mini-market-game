@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GAME_CONFIG } from '../src/game/data/gameConfig';
 import { MACHINES } from '../src/game/data/machines';
 import { PRODUCTS, emptyItems, plotCount, plotPosition } from '../src/game/data/products';
-import { checkoutDuration, playerLevel, upgradeCost } from '../src/game/data/upgrades';
+import { checkoutDuration, playerLevel, upgradeCost, xpForLevel } from '../src/game/data/upgrades';
 import { GameEngine } from '../src/game/systems/GameEngine';
 import { createInitialState, validateSave } from '../src/game/systems/SaveSystem';
 import { ProgressionSystem } from '../src/game/systems/ProgressionSystem';
@@ -22,6 +22,39 @@ function establishedEngine(): GameEngine {
 }
 
 describe('expanded market progression and compatibility', () => {
+  it('opens the specialty aisle in stages and resumes a kettle batch from a saved market', () => {
+    const engine = establishedEngine();
+    engine.state.money = 10000;
+    engine.state.xp = xpForLevel(6);
+    expect(engine.purchaseUpgrade('expansion')).toBe(true);
+    expect(engine.purchaseUpgrade('expansion')).toBe(true);
+    expect(engine.purchaseUpgrade('strawberryBeds')).toBe(false);
+    engine.state.xp = xpForLevel(9);
+    expect(engine.purchaseUpgrade('jamKettle')).toBe(false);
+    expect(engine.purchaseUpgrade('strawberryBeds')).toBe(true);
+    expect(plotCount(engine.state, 'strawberry')).toBe(1);
+    expect(engine.purchaseUpgrade('jamKettle')).toBe(true);
+    expect(engine.purchaseUpgrade('expansion')).toBe(true);
+    expect(engine.purchaseUpgrade('wheatPlots')).toBe(false);
+    engine.state.xp = xpForLevel(13);
+    expect(engine.purchaseUpgrade('breadOven')).toBe(false);
+    expect(engine.purchaseUpgrade('wheatPlots')).toBe(true);
+    expect(engine.purchaseUpgrade('breadOven')).toBe(true);
+    expect(engine.purchaseUpgrade('juicePress')).toBe(false);
+    engine.state.xp = xpForLevel(15);
+    expect(engine.purchaseUpgrade('juicePress')).toBe(true);
+    engine.farming.update(6000);
+    expect(engine.inventory.harvest('strawberry', 2)).toBe(2);
+    expect(engine.machines.supply('kettle', engine.state.inventory, 2)).toBe(2);
+    engine.machines.update(3100);
+    const resumed = new GameEngine(validateSave(engine.snapshot())!);
+    resumed.machines.update(4899);
+    expect(resumed.state.machines.kettle.output).toBe(0);
+    resumed.machines.update(1);
+    expect(resumed.machines.collect('kettle', resumed.state.inventory, 8, 2)).toBe(2);
+    expect(resumed.inventory.stock('jam', 2)).toBe(2);
+    expect(resumed.inventory.takeFromShelf('jam', 2)).toBe(2);
+  });
   it('keeps the player movable when a machine is built under their feet', () => {
     const engine = establishedEngine();
     engine.economy.earn(10000);
@@ -30,6 +63,8 @@ describe('expanded market progression and compatibility', () => {
     engine.purchaseUpgrade('expansion');
     engine.purchaseUpgrade('expansion');
     engine.purchaseUpgrade('expansion');
+    expect(engine.purchaseUpgrade('strawberryBeds')).toBe(true);
+    expect(engine.purchaseUpgrade('wheatPlots')).toBe(true);
     for (const machine of MACHINES) {
       engine.state.player = { ...machine.position };
       expect(engine.purchaseUpgrade(machine.upgrade)).toBe(true);

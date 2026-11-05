@@ -21,7 +21,7 @@
 }
 .language-choices {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 120px), 1fr));
   gap: 8px;
   margin: 8px 0;
 }
@@ -39,7 +39,7 @@
   color: #405b46;
   cursor: pointer;
 }
-.language-choices [lang='ckb'] {
+.language-choices [dir='rtl'] {
   font-family: 'Noto Sans Arabic', sans-serif;
   letter-spacing: normal;
 }
@@ -56,72 +56,72 @@
   outline: 3px solid #315f48;
   outline-offset: 2px;
 }
-/* Kurdish letters must remain joined. The world and movement axes are not mirrored. */
-html[lang='ckb'] body,
-html[lang='ckb'] button,
-html[lang='ckb'] input,
-html[lang='ckb'] select,
-html[lang='ckb'] h2,
-html[lang='ckb'] h3,
-html[lang='ckb'] strong,
-html[lang='ckb'] small,
-html[lang='ckb'] label,
-html[lang='ckb'] span,
-html[lang='ckb'] b,
-html[lang='ckb'] output {
+/* Keep Arabic-script letters joined while preserving the physical control directions. */
+html[dir='rtl'] body,
+html[dir='rtl'] button,
+html[dir='rtl'] input,
+html[dir='rtl'] select,
+html[dir='rtl'] h2,
+html[dir='rtl'] h3,
+html[dir='rtl'] strong,
+html[dir='rtl'] small,
+html[dir='rtl'] label,
+html[dir='rtl'] span,
+html[dir='rtl'] b,
+html[dir='rtl'] output {
   font-family: 'Noto Sans Arabic', sans-serif;
   letter-spacing: normal;
 }
-html[lang='ckb'] .game-hud {
+html[dir='rtl'] .game-hud {
   direction: ltr;
 }
-html[lang='ckb'] .desktop-controls,
-html[lang='ckb'] .zoom-scale {
+html[dir='rtl'] .desktop-controls,
+html[dir='rtl'] .zoom-scale {
   direction: ltr;
 }
-html[lang='ckb'] .desktop-controls small {
+html[dir='rtl'] .desktop-controls small {
   direction: rtl;
 }
-html[lang='ckb'] .game-dialog,
-html[lang='ckb'] .basket-card,
-html[lang='ckb'] .objective,
-html[lang='ckb'] .pause-overlay,
-html[lang='ckb'] .security-banner,
-html[lang='ckb'] .world-float {
+html[dir='rtl'] .game-dialog,
+html[dir='rtl'] .basket-card,
+html[dir='rtl'] .objective,
+html[dir='rtl'] .pause-overlay,
+html[dir='rtl'] .security-banner,
+html[dir='rtl'] .world-float {
   direction: rtl;
 }
-html[lang='ckb'] .game-dialog p,
-html[lang='ckb'] .game-dialog small {
+html[dir='rtl'] .game-dialog p,
+html[dir='rtl'] .game-dialog small {
   line-height: 1.85;
 }
-html[lang='ckb'] .game-dialog ol {
+html[dir='rtl'] .game-dialog ol {
   padding-inline-start: 24px;
   padding-inline-end: 0;
 }
-html[lang='ckb'] .game-dialog input[type='email'],
-html[lang='ckb'] .game-dialog input[type='password'],
-html[lang='ckb'] input[type='range'],
-html[lang='ckb'] #basket-count,
-html[lang='ckb'] .money-card,
-html[lang='ckb'] .inventory-product,
-html[lang='ckb'] kbd {
+html[dir='rtl'] .game-dialog input[type='email'],
+html[dir='rtl'] .game-dialog input[type='password'],
+html[dir='rtl'] input[type='range'],
+html[dir='rtl'] #basket-count,
+html[dir='rtl'] .money-card,
+html[dir='rtl'] .inventory-product,
+html[dir='rtl'] kbd {
   direction: ltr;
   unicode-bidi: isolate;
 }
-html[lang='ckb'] .upgrade-effect svg {
+html[dir='rtl'] .upgrade-effect svg {
   transform: scaleX(-1);
 }
-html[lang='ckb'] .regular-avatar {
+html[dir='rtl'] .regular-avatar {
   margin-inline-end: 8px;
 }
-html[lang='ckb'] .backup-picker input {
+html[dir='rtl'] .backup-picker input {
   position: absolute;
   width: 1px;
   height: 1px;
   overflow: hidden;
   clip-path: inset(50%);
 }
-html[lang='ckb'] .backup-picker:focus-within {
+html[dir='rtl'] .backup-picker:focus-within {
   outline: 3px solid #ffe18a;
 }
 
@@ -1623,6 +1623,16 @@ kbd {
     bottom: 124px;
   }
 }
+@media (pointer: coarse) and (max-width: 600px) and (orientation: portrait) {
+  html[dir='rtl'] .game-frame .objective {
+    left: 16px;
+    right: 16px;
+    bottom: calc(146px + env(safe-area-inset-bottom));
+  }
+  html[dir='rtl'] #sprint-button {
+    line-height: 1.45;
+  }
+}
 @media (pointer: coarse), (max-width: 900px) {
   .joystick {
     display: flex;
@@ -1946,6 +1956,10 @@ button.basket-heading > span:first-child {
   right: 0;
   top: calc(100% + 10px);
   width: 234px;
+  max-height: min(65dvh, calc(100dvh - 112px - env(safe-area-inset-bottom)));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   padding: 14px;
   border: 2px solid #fffdf4;
   background: #fffcf0;

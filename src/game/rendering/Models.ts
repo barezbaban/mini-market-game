@@ -202,6 +202,23 @@ export function createProduce(id: ProductId): Group {
     at(produce, roundedBox(0.115, 0.18, 0.105, 0.025, 0xf8f8e9), 0, 0, 0);
     at(produce, box(0.075, 0.035, 0.075, 0x79b9cb), 0, 0.107, 0);
     at(produce, box(0.119, 0.065, 0.008, 0x86c8da), 0, -0.018, 0.056);
+  } else if (id === 'strawberry') {
+    at(produce, ball(0.074, 0.085, 0.067, 0xca475b), 0, 0, 0);
+    at(produce, leaf(0.025, 0.07, 0x559448), 0, 0.082, 0).rotation.z = 1.0;
+  } else if (id === 'wheat') {
+    at(produce, tube(0.009, 0.19, 0xb3974c), 0, -0.012, 0);
+    for (let i = 0; i < 3; i++)
+      for (const side of [-1, 1])
+        at(produce, ball(0.02, 0.026, 0.016, 0xeac352), side * 0.017, i * 0.032, 0);
+  } else if (id === 'jam' || id === 'carrotJuice') {
+    const jar = id === 'jam';
+    at(produce, tube(jar ? 0.069 : 0.05, 0.16, jar ? 0xa53a59 : 0xed9137), 0, 0, 0);
+    at(produce, tube(jar ? 0.072 : 0.035, 0.024, jar ? 0xefc99d : 0x568660), 0, 0.087, 0);
+    at(produce, box(0.062, 0.048, 0.007, 0xffefd1), 0, -0.006, jar ? 0.067 : 0.05);
+  } else if (id === 'bread') {
+    at(produce, ball(0.112, 0.066, 0.064, 0xc78346), 0, 0, 0);
+    for (const x of [-0.05, 0, 0.05])
+      at(produce, box(0.013, 0.01, 0.047, 0xefd39d), x, 0.058, 0).rotation.y = -0.35;
   } else if (id === 'cheese') {
     at(produce, roundedBox(0.17, 0.12, 0.13, 0.018, 0xf6c854), 0, 0, 0);
     for (const [x, y] of [

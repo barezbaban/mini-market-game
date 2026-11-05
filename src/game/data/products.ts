@@ -193,7 +193,114 @@ PRODUCTS.push({
   maxPlots: 0,
   unlockUpgrade: 'grillMachine',
 });
+PRODUCTS.push(
+  {
+    id: 'strawberry',
+    name: 'Strawberry',
+    plural: 'Strawberries',
+    icon: 'strawberry',
+    kind: 'farm',
+    productionTime: 6000,
+    yieldPerPlot: 2,
+    sellingPrice: 11,
+    shelfCapacity: 12,
+    unlockCost: 300,
+    sprite: 'strawberry',
+    color: 0xca475b,
+    shelf: { x: 370, y: 335 },
+    farm: { x: 480, y: 1140 },
+    area: 2,
+    maxPlots: 4,
+    plotUpgrade: 'strawberryBeds',
+    unlockUpgrade: 'strawberryBeds',
+    buildOnPurchase: true,
+  },
+  {
+    id: 'jam',
+    name: 'Jam jar',
+    plural: 'Strawberry jam',
+    icon: 'jam',
+    kind: 'processed',
+    productionTime: 8000,
+    yieldPerPlot: 0,
+    sellingPrice: 28,
+    shelfCapacity: 12,
+    unlockCost: 480,
+    sprite: 'jam',
+    color: 0x993859,
+    shelf: { x: 590, y: 335 },
+    farm: { x: 280, y: 1280 },
+    area: 2,
+    maxPlots: 0,
+    unlockUpgrade: 'jamKettle',
+    buildOnPurchase: true,
+  },
+  {
+    id: 'wheat',
+    name: 'Wheat',
+    plural: 'Wheat',
+    icon: 'wheat',
+    kind: 'farm',
+    productionTime: 7000,
+    yieldPerPlot: 2,
+    sellingPrice: 13,
+    shelfCapacity: 12,
+    unlockCost: 420,
+    sprite: 'wheat',
+    color: 0xcfaa43,
+    shelf: { x: 810, y: 335 },
+    farm: { x: 920, y: 1140 },
+    area: 3,
+    maxPlots: 4,
+    plotUpgrade: 'wheatPlots',
+    unlockUpgrade: 'wheatPlots',
+    buildOnPurchase: true,
+  },
+  {
+    id: 'bread',
+    name: 'Bread loaf',
+    plural: 'Bread',
+    icon: 'bread',
+    kind: 'processed',
+    productionTime: 9000,
+    yieldPerPlot: 0,
+    sellingPrice: 36,
+    shelfCapacity: 12,
+    unlockCost: 650,
+    sprite: 'bread',
+    color: 0xc78346,
+    shelf: { x: 1030, y: 335 },
+    farm: { x: 720, y: 1280 },
+    area: 3,
+    maxPlots: 0,
+    unlockUpgrade: 'breadOven',
+    buildOnPurchase: true,
+  },
+  {
+    id: 'carrotJuice',
+    name: 'Carrot juice',
+    plural: 'Carrot juice',
+    icon: 'carrotJuice',
+    kind: 'processed',
+    productionTime: 7500,
+    yieldPerPlot: 0,
+    sellingPrice: 27,
+    shelfCapacity: 12,
+    unlockCost: 780,
+    sprite: 'carrotJuice',
+    color: 0xf29843,
+    shelf: { x: 1250, y: 335 },
+    farm: { x: 1160, y: 1280 },
+    area: 3,
+    maxPlots: 0,
+    unlockUpgrade: 'juicePress',
+    buildOnPurchase: true,
+  },
+);
 export const FARM_PRODUCTS = PRODUCTS.filter((product) => product.kind === 'farm');
+export const shelfBuilt = (state: GameState, product: ProductDefinition): boolean =>
+  state.upgrades.expansion >= product.area &&
+  (!product.buildOnPurchase || state.unlockedProducts.includes(product.id));
 export const productById = (id: string): ProductDefinition | undefined =>
   PRODUCTS.find((product) => product.id === id);
 export const emptyItems = (): ItemCounts => ({
@@ -207,18 +314,26 @@ export const emptyItems = (): ItemCounts => ({
   milk: 0,
   cheese: 0,
   grilledCorn: 0,
+  strawberry: 0,
+  wheat: 0,
+  jam: 0,
+  bread: 0,
+  carrotJuice: 0,
 });
 export function plotCount(state: GameState, id: ProductId): number {
   const product = productById(id)!;
   return product.kind === 'farm' && state.unlockedProducts.includes(id)
     ? Math.min(
         product.maxPlots,
-        1 + (product.plotUpgrade ? state.upgrades[product.plotUpgrade] : 0),
+        (product.plotUpgrade === product.unlockUpgrade ? 0 : 1) +
+          (product.plotUpgrade ? state.upgrades[product.plotUpgrade] : 0),
       )
     : 0;
 }
 export function plotPosition(id: ProductId, index: number): Vec2 {
   const product = productById(id)!;
+  if (id === 'strawberry' || id === 'wheat')
+    return { x: product.farm.x, y: product.farm.y + index * 86 };
   if (id === 'carrot')
     return {
       x: product.farm.x + (index % 4) * 80 - 120,

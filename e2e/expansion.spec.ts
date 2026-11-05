@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { UPGRADES } from '../src/game/data/upgrades';
+import { PRODUCTS } from '../src/game/data/products';
 
 async function open(page: Page): Promise<void> {
   await page.goto('./?debug=true');
@@ -48,6 +49,11 @@ test('management buys every expansion with real costs, caps levels, and preserve
     'cowPlots',
     'dairyMachine',
     'grillMachine',
+    'strawberryBeds',
+    'jamKettle',
+    'wheatPlots',
+    'breadOven',
+    'juicePress',
     'machineSpeed',
   ];
   let expectedMoney = 1_000_000;
@@ -66,8 +72,8 @@ test('management buys every expansion with real costs, caps levels, and preserve
   );
   const before = await page.evaluate(() => window.__MARKET__.engine.snapshot());
   expect(before.workers).toHaveLength(3);
-  expect(before.unlockedProducts).toHaveLength(10);
-  expect(Object.values(before.shelfCapacities)).toEqual(Array(10).fill(24));
+  expect(before.unlockedProducts).toHaveLength(PRODUCTS.length);
+  expect(Object.values(before.shelfCapacities)).toEqual(PRODUCTS.map(() => 24));
   expect(before.upgrades.helperCapacity).toBe(4);
   expect(before.upgrades.helperSpeed).toBe(9);
   await page.reload();

@@ -1,4 +1,5 @@
 import { GAME_CONFIG } from '../data/gameConfig';
+import { MACHINES } from '../data/machines';
 import { crossesRect, worldSolids } from '../data/worldLayout';
 import type { Rect } from '../data/worldLayout';
 import type { GameState, Vec2 } from '../types';
@@ -10,10 +11,9 @@ function graph(state: GameState) {
     state.upgrades.expansion,
     state.upgrades.secondCashier,
     state.upgrades.driveThrough,
-    state.upgrades.pasteMachine > 0,
-    state.upgrades.coffeeMachine > 0,
-    state.upgrades.dairyMachine > 0,
-    state.upgrades.grillMachine > 0,
+    state.upgrades.strawberryBeds > 0,
+    state.upgrades.wheatPlots > 0,
+    ...MACHINES.map(({ upgrade }) => state.upgrades[upgrade] > 0),
   ].join(':');
   if (cached?.key === key) return cached;
   const solids = worldSolids(state);

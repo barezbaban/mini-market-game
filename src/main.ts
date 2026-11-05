@@ -298,9 +298,9 @@ function upgradePresentation(upgrade: UpgradeDefinition): {
         ? 'nests'
         : farm.id === 'milk'
           ? 'cows'
-          : farm.id === 'carrot'
+          : farm.id === 'carrot' || farm.id === 'strawberry'
             ? 'beds'
-            : farm.id === 'corn'
+            : farm.id === 'corn' || farm.id === 'wheat'
               ? 'plots'
               : 'plants';
     const nextPlots = Math.min(farm.maxPlots, plots + 1);
@@ -308,6 +308,13 @@ function upgradePresentation(upgrade: UpgradeDefinition): {
     result.next = `${nextPlots} ${nextPlots === 1 ? unit.slice(0, -1) : unit}`;
     result.level = `${plots} / ${farm.maxPlots} ${unit.toUpperCase()}`;
     result.detail = `Each ${unit.slice(0, -1)} produces ${farm.yieldPerPlot} ${(farm.yieldPerPlot === 1 ? farm.name : farm.plural).toLowerCase()} every ${farm.productionTime / 1000}s. ${farm.maxPlots} maximum.${farm.id === 'carrot' ? ' Each new bed costs 20% more.' : ''}`;
+    return result;
+  }
+  const machine = MACHINES.find((entry) => entry.upgrade === upgrade.id);
+  if (machine) {
+    result.current = level ? `Up to ${2 * level} ${machine.outputUnit}` : 'Not built';
+    result.next = `Up to ${2 * next} ${machine.outputUnit} / batch`;
+    result.detail = `${machine.recipe}. A batch takes ${(machineDuration(state, machine) / 1000).toFixed(1)}s and starts with available input. Upgrade its limit from 2 to 4, 6, then 8 ingredients.`;
     return result;
   }
   switch (upgrade.id) {
@@ -357,24 +364,6 @@ function upgradePresentation(upgrade: UpgradeDefinition): {
       result.level = level ? 'UNLOCKED' : 'NEW PRODUCT';
       result.detail = 'The first plot grows 2 corn every 5s. Add more with the Corn plots upgrade.';
       break;
-    case 'pasteMachine':
-    case 'coffeeMachine':
-    case 'grillMachine':
-    case 'dairyMachine': {
-      const machine = MACHINES.find((entry) => entry.upgrade === upgrade.id)!;
-      const output =
-        upgrade.id === 'pasteMachine'
-          ? 'cans'
-          : upgrade.id === 'coffeeMachine'
-            ? 'bags'
-            : upgrade.id === 'grillMachine'
-              ? 'grilled corn'
-              : 'cheese';
-      result.current = level ? `Up to ${2 * level} ${output}` : 'Not built';
-      result.next = `Up to ${2 * next} ${output} / batch`;
-      result.detail = `${upgrade.id === 'pasteMachine' ? '1 tomato makes 1 can' : upgrade.id === 'coffeeMachine' ? '1 coffee bean makes 1 bag' : upgrade.id === 'grillMachine' ? '1 corn makes 1 grilled corn, sold for $23. Includes its own shelf' : '1 milk bottle makes 1 cheese'}. A batch takes ${(machineDuration(engine.state, machine) / 1000).toFixed(1)}s and starts with available input. Upgrade its limit from 2 to 4, 6, then 8 ingredients.`;
-      break;
-    }
     case 'machineSpeed':
       result.current = `${(1.2 ** level).toFixed(2)}× production speed`;
       result.next = `${(1.2 ** next).toFixed(2)}× production speed`;
@@ -819,8 +808,8 @@ managementDialog.addEventListener('change', (event) => {
 managementDialog.addEventListener('keydown', (event) => {
   if (!(event.target instanceof HTMLElement) || event.target.getAttribute('role') !== 'tab') return;
   const index = managementTabs.findIndex((tab) => tab.id === managementCategory);
-  const forwardKey = getLanguage() === 'ckb' ? 'ArrowLeft' : 'ArrowRight';
-  const backwardKey = getLanguage() === 'ckb' ? 'ArrowRight' : 'ArrowLeft';
+  const forwardKey = getLanguage() !== 'en' ? 'ArrowLeft' : 'ArrowRight';
+  const backwardKey = getLanguage() !== 'en' ? 'ArrowRight' : 'ArrowLeft';
   const nextIndex =
     event.key === forwardKey
       ? (index + 1) % managementTabs.length

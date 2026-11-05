@@ -1,51 +1,43 @@
 import { expect, test, type Page } from '@playwright/test';
 import { GAME_CONFIG } from '../src/game/data/gameConfig';
+import { emptyItems } from '../src/game/data/products';
 
 test('drive-through has one mounted title and one active order, even with a full queue', async ({
   page,
 }) => {
   await openGame(page);
-  await page.evaluate((vehicleSpot) => {
-    const { engine } = window.__MARKET__;
-    engine.economy.earn(100000);
-    engine.state.xp = 19000;
-    engine.state.totalServed = 260;
-    for (const upgrade of [
-      'expansion',
-      'corn',
-      'driveThrough',
-      'driveRunner',
-      'driveCashier',
-      'customers',
-      'accountant',
-    ] as const)
-      engine.purchaseUpgrade(upgrade);
-    engine.drainEvents();
-    const empty = {
-      tomato: 0,
-      egg: 0,
-      corn: 0,
-      coffee: 0,
-      carrot: 0,
-      milk: 0,
-      tomatoPaste: 0,
-      groundCoffee: 0,
-      cheese: 0,
-      grilledCorn: 0,
-    };
-    engine.state.driveThroughOrders = [0, 1, 2].map((index) => ({
-      id: 41 + index,
-      vehicle: index === 1 ? 'bike' : 'car',
-      state: index === 0 ? 'WAITING_FOR_ITEMS' : 'ARRIVING',
-      x: vehicleSpot.x + index * 105,
-      y: vehicleSpot.y,
-      color: index === 2 ? 0x5f9fc4 : 0xe7775e,
-      requested: { ...empty, tomato: 2, egg: 1, corn: 1 },
-      delivered: { ...empty, tomato: 1 },
-    }));
-    document.querySelector<HTMLElement>('#debug-panel')!.hidden = true;
-    document.querySelector<HTMLElement>('#pause-overlay')!.style.display = 'none';
-  }, GAME_CONFIG.driveThroughVehicleSpot);
+  await page.evaluate(
+    ({ vehicleSpot, empty }) => {
+      const { engine } = window.__MARKET__;
+      engine.economy.earn(100000);
+      engine.state.xp = 19000;
+      engine.state.totalServed = 260;
+      for (const upgrade of [
+        'expansion',
+        'corn',
+        'driveThrough',
+        'driveRunner',
+        'driveCashier',
+        'customers',
+        'accountant',
+      ] as const)
+        engine.purchaseUpgrade(upgrade);
+      engine.drainEvents();
+      engine.state.driveThroughOrders = [0, 1, 2].map((index) => ({
+        id: 41 + index,
+        vehicle: index === 1 ? 'bike' : 'car',
+        state: index === 0 ? 'WAITING_FOR_ITEMS' : 'ARRIVING',
+        x: vehicleSpot.x + index * 105,
+        y: vehicleSpot.y,
+        color: index === 2 ? 0x5f9fc4 : 0xe7775e,
+        requested: { ...empty, tomato: 2, egg: 1, corn: 1 },
+        delivered: { ...empty, tomato: 1 },
+      }));
+      document.querySelector<HTMLElement>('#debug-panel')!.hidden = true;
+      document.querySelector<HTMLElement>('#pause-overlay')!.style.display = 'none';
+    },
+    { vehicleSpot: GAME_CONFIG.driveThroughVehicleSpot, empty: emptyItems() },
+  );
 
   for (const viewport of [
     { width: 1440, height: 900 },
@@ -408,9 +400,7 @@ test('labels stay concise through upgrades and compact layouts hide decorative h
   expect(byId.get('machine:paste:status')?.visible).toBe(true);
 });
 
-test('maximum-height shelves keep both aisle rows and their stock labels separate', async ({
-  page,
-}) => {
+test('expanded shelves and farm signs stay clear of neighboring displays', async ({ page }) => {
   await openGame(page);
   await page.evaluate(() => {
     const { engine } = window.__MARKET__;
@@ -425,6 +415,11 @@ test('maximum-height shelves keep both aisle rows and their stock labels separat
       'coffeeMachine',
       'dairyMachine',
       'grillMachine',
+      'strawberryBeds',
+      'wheatPlots',
+      'jamKettle',
+      'breadOven',
+      'juicePress',
     ] as const)
       while (engine.purchaseUpgrade(id)) {
         /* maximum-height fixture */
@@ -452,6 +447,13 @@ test('maximum-height shelves keep both aisle rows and their stock labels separat
           polygonsOverlap(shelves[i], shelves[j]),
           `${shelves[i].id} overlaps ${shelves[j].id}`,
         ).toBe(false);
+    await focusCamera(page, { x: 720, y: 1280 });
+    const yard = (await labelBounds(page)).filter((entry) => entry.visible);
+    const signs = yard.filter((entry) => entry.id.startsWith('farm:'));
+    const machines = yard.filter((entry) => entry.id.startsWith('machine:'));
+    for (const [index, sign] of signs.entries())
+      for (const neighbor of [...machines, ...signs.slice(index + 1)])
+        expect(polygonsOverlap(sign, neighbor), `${sign.id} overlaps ${neighbor.id}`).toBe(false);
   }
 });
 

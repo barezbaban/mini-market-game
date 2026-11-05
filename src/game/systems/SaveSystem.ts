@@ -94,12 +94,9 @@ export function createInitialState(): GameState {
       goal: 6,
       rewardXp: 75,
     },
-    machines: {
-      grill: { input: 0, output: 0, processing: 0, elapsed: 0 },
-      paste: { input: 0, output: 0, processing: 0, elapsed: 0 },
-      coffee: { input: 0, output: 0, processing: 0, elapsed: 0 },
-      dairy: { input: 0, output: 0, processing: 0, elapsed: 0 },
-    },
+    machines: Object.fromEntries(
+      MACHINES.map(({ id }) => [id, { input: 0, output: 0, processing: 0, elapsed: 0 }]),
+    ) as GameState['machines'],
     workers: [],
     xp: 0,
     accountantElapsed: 0,

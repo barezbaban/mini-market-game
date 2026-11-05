@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { noEnglish } from './helpers/localization';
 
 async function open(page: Page, kurdish = true) {
   if (kurdish) await page.addInitScript(() => localStorage.setItem('kurdmart.language', 'ckb'));
@@ -8,30 +9,6 @@ async function open(page: Page, kurdish = true) {
     document.querySelector<HTMLElement>('#debug-panel')!.style.display = 'none';
     window.__MARKET__.engine.state.safePause = true;
   });
-}
-
-async function noEnglish(page: Page, selector: string) {
-  const missing = await page.locator(selector).evaluate((root) => {
-    const copy: string[] = [];
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
-    while (walker.nextNode()) {
-      const node = walker.currentNode;
-      const element = node instanceof Element ? node : node.parentElement;
-      if (
-        !element ||
-        element.closest('[translate="no"],kbd,code,#debug-panel,input,option[value="en"]')
-      )
-        continue;
-      if (node.nodeType === Node.TEXT_NODE) copy.push(node.textContent ?? '');
-      if (node instanceof Element)
-        for (const attr of ['aria-label', 'aria-valuetext', 'title', 'placeholder'])
-          copy.push(node.getAttribute(attr) ?? '');
-    }
-    return copy.filter((s) =>
-      /[A-Za-z]{2,}/.test(s.replace(/WASD|Shift|WebGL|API|JSON|English/g, '')),
-    );
-  });
-  expect(missing).toEqual([]);
 }
 
 for (const viewport of [
@@ -231,6 +208,11 @@ test('all unlocked departments, staff and canvas labels are localized', async ({
       'coffeeMachine',
       'grillMachine',
       'dairyMachine',
+      'strawberryBeds',
+      'wheatPlots',
+      'jamKettle',
+      'breadOven',
+      'juicePress',
       'cashier',
       'helpers',
       'driveThrough',

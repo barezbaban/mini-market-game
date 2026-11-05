@@ -108,6 +108,30 @@ loft(0,0,0,[(-.056,[(-.080,-.061),(.087,-.048),(-.053,.082)]),(.056,[(-.080,-.06
 for x,z in [(-.041,-.024),(.014,-.021),(-.042,.035)]:disc(x,.056,z,.011,.002,.009,"e4a43e",8)
 finish("cheese")
 
+# Bakery and preserve stock. Each silhouette also reads at cart scale.
+loft(0,0,0,[(h,circle(r,r,9)) for h,r in [(-.095,.012),(-.045,.060),(.026,.079),(.065,.056)]],"ca475b",True)
+for x,z in [(-.032,.053),(.027,.065),(0,.073)]:ball(x,.003,z,.006,.010,.003,cream,5)
+for i in range(5):
+    a=i*math.tau/5
+    ball(.032*math.cos(a),.068,.032*math.sin(a),.03,.009,.026,leaf,6)
+finish("strawberry")
+def wheat_head(x,y,z,scale):
+    disc(x,y+.015*scale,z,.009*scale,.23*scale,.009*scale,wood,6)
+    for row in range(3):
+        for side in [-1,1]:
+            loft(x+side*.018*scale,y+(.013+row*.033)*scale,z,
+                 [(-.024*scale,circle(.003*scale,.003*scale,4)),(0,circle(.023*scale,.016*scale,4)),
+                  (.032*scale,circle(.002*scale,.002*scale,4))],gold,True)
+wheat_head(-.025,-.014,0,1);wheat_head(.027,-.024,.010,.91)
+box(0,-.048,0,.075,.017,.038,leaf);finish("wheat")
+disc(0,-.004,0,.069,.14,.069,"a53a59",10);disc(0,.077,0,.073,.022,.073,"eec9a0",10)
+box(0,-.001,.066,.072,.057,.008,cream);ball(0,0,.071,.020,.021,.004,"bb4b5b",7);finish("jam")
+ball(0,0,0,.112,.067,.064,"cb874d",10)
+for x in [-.054,0,.054]:box(x,.056,.009,.019,.012,.051,"efd39d")
+finish("bread")
+loft(0,0,0,[(h,circle(r,r,9)) for h,r in [(-.095,.044),(-.085,.052),(.044,.052),(.073,.030),(.090,.030)]],"ed9137")
+disc(0,.096,0,.033,.020,.033,green,9);box(0,-.012,.052,.056,.056,.005,cream);finish("carrotJuice")
+
 # Farm animals and orchard trees; origins remain at ground level.
 for x in [-.14,.14]:
     for z in [-.13,.14]:
@@ -154,14 +178,31 @@ for x in [-.045,.014,.073]:
     for z in [-.25,-.19]:box(x,.89,z,.036,.013,.031,cream)
 finish("till")
 
-for name,c in [('paste',red),('coffee',wood),('dairy',blue),('grill',"627169")]:
-    box(0,.31,0,.94,.60,.73,c);box(0,.066,0,1.04,.115,.82,deep);box(0,.65,0,1.01,.11,.81,cream)
-    for x in [-.34,-.29,-.24]:box(x,.45,.374,.019,.13,.015,deep)
+for name,c in [('paste',red),('coffee',wood),('dairy',blue),('grill',"627169"),
+               ('kettle',"bc586e"),('oven',"cc8057"),('press',"88af65")]:
+    trim=0 if name in ('kettle','oven','press') else .10
+    box(0,.31,0,.94,.60,.73,c);box(0,.066,0,1.04,.115,.82,deep,trim);box(0,.65,0,1.01,.11,.81,cream,trim)
+    for x in [-.34,-.29,-.24]:box(x,.45,.374,.019,.13,.015,deep,trim)
     ball(.32,.48,.375,.037,.036,.013,gold,8)
-    for x in [-.92,.93]:box(x,.19,0,.56,.11,.50,wood)
+    for x in [-.92,.93]:box(x,.19,0,.56,.11,.50,wood,trim)
     if name=='grill':
         box(0,.76,-.12,.78,.093,.47,coffee)
         for j in range(-3,4):box(j*.10,.825,-.12,.034,.04,.46,ink)
+    elif name=='kettle':
+        loft(0,0,-.10,[(.70,circle(.19,.19,12)),(.84,circle(.32,.29,12)),(.98,circle(.34,.31,12))],"bb804e")
+        disc(0,.985,-.10,.30,.015,.27,"953957",12)
+        box(.13,1.05,-.12,.042,.19,.043,wood)
+    elif name=='oven':
+        ball(0,.76,-.09,.41,.34,.31,"cc8057",10)
+        box(0,.83,.169,.48,.23,.05,ink,.22);box(0,.745,.195,.38,.035,.026,"f0a854")
+        box(-.28,1.03,-.21,.12,.30,.12,coffee)
+    elif name=='press':
+        for x in [-.21,.21]:box(x,.94,-.11,.06,.43,.07,metal,0)
+        box(0,1.15,-.11,.50,.065,.09,deep,0)
+        disc(0,1.02,-.11,.036,.21,.036,metal,8)
+        disc(0,.92,-.11,.18,.044,.17,cream,10)
+        disc(0,.77,-.11,.21,.12,.19,wood,10)
+        box(.21,.74,-.11,.14,.035,.067,metal)
     else:
         disc(0,.94,-.17,.266,.48,.266,metal if name!='coffee' else coffee,16,1.06)
         disc(0,1.19,-.17,.30,.055,.30,green);disc(0,1.225,-.17,.073,.035,.073,wood)
@@ -248,6 +289,16 @@ finish("plant_corn")
 for i in range(7):
     a=i*math.tau/7;blade(0,.18,0,.103*math.cos(a),.103*math.sin(a),.16+(i%2)*.054,.020,leaf if i%2 else '7ead59')
 finish("plant_carrot")
+for i in range(6):
+    a=i*math.tau/6
+    blade(0,.18,0,.24*math.cos(a),.22*math.sin(a),.21,.09,leaf if i%2 else "71b16c")
+for x in [-.12,.11]:ball(x,.36,-.02,.036,.025,.035,cream,6)
+finish("plant_strawberry")
+for x,z,h in [(-.15,-.06,.27),(0,.03,.36),(.14,-.05,.31)]:
+    disc(x,.19+h/2,z,.014,h,.014,"a99e4e",6)
+    wheat_head(x,.19+h,z,1.1)
+    blade(x,.23,z,.13,.05,.15,.026,leaf)
+finish("plant_wheat")
 
 out=Path(sys.argv[sys.argv.index("--")+1]).resolve()
 source=Path(sys.argv[sys.argv.index("--")+2]).resolve()

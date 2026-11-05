@@ -60,6 +60,11 @@ export async function loadMarketArt(): Promise<void> {
       'groundCoffee',
       'milk',
       'cheese',
+      'strawberry',
+      'wheat',
+      'jam',
+      'bread',
+      'carrotJuice',
       'cow',
       'hen',
       'tree',
@@ -69,6 +74,9 @@ export async function loadMarketArt(): Promise<void> {
       'machine_coffee',
       'machine_dairy',
       'machine_grill',
+      'machine_kettle',
+      'machine_oven',
+      'machine_press',
       'face',
       'hair',
       'car_paint',
@@ -86,6 +94,8 @@ export async function loadMarketArt(): Promise<void> {
       'plant_coffee',
       'plant_corn',
       'plant_carrot',
+      'plant_strawberry',
+      'plant_wheat',
     ]) {
       if (!library.has(id)) throw new Error('Incomplete market library');
     }

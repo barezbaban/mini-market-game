@@ -12,22 +12,27 @@ Grow → harvest → process → carry → stock → serve → earn → upgrade.
 
 The market occupies the top of the map; the farms and processing areas sit below it. Customers arrive from outside, take a shopping cart, walk through the labeled sliding entrance, find available products, form a checkout line, pay, return the cart, and continue off-screen before leaving the simulation. Products collected by each shopper appear inside that shopper's cart. The store starts with **3 carts**; each Shopping carts purchase adds one, initially up to **10**. Player levels **20, 22, 24, 26, and 28** unlock carts 11–15. Shoppers need a free cart to enter. Open **Manage** to inspect and purchase every upgrade. Keeping progression in this dedicated screen leaves the market floor clear and easy to read. Pause and Manage normally pause only player controls: customers, staff, production, patience and rush timers keep running, but theft encounters are protected. Enable **Settings → Safe pause** to freeze the whole simulation in menus. Manage → Goals shows the live rush countdown.
 
-| Product       | Production                              | Sale price | Availability                            |
-| ------------- | --------------------------------------- | ---------- | --------------------------------------- |
-| Tomatoes      | 3 per plant / 3 seconds                 | $5         | Available at the start                  |
-| Eggs          | 1 per nest / 4 seconds                  | $7         | Available at the start                  |
-| Corn          | 2 per plot / 5 seconds                  | $10        | Unlock for $150                         |
-| Tomato paste  | 1 tomato → 1 can; 6-second batch        | $15        | Production department and cannery       |
-| Coffee beans  | 2 per plant / 4 seconds                 | $12        | Coffee corner                           |
-| Ground coffee | 1 bean → 1 bag; 8-second batch          | $24        | Coffee corner and grinder               |
-| Carrots       | 1 per bed / 2 seconds                   | $8         | Carrot garden                           |
-| Milk          | 2 per cow / 5 seconds                   | $14        | Dairy meadow                            |
-| Cheese        | 1 milk → 1 cheese; 7-second batch       | $29        | Dairy meadow and kitchen                |
-| Grilled corn  | 1 corn → 1 grilled corn; 6-second batch | $23        | Carrot garden, corn farm and $360 grill |
+| Product        | Production                              | Sale price | Availability                            |
+| -------------- | --------------------------------------- | ---------- | --------------------------------------- |
+| Tomatoes       | 3 per plant / 3 seconds                 | $5         | Available at the start                  |
+| Eggs           | 1 per nest / 4 seconds                  | $7         | Available at the start                  |
+| Corn           | 2 per plot / 5 seconds                  | $10        | Unlock for $150                         |
+| Tomato paste   | 1 tomato → 1 can; 6-second batch        | $15        | Production department and cannery       |
+| Coffee beans   | 2 per plant / 4 seconds                 | $12        | Coffee corner                           |
+| Ground coffee  | 1 bean → 1 bag; 8-second batch          | $24        | Coffee corner and grinder               |
+| Carrots        | 1 per bed / 2 seconds                   | $8         | Carrot garden                           |
+| Milk           | 2 per cow / 5 seconds                   | $14        | Dairy meadow                            |
+| Cheese         | 1 milk → 1 cheese; 7-second batch       | $29        | Dairy meadow and kitchen                |
+| Grilled corn   | 1 corn → 1 grilled corn; 6-second batch | $23        | Carrot garden, corn farm and $360 grill |
+| Strawberries   | 2 per bed / 6 seconds                   | $11        | Level 7, coffee corner, $300            |
+| Strawberry jam | 1 strawberry → 1 jar; 8-second batch    | $28        | Level 9, strawberry bed, $480 kettle    |
+| Wheat          | 2 per plot / 7 seconds                  | $13        | Level 11, carrot garden, $420           |
+| Bread          | 1 wheat → 1 loaf; 9-second batch        | $36        | Level 13, wheat field, $650 oven        |
+| Carrot juice   | 1 carrot → 1 bottle; 7.5-second batch   | $27        | Level 15, carrot garden, $780 press     |
 
 All shelves start with **3 rows × 4 spaces = 12 items**. At player levels **3, 10, and 20**, buy an extra visible row for every shelf, including future shelves: **16 → 20 → 24 items**. Existing stock is preserved. Add up to five tomato plants, nests, corn plots, coffee plants, and cows; the carrot garden supports eight beds. Every plot has its own production timer. Machines process **up to** 2, 4, 6, or 8 ingredients per batch as they are upgraded. Choose quick batches or wait for a full upgraded batch in Manage → Machines. Helper allocation can prioritize processing, reserve a fresh-shelf target or pause new batches; in-flight batches finish. Stand near a machine while carrying its raw ingredient to supply it, then collect the finished products when your basket has room.
 
-Fit out the compact store in four stages: **production department (level 3, 20 orders, $250)**, **coffee corner (level 6, 65 orders, $500)**, **carrot garden (level 9, 140 orders, $1,000)**, and **dairy meadow (level 12, 260 orders, $2,000)**. The management cards show current capacity, the next effect, the exact next price, and any prerequisite. Most repeated upgrades grow more expensive; the carrot-bed price increases by 20% each time. Departments stay within one compact footprint: two shelf rows, two indoor checkout stations, a wide front entrance, a service-side opening, and a three-column farmyard.
+Fit out the compact store in four stages: **production department (level 3, 20 orders, $250)**, **coffee corner (level 6, 65 orders, $500)**, **carrot garden (level 9, 140 orders, $1,000)**, and **dairy meadow (level 12, 260 orders, $2,000)**. The management cards show current capacity, the next effect, the exact next price, and any prerequisite. Most repeated upgrades grow more expensive; the carrot-bed price increases by 20% each time. A staggered shelf aisle and two narrow growing strips fit inside the original footprint. Each new farm starts with one plot and can grow to four. Buy farms in **Manage → Farms** and processors in **Manage → Machines**. Each purchase adds a shelf for the new product.
 
 Hire up to **three helpers** to harvest, operate machines, and stock shelves. Their baskets grow **2 → 3 → 4 → 5 → 6** items; ten speed levels multiply walking speed by **1.10** at each upgrade. The cashier starts with five purchasable tiers and marketing with ten. Player levels **20, 25, and 30** unlock three additional tiers for the cashier, marketing director, and player basket (up to 40 carried items). Each cashier tier after hiring divides checkout time by 1.25; each marketing tier adds 20% of the base arrival rate. Every paid store or drive-through order earns **5 customer XP + 2 XP per item sold** (7 XP for one item, 9 XP for two). Picking up goods and unpaid orders do not earn sales XP. The accountant audits every 10 seconds and earns **2 XP per tier per five new paid orders**; idle time and orders completed before hiring earn no audit XP. Base staffed checkout takes 4.5 seconds; active manual service remains 1 second. Manage shows the next unlock, XP remaining, and a complete level roadmap. Unlocks are permission to buy with game money, not automatic purchases; existing saves keep owned upgrades and XP.
 
@@ -39,7 +44,7 @@ Cash left unattended for **three minutes** attracts a thief when you are away. T
 
 ## Features
 
-- **Settings → Language → کوردی (سۆرانی)** switches to Sorani Kurdish, including menus, help, upgrades, world signs, alerts, account forms and manual cloud backups. English and Sorani are both visible without opening a dropdown. To share a market link that opens in Sorani, append `?lang=ckb`; opening it does not overwrite the recipient’s language preference. Choosing a language in Settings saves the preference separately from market progress and saves the current market before switching. RTL menus do not reverse movement or the camera. Kurdish text uses the locally bundled **Noto Sans Arabic** font ([SIL Open Font License](public/fonts/OFL-NotoSansArabic.txt)). Translation catalogs live in `src/i18n`; native-speaker terminology review is welcome.
+- **Settings → Language** offers English, کوردی (سۆرانی) and العربية. Arabic and Sorani include right-to-left menus, help, upgrades, market signs, alerts, account forms and backup dialogs. Choose a language to save your preference and keep your current market progress. Share `?lang=ar` for Arabic or `?lang=ckb` for Sorani to open the game in that language for one visit. Movement and camera directions stay the same in all three languages. The game bundles **Noto Sans Arabic** for both right-to-left languages ([SIL Open Font License](public/fonts/OFL-NotoSansArabic.txt)).
 - Original low-poly 3D world, rounded characters, produce models, and shop branding.
 - Full-screen game presentation with clear lighting, no world shadows, and a compact HUD.
 - **Settings → Camera zoom** adjusts the view from 75% (wider) to 175% (closer), with a reset to 100%. It applies immediately, survives reloads and screen rotation, and does not increase rendering resolution.

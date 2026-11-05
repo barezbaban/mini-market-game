@@ -42,6 +42,8 @@ it('ships single-mesh painted Blender props, in local coordinates and without ex
     'plant_coffee',
     'plant_corn',
     'plant_carrot',
+    'plant_strawberry',
+    'plant_wheat',
   ]) {
     const mesh = glb.scene.getObjectByName(id) as Mesh;
     expect(mesh?.isMesh, id).toBe(true);

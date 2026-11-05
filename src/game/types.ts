@@ -8,8 +8,13 @@ export type ProductId =
   | 'tomatoPaste'
   | 'groundCoffee'
   | 'grilledCorn'
-  | 'cheese';
-export type MachineId = 'paste' | 'coffee' | 'dairy' | 'grill';
+  | 'cheese'
+  | 'strawberry'
+  | 'wheat'
+  | 'jam'
+  | 'bread'
+  | 'carrotJuice';
+export type MachineId = 'paste' | 'coffee' | 'dairy' | 'grill' | 'kettle' | 'oven' | 'press';
 export type UpgradeId =
   | 'shelf'
   | 'inventory'
@@ -29,6 +34,11 @@ export type UpgradeId =
   | 'coffeeMachine'
   | 'dairyMachine'
   | 'grillMachine'
+  | 'strawberryBeds'
+  | 'wheatPlots'
+  | 'jamKettle'
+  | 'breadOven'
+  | 'juicePress'
   | 'machineSpeed'
   | 'helpers'
   | 'helperCapacity'
@@ -114,6 +124,7 @@ export interface ProductDefinition {
   yieldPerPlot: number;
   plotUpgrade?: UpgradeId;
   unlockUpgrade?: UpgradeId;
+  buildOnPurchase?: boolean;
 }
 export interface UpgradeDefinition {
   id: UpgradeId;
@@ -144,6 +155,8 @@ export interface FarmState {
 export interface MachineDefinition {
   id: MachineId;
   name: string;
+  recipe: string;
+  outputUnit: string;
   input: ProductId;
   output: ProductId;
   position: Vec2;

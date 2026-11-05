@@ -31,12 +31,17 @@ export function mountCloudSavePanel(
     restore.disabled = busy || !remote || Boolean(pending);
     upload.textContent = t(pending ? 'Retry same upload' : 'Upload this market');
   };
-  const summary = () =>
-    remote
-      ? // Not all browsers ship a Sorani date locale. Numeric day/month/year and a
-        // 24-hour clock avoid falling back to English AM/PM; t() handles the digits.
-        `Cloud revision ${remote.revision}: ${actions.preview(JSON.stringify(remote.state))}. Saved ${new Date(remote.updatedAt).toLocaleString(getLanguage() === 'ckb' ? 'en-GB' : undefined, getLanguage() === 'ckb' ? { hour12: false } : undefined)}.`
-      : 'No cloud backup yet. This device’s market is unchanged.';
+  const summary = () => {
+    if (!remote) return 'No cloud backup yet. This device’s market is unchanged.';
+    const language = getLanguage();
+    // Use a numeric day-first fallback for Sorani on browsers without that date locale.
+    const locale = { ar: 'ar', ckb: 'en-GB', en: undefined }[language];
+    const date = new Date(remote.updatedAt).toLocaleString(
+      locale,
+      language === 'en' ? undefined : { hour12: false },
+    );
+    return `Cloud revision ${remote.revision}: ${actions.preview(JSON.stringify(remote.state))}. Saved ${date}.`;
+  };
   refresh.addEventListener('click', async () => {
     if (
       pending &&

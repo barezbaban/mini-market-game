@@ -1,4 +1,4 @@
-import { t, html, errorText, getLanguage, storeLanguage } from '../../i18n';
+import { t, html, errorText, getLanguage, isLanguage, storeLanguage } from '../../i18n';
 import type { GameEngine } from '../systems/GameEngine';
 import type { SaveSystem } from '../systems/SaveSystem';
 import { playerLevel } from '../data/upgrades';
@@ -28,6 +28,7 @@ export function mountSettingsExtras(
       <div class="language-choices">
         <button type="button" id="language-en" data-language="en" aria-pressed="${getLanguage() === 'en'}"><span lang="en" dir="ltr" translate="no">English</span>${icon('check', 16)}</button>
         <button type="button" id="language-ckb" data-language="ckb" aria-pressed="${getLanguage() === 'ckb'}"><span lang="ckb" dir="rtl" translate="no">کوردی (سۆرانی)</span>${icon('check', 16)}</button>
+        <button type="button" id="language-ar" data-language="ar" aria-pressed="${getLanguage() === 'ar'}"><span lang="ar" dir="rtl" translate="no">العربية</span>${icon('check', 16)}</button>
       </div><small id="language-hint">Choose your language. Your progress is kept.</small>
       <p id="language-status" role="alert" hidden></p>
     </fieldset>`),
@@ -35,7 +36,7 @@ export function mountSettingsExtras(
   dialog.querySelector('.language-choices')!.addEventListener('click', (event) => {
     const selected = (event.target as Element).closest<HTMLButtonElement>('button')?.dataset
       .language;
-    if (selected !== 'en' && selected !== 'ckb') return;
+    if (!isLanguage(selected)) return;
     const url = new URL(window.location.href);
     const switching = selected !== getLanguage();
     // Never reload over an unsaved market, including when browser storage is blocked.

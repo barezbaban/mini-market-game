@@ -1,4 +1,5 @@
 import { emptyItems, PRODUCTS } from './products';
+import { MACHINES } from './machines';
 import type { CareerState, GameState, ShopStyle, UpgradeId, Vec2 } from '../types';
 import { GAME_CONFIG } from './gameConfig';
 
@@ -79,13 +80,12 @@ export function createCareer(): CareerState {
     stockTargets: Object.fromEntries(
       PRODUCTS.map(({ id }) => [id, 6]),
     ) as CareerState['stockTargets'],
-    machinePolicies: {
-      paste: 'balanced',
-      coffee: 'balanced',
-      dairy: 'balanced',
-      grill: 'balanced',
-    },
-    batchModes: { paste: 'quick', coffee: 'quick', dairy: 'quick', grill: 'quick' },
+    machinePolicies: Object.fromEntries(
+      MACHINES.map(({ id }) => [id, 'balanced']),
+    ) as CareerState['machinePolicies'],
+    batchModes: Object.fromEntries(
+      MACHINES.map(({ id }) => [id, 'quick']),
+    ) as CareerState['batchModes'],
     style: 'classic',
     firstActions: {},
   };
