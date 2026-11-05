@@ -141,6 +141,8 @@ npm run build
 
 `npm run test:watch` starts interactive unit testing. `npm run format` formats the project; `npm run format:check` checks formatting without changing files.
 
+To enable the game's pre-push check in a fresh clone, run `git config --local core.hooksPath .githooks` (if you already use custom Git hooks, integrate its `pre-push` instead). It installs locked dependencies, lints, tests, and builds a clean snapshot of each commit tip being pushed. Uncommitted files stay untouched. npm downloads are cached inside this repository’s Git directory. A failed check stops the push; the GitHub Pages workflow also checks the game independently.
+
 For browser tests, run `npm run build` and then `npm run preview`. Leave the preview running and, in a second terminal, run:
 
 ```sh
