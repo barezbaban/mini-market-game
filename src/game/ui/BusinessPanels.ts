@@ -92,22 +92,33 @@ export function staffPanel(state: GameState): string {
 export function productionPanel(state: GameState): string {
   const machines = MACHINES.filter((m) => state.upgrades[m.upgrade]);
   if (!machines.length) return '';
+  const policies = [
+    { id: 'balanced', label: 'Balanced rounds', icon: 'worker' },
+    { id: 'shelf-first', label: 'Fill fresh shelf, then process', icon: 'shelf' },
+    { id: 'processing-first', label: 'Prioritize finished products', icon: 'machine' },
+    { id: 'paused', label: 'Pause new batches', icon: 'pause' },
+  ];
   return `<section class="production-plans"><h3>Fresh shelves or finished goods?</h3><p>These are helper priorities. You can still carry ingredients manually. Paused machines finish their current batch.</p>${machines
-    .map(
-      (m) =>
-        `<article class="production-plan"><strong>${m.name}</strong><label class="management-control">Helper allocation<select data-machine-policy="${m.id}" aria-label="${m.name} helper allocation">${[
-          ['balanced', 'Balanced rounds'],
-          ['shelf-first', 'Fill fresh shelf, then process'],
-          ['processing-first', 'Prioritize finished products'],
-          ['paused', 'Pause new batches'],
-        ]
-          .map(
-            ([id, label]) =>
-              `<option value="${id}" ${state.career.machinePolicies[m.id] === id ? 'selected' : ''}>${label}</option>`,
-          )
-          .join(
-            '',
-          )}</select></label><label class="management-control">Fresh shelf target<input type="number" min="0" max="${state.shelfCapacities[m.input]}" step="1" value="${state.career.stockTargets[m.input]}" data-stock-target="${m.input}" aria-label="${m.name} fresh shelf target"></label><label class="management-control">Batch strategy<select data-batch-mode="${m.id}" aria-label="${m.name} batch strategy"><option value="quick" ${state.career.batchModes[m.id] === 'quick' ? 'selected' : ''}>Quick: start with available ingredients</option><option value="full" ${state.career.batchModes[m.id] === 'full' ? 'selected' : ''}>Efficient: wait for a full ${state.upgrades[m.upgrade] * 2}-item batch</option></select></label></article>`,
-    )
+    .map((m) => {
+      const level = state.upgrades[m.upgrade];
+      const target = state.career.stockTargets[m.input];
+      const capacity = state.shelfCapacities[m.input];
+      const input = PRODUCTS.find((p) => p.id === m.input)!;
+      const output = PRODUCTS.find((p) => p.id === m.output)!;
+      const choice = (
+        kind: 'policy' | 'batch',
+        id: string,
+        label: string,
+        image: string,
+        selected: boolean,
+      ) =>
+        `<label class="staff-focus-option production-choice"><input type="radio" id="machine-${m.id}-${kind}-${id}" name="machine-${m.id}-${kind}" value="${id}" ${kind === 'policy' ? 'data-machine-policy' : 'data-batch-mode'}="${m.id}" ${selected ? 'checked' : ''}><span class="staff-focus-tile">${icon(image, 20)}<span>${label}</span><span class="staff-focus-check" aria-hidden="true">${icon('check', 14)}</span></span></label>`;
+      return `<article class="production-plan" aria-labelledby="machine-${m.id}-heading">
+        <div class="production-plan-heading"><div><h4 id="machine-${m.id}-heading">${m.name}</h4><div class="production-recipe"><span>${productIcon(m.input)}<span>${input.plural}</span></span><span class="production-recipe-arrow">${icon('arrow', 16)}</span><span>${productIcon(m.output)}<span>${output.plural}</span></span></div></div><span class="production-level">Level ${level}</span></div>
+        <fieldset class="production-choices" aria-label="${m.name} helper allocation"><legend>Helper allocation</legend><div class="production-choice-grid">${policies.map((p) => choice('policy', p.id, p.label, p.icon, state.career.machinePolicies[m.id] === p.id)).join('')}</div></fieldset>
+        <div class="production-stock"><div><label for="machine-${m.id}-stock">Fresh shelf target</label><small id="machine-${m.id}-stock-limit">Maximum: ${capacity} items</small></div><span class="stock-stepper" role="group" aria-label="${m.name} fresh shelf target"><button type="button" id="machine-${m.id}-stock-less" data-stock-adjust="-1" aria-controls="machine-${m.id}-stock" aria-label="Decrease shelf target" ${target <= 0 ? 'disabled' : ''}>−</button><input id="machine-${m.id}-stock" type="number" inputmode="numeric" min="0" max="${capacity}" step="1" value="${target}" data-stock-target="${m.input}" aria-label="${m.name} fresh shelf target" aria-describedby="machine-${m.id}-stock-limit"><button type="button" id="machine-${m.id}-stock-more" data-stock-adjust="1" aria-controls="machine-${m.id}-stock" aria-label="Increase shelf target" ${target >= capacity ? 'disabled' : ''}>+</button></span></div>
+        <fieldset class="production-choices" aria-label="${m.name} batch strategy"><legend>Batch strategy</legend><div class="production-choice-grid">${choice('batch', 'quick', 'Quick: start with available ingredients', 'play', state.career.batchModes[m.id] === 'quick')}${choice('batch', 'full', `Efficient: wait for a full ${level * 2}-item batch`, 'basket', state.career.batchModes[m.id] === 'full')}</div></fieldset>
+      </article>`;
+    })
     .join('')}</section>`;
 }

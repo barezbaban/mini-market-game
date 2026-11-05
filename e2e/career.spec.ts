@@ -61,10 +61,10 @@ test('milestone claims, staff choices and production plans are usable and persis
     .getByRole('radio', { name: 'Machines', exact: true })
     .check();
   await page.getByRole('tab', { name: 'Machines' }).click();
-  await page.locator('[data-machine-policy="paste"]').selectOption('shelf-first');
+  await page.locator('[data-machine-policy="paste"][value="shelf-first"]').check();
   await page.locator('[data-stock-target="tomato"]').fill('8');
   await page.locator('[data-stock-target="tomato"]').press('Tab');
-  await page.locator('[data-batch-mode="paste"]').selectOption('full');
+  await page.locator('[data-batch-mode="paste"][value="full"]').check();
   await page.getByRole('tab', { name: 'Goals' }).click();
   await page.locator('[data-claim-goal="first-sale"]').click();
   await expect(page.locator('[data-claim-goal="first-sale"]')).toHaveCount(0);

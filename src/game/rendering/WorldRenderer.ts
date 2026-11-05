@@ -1,3 +1,4 @@
+import { t } from '../../i18n';
 import {
   AmbientLight,
   Color,
@@ -171,7 +172,7 @@ export class WorldRenderer {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     this.renderer.outputColorSpace = SRGBColorSpace;
     this.renderer.shadowMap.enabled = false;
-    this.renderer.domElement.setAttribute('aria-label', 'Three dimensional mini market game');
+    this.renderer.domElement.setAttribute('aria-label', t('Three dimensional mini market game'));
     this.renderer.domElement.style.display = 'block';
     host.appendChild(this.renderer.domElement);
     this.scene.background = new Color(C.grass);

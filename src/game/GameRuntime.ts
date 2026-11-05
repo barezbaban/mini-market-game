@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { Vector2 } from 'three';
 import { GAME_CONFIG } from './data/gameConfig';
 import type { AudioManager } from './managers/AudioManager';
@@ -257,7 +258,8 @@ export class GameRuntime {
       ? 90
       : (Math.atan2(projected.y - height / 2, projected.x - width / 2) * 180) / Math.PI;
     this.guideArrow.style.transform = `rotate(${angle}deg)`;
-    if (this.guideLabel.textContent !== target.label) this.guideLabel.textContent = target.label;
+    const guideText = t(target.label);
+    if (this.guideLabel.textContent !== guideText) this.guideLabel.textContent = guideText;
   }
 
   dispose(): void {

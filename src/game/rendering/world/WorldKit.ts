@@ -1,3 +1,4 @@
+import { getLanguage, t } from '../../../i18n';
 import {
   BoxGeometry,
   CanvasTexture,
@@ -149,12 +150,14 @@ export function label(
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
   texture.minFilter = LinearFilter;
-  const labelMaterial = options.mount === 'surface'
-    ? new MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false })
-    : new SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
-  const object = options.mount === 'surface'
-    ? new Mesh(plane, labelMaterial as MeshBasicMaterial)
-    : new Sprite(labelMaterial as SpriteMaterial);
+  const labelMaterial =
+    options.mount === 'surface'
+      ? new MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false })
+      : new SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
+  const object =
+    options.mount === 'surface'
+      ? new Mesh(plane, labelMaterial as MeshBasicMaterial)
+      : new Sprite(labelMaterial as SpriteMaterial);
   object.scale.set(width, height, 1);
   object.renderOrder = 3;
   object.name = `label:${options.id}`;
@@ -174,6 +177,8 @@ export function label(
     foreground = options.foreground ?? '#185b43',
     background = options.background ?? '',
   ) => {
+    object.userData.worldLabel.sourceText = next;
+    next = t(next);
     const key = `${next}|${foreground}|${background}`;
     if (previous === key) return;
     previous = key;
@@ -195,16 +200,24 @@ export function label(
     context.textAlign = 'center';
     context.textBaseline = 'middle';
     context.fillStyle = foreground;
-    const family = '"Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif';
-    let size = options.fontSize ?? Math.round(canvas.height * 0.62);
+    const kurdish = getLanguage() === 'ckb';
+    const family = kurdish
+      ? '"Noto Sans Arabic", sans-serif'
+      : '"Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif';
+    context.direction = kurdish && /[\u0621-\u064a\u0671-\u06d3]/.test(next) ? 'rtl' : 'ltr';
+    let size = options.fontSize ?? Math.round(canvas.height * (kurdish ? 0.52 : 0.62));
     const maxWidth = canvas.width - canvas.height * 0.32;
     context.font = `800 ${size}px ${family}`;
     const measured = context.measureText(next).width;
     if (measured > maxWidth) {
-      size = Math.max(Math.round(canvas.height * 0.36), Math.floor((size * maxWidth) / measured));
+      size = Math.max(
+        kurdish ? 1 : Math.round(canvas.height * 0.36),
+        Math.floor((size * maxWidth) / measured),
+      );
       context.font = `800 ${size}px ${family}`;
     }
     object.userData.worldLabel.fontRatio = size / canvas.height;
+    object.userData.worldLabel.fits = context.measureText(next).width <= maxWidth;
     context.fillText(next, canvas.width / 2, canvas.height / 2 + 1);
     texture.needsUpdate = true;
   };

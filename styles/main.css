@@ -1,5 +1,130 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;650;700&family=Outfit:wght@400;500;600;650;700;800&display=swap');
 
+@font-face {
+  font-family: 'Noto Sans Arabic';
+  src: url('/fonts/NotoSansArabic.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+.language-setting {
+  min-width: 0;
+  margin: 0 0 20px;
+  padding: 0 0 18px;
+  border: 0;
+  border-bottom: 1px solid #dce6cd;
+}
+.language-setting legend {
+  padding: 0;
+  font-weight: 700;
+}
+.language-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 8px 0;
+}
+.language-choices button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 44px;
+  border: 1px solid #c3d2b3;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font: inherit;
+  background: #fffef7;
+  color: #405b46;
+  cursor: pointer;
+}
+.language-choices [lang='ckb'] {
+  font-family: 'Noto Sans Arabic', sans-serif;
+  letter-spacing: normal;
+}
+.language-choices button[aria-pressed='true'] {
+  border-color: #168a65;
+  box-shadow: inset 0 0 0 1px #168a65;
+  background: #e8f3e5;
+  color: #185b43;
+}
+.language-choices button[aria-pressed='false'] svg {
+  visibility: hidden;
+}
+.language-choices button:focus-visible {
+  outline: 3px solid #315f48;
+  outline-offset: 2px;
+}
+/* Kurdish letters must remain joined. The world and movement axes are not mirrored. */
+html[lang='ckb'] body,
+html[lang='ckb'] button,
+html[lang='ckb'] input,
+html[lang='ckb'] select,
+html[lang='ckb'] h2,
+html[lang='ckb'] h3,
+html[lang='ckb'] strong,
+html[lang='ckb'] small,
+html[lang='ckb'] label,
+html[lang='ckb'] span,
+html[lang='ckb'] b,
+html[lang='ckb'] output {
+  font-family: 'Noto Sans Arabic', sans-serif;
+  letter-spacing: normal;
+}
+html[lang='ckb'] .game-hud {
+  direction: ltr;
+}
+html[lang='ckb'] .desktop-controls,
+html[lang='ckb'] .zoom-scale {
+  direction: ltr;
+}
+html[lang='ckb'] .desktop-controls small {
+  direction: rtl;
+}
+html[lang='ckb'] .game-dialog,
+html[lang='ckb'] .basket-card,
+html[lang='ckb'] .objective,
+html[lang='ckb'] .pause-overlay,
+html[lang='ckb'] .security-banner,
+html[lang='ckb'] .world-float {
+  direction: rtl;
+}
+html[lang='ckb'] .game-dialog p,
+html[lang='ckb'] .game-dialog small {
+  line-height: 1.85;
+}
+html[lang='ckb'] .game-dialog ol {
+  padding-inline-start: 24px;
+  padding-inline-end: 0;
+}
+html[lang='ckb'] .game-dialog input[type='email'],
+html[lang='ckb'] .game-dialog input[type='password'],
+html[lang='ckb'] input[type='range'],
+html[lang='ckb'] #basket-count,
+html[lang='ckb'] .money-card,
+html[lang='ckb'] .inventory-product,
+html[lang='ckb'] kbd {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+html[lang='ckb'] .upgrade-effect svg {
+  transform: scaleX(-1);
+}
+html[lang='ckb'] .regular-avatar {
+  margin-inline-end: 8px;
+}
+html[lang='ckb'] .backup-picker input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+html[lang='ckb'] .backup-picker:focus-within {
+  outline: 3px solid #ffe18a;
+}
+
 :root {
   --shop-accent: #168a65;
   font-family: 'DM Sans', system-ui, sans-serif;
@@ -302,9 +427,177 @@
   width: 80px;
 }
 .production-plan {
-  border-top: 1px solid #dce6cd;
-  padding-top: 14px;
-  margin-top: 14px;
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid #dce6cd;
+  border-radius: 14px;
+  background: #fffef7;
+}
+.production-plans > h3 {
+  margin: 0 0 8px;
+}
+.production-plan-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e4ead8;
+}
+.production-plan-heading h4 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: #304c39;
+}
+.production-recipe,
+.production-recipe > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.production-recipe {
+  flex-wrap: wrap;
+  gap: 8px;
+  color: #627654;
+  font-size: 11px;
+}
+.production-recipe svg {
+  flex-shrink: 0;
+}
+html[dir='rtl'] .production-recipe-arrow {
+  transform: scaleX(-1);
+}
+.production-level {
+  flex-shrink: 0;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: #edf2df;
+  color: #49663a;
+  font-size: 11px;
+  font-weight: 700;
+}
+.production-choices {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.production-choices legend,
+.production-stock label {
+  padding: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #405b46;
+}
+.production-choices legend {
+  margin-block-end: 8px;
+}
+.production-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.production-choice .staff-focus-tile {
+  min-height: 58px;
+  padding: 12px;
+  background: #fafbf4;
+  border-radius: 10px;
+}
+.production-choice .staff-focus-check {
+  margin-left: 0;
+  margin-inline-start: auto;
+}
+.production-stock {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #e4ead8;
+  border-radius: 10px;
+  background: #f4f7e9;
+}
+.production-stock small {
+  display: block;
+  margin-top: 4px;
+  color: #627654;
+  font-size: 11px;
+}
+.stock-stepper {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 3px;
+  border: 1px solid #c5d4b6;
+  border-radius: 12px;
+  background: #fffef7;
+}
+.stock-stepper button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: #e9efda;
+  color: #405b46;
+  font: inherit;
+  font-size: 22px;
+  cursor: pointer;
+}
+.stock-stepper button:hover:not(:disabled) {
+  background: #d6e6c5;
+}
+.stock-stepper button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.stock-stepper input {
+  appearance: textfield;
+  -moz-appearance: textfield;
+  width: 54px;
+  height: 44px;
+  padding: 4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #304c39;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+}
+.stock-stepper input::-webkit-inner-spin-button,
+.stock-stepper input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.stock-stepper :focus-visible {
+  outline: 3px solid #315f48;
+  outline-offset: 2px;
+}
+@media (max-width: 600px) {
+  .production-plan {
+    padding: 12px;
+    gap: 14px;
+  }
+  .production-choice-grid {
+    grid-template-columns: 1fr;
+  }
+  .production-choice .staff-focus-tile {
+    min-height: 48px;
+    padding: 10px;
+  }
+  .production-plan-heading {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .production-stock {
+    padding: 10px;
+  }
 }
 .sales-grid {
   display: grid;
@@ -1077,9 +1370,8 @@ kbd {
   border: 0;
 }
 .rush-card {
-  display: flex;
-  align-items: center;
-  gap: 20px;
+  display: grid;
+  gap: 16px;
   margin: 16px 0;
   padding: 18px;
   border: 1px solid #e6c975;
@@ -1096,7 +1388,123 @@ kbd {
 }
 .rush-card button {
   flex-shrink: 0;
-  max-width: 190px;
+  max-width: 230px;
+}
+.rush-choices {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.rush-choices legend {
+  padding: 0;
+  margin-block-end: 8px;
+  color: #405b46;
+  font-size: 12px;
+  font-weight: 700;
+}
+.rush-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.rush-choice {
+  position: relative;
+  min-width: 0;
+  cursor: pointer;
+}
+.rush-choice input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.rush-choice-tile {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+  height: 100%;
+  min-height: 98px;
+  padding: 12px;
+  border: 1px solid #d4ddc6;
+  border-radius: 12px;
+  background: #fffef7;
+  color: #405b46;
+}
+.rush-choice-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.rush-choice-check {
+  display: grid;
+  place-items: center;
+  flex: 0 0 20px;
+  height: 20px;
+  border: 1px solid #bdcbb0;
+  border-radius: 50%;
+}
+.rush-choice-check svg {
+  visibility: hidden;
+}
+.rush-choice-stats {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.rush-choice-reward {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border-radius: 7px;
+  background: #f4edce;
+  color: #705521;
+  font-weight: 700;
+}
+.rush-choice-reward svg {
+  flex-shrink: 0;
+}
+.rush-choice:hover .rush-choice-tile {
+  border-color: #168a65;
+}
+.rush-choice input:checked + .rush-choice-tile {
+  border-color: #168a65;
+  box-shadow: inset 0 0 0 1px #168a65;
+  background: #e8f3e5;
+  color: #185b43;
+}
+.rush-choice input:checked + .rush-choice-tile .rush-choice-check {
+  border-color: #168a65;
+  background: #168a65;
+  color: #fff;
+}
+.rush-choice input:checked + .rush-choice-tile .rush-choice-check svg {
+  visibility: visible;
+}
+.rush-choice input:focus-visible + .rush-choice-tile {
+  outline: 3px solid #315f48;
+  outline-offset: 3px;
+}
+.rush-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.rush-card-footer small {
+  line-height: 1.5;
 }
 .rush-status {
   max-width: 190px;
@@ -1185,9 +1593,18 @@ kbd {
 }
 @media (max-width: 700px) {
   .rush-card {
+    gap: 12px;
+  }
+  .rush-choice-grid {
+    grid-template-columns: 1fr;
+  }
+  .rush-choice-tile {
+    min-height: 80px;
+    gap: 8px;
+  }
+  .rush-card-footer {
     flex-direction: column;
     align-items: stretch;
-    gap: 12px;
   }
   .rush-card button {
     max-width: none;

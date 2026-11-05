@@ -39,6 +39,7 @@ Cash left unattended for **three minutes** attracts a thief when you are away. T
 
 ## Features
 
+- **Settings → Language → کوردی (سۆرانی)** switches to Sorani Kurdish, including menus, help, upgrades, world signs, alerts, account forms and manual cloud backups. English and Sorani are both visible without opening a dropdown. To share a market link that opens in Sorani, append `?lang=ckb`; opening it does not overwrite the recipient’s language preference. Choosing a language in Settings saves the preference separately from market progress and saves the current market before switching. RTL menus do not reverse movement or the camera. Kurdish text uses the locally bundled **Noto Sans Arabic** font ([SIL Open Font License](public/fonts/OFL-NotoSansArabic.txt)). Translation catalogs live in `src/i18n`; native-speaker terminology review is welcome.
 - Original low-poly 3D world, rounded characters, produce models, and shop branding.
 - Full-screen game presentation with clear lighting, no world shadows, and a compact HUD.
 - **Settings → Camera zoom** adjusts the view from 75% (wider) to 175% (closer), with a reset to 100%. It applies immediately, survives reloads and screen rotation, and does not increase rendering resolution.

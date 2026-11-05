@@ -1,3 +1,4 @@
+import { t, html, errorText, getLanguage } from '../i18n';
 import { AuthClient, AuthError, type AuthUser } from './AuthClient';
 import { icon } from '../game/ui/icons';
 import { mountCloudSavePanel, type CloudSaveActions } from './CloudSavePanel';
@@ -11,7 +12,7 @@ interface AccountLifecycle {
 }
 
 const messageFor = (error: unknown): string =>
-  error instanceof AuthError ? error.message : 'Something went wrong. Please try again.';
+  errorText(error instanceof AuthError ? error.message : 'Something went wrong. Please try again.');
 
 export class AccountController {
   private user: AuthUser | null = null;
@@ -59,32 +60,32 @@ export class AccountController {
 
   private updateButton(): void {
     const label = this.user ? `Account: ${this.user.displayName}` : 'Open player account';
-    this.button.setAttribute('aria-label', label);
-    this.button.title = label;
+    this.button.setAttribute('aria-label', t(label));
+    this.button.title = t(label);
     this.button.classList.toggle('signed-in', Boolean(this.user));
   }
 
   private render(message = ''): void {
     if (this.mode === 'unavailable') {
-      this.dialog.innerHTML = `
+      this.dialog.innerHTML = html(`
         <div class="auth-brand">${icon('account', 27)}<span>KurdMart account</span></div>
         <h2>Keep your market with you.</h2>
         <p>Account screens are ready, but the secure account server still needs to be connected. You can keep playing as a guest on this device.</p>
         <div class="auth-notice" role="status">Online login will switch on after a hosting provider and API URL are approved.</div>
-        <button class="primary-button auth-wide" id="auth-guest">Continue as guest</button>`;
+        <button class="primary-button auth-wide" id="auth-guest">Continue as guest</button>`);
       this.dialog.querySelector('#auth-guest')!.addEventListener('click', () => this.close());
       return;
     }
     if (this.mode === 'account' && this.user) {
-      this.dialog.innerHTML = `
+      this.dialog.innerHTML = html(`
         <div class="dialog-heading"><div class="auth-brand">${icon('account', 25)}<span>Player account</span></div><button class="icon-button" id="auth-close" aria-label="Close account">${icon('close')}</button></div>
-        <div class="account-card"><span class="account-avatar"></span><div><strong id="account-name"></strong><small id="account-email"></small></div></div>
+        <div class="account-card" translate="no"><span class="account-avatar"></span><div><strong id="account-name" dir="auto"></strong><small id="account-email" dir="ltr"></small></div></div>
         <div id="cloud-panel"></div><p class="auth-message" id="account-message" role="status"></p>
-        <button class="secondary-button auth-wide" id="auth-logout">Sign out</button>`;
+        <button class="secondary-button auth-wide" id="auth-logout">Sign out</button>`);
       this.dialog.querySelector('.account-avatar')!.textContent = this.user.displayName
         .slice(0, 1)
         .toUpperCase();
-      this.dialog.querySelector('#account-message')!.textContent = message;
+      this.dialog.querySelector('#account-message')!.textContent = t(message);
       if (this.lifecycle.cloud)
         mountCloudSavePanel(
           this.dialog.querySelector('#cloud-panel')!,
@@ -100,7 +101,7 @@ export class AccountController {
       return;
     }
     const registering = this.mode === 'register';
-    this.dialog.innerHTML = `
+    this.dialog.innerHTML = html(`
       <div class="auth-brand">${icon('account', 27)}<span>KurdMart account</span></div>
       <h2>${registering ? 'Create your player account.' : 'Welcome back.'}</h2>
       <p>${registering ? 'An account lets you keep a manual cloud backup. Guest play is always available.' : 'Sign in to manage your cloud backup. Your local market stays unchanged.'}</p>
@@ -116,9 +117,25 @@ export class AccountController {
         <div id="auth-message" class="auth-message" role="alert" ${message ? '' : 'hidden'}></div>
         <button class="primary-button auth-wide" type="submit">${registering ? 'Create account' : 'Sign in'}</button>
       </form>
-      <button class="auth-guest-link" id="auth-guest">Play as guest on this device</button>`;
+      <button class="auth-guest-link" id="auth-guest">Play as guest on this device</button>`);
     const status = this.dialog.querySelector<HTMLElement>('#auth-message')!;
-    status.textContent = message;
+    status.textContent = t(message);
+    if (getLanguage() === 'ckb') {
+      this.dialog.querySelectorAll<HTMLInputElement>('#auth-form input').forEach((input) => {
+        input.dir = input.name === 'displayName' ? 'auto' : 'ltr';
+        input.addEventListener('input', () => input.setCustomValidity(''));
+        input.addEventListener('invalid', () => {
+          const key = input.validity.valueMissing
+            ? 'Please fill in this field.'
+            : input.validity.typeMismatch
+              ? 'Please enter a valid email address.'
+              : input.name === 'displayName'
+                ? 'Please use at least 2 characters.'
+                : 'Please use at least 15 characters.';
+          input.setCustomValidity(t(key));
+        });
+      });
+    }
     this.dialog.querySelector('#auth-login-tab')!.addEventListener('click', () => {
       this.mode = 'login';
       this.render();
@@ -141,7 +158,7 @@ export class AccountController {
     this.busy = true;
     const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
     submit.disabled = true;
-    submit.textContent = this.mode === 'register' ? 'Creating…' : 'Signing in…';
+    submit.textContent = t(this.mode === 'register' ? 'Creating…' : 'Signing in…');
     const values = new FormData(form);
     try {
       this.user =

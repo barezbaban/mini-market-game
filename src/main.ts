@@ -1,3 +1,5 @@
+import { html, initializeLanguage, getLanguage, t } from './i18n';
+import { confirmAction } from './game/ui/ConfirmDialog';
 import '../styles/main.css';
 import { AccountController } from './auth/AccountController';
 import { helpContent } from './game/ui/HelpPanel';
@@ -39,6 +41,8 @@ import type {
   UpgradeDefinition,
   UpgradeId,
 } from './game/types';
+
+await initializeLanguage();
 
 const save = new SaveSystem({
   read: () => localStorage.getItem(GAME_CONFIG.saveKey),
@@ -86,8 +90,9 @@ try {
   hud.setSaved(save.lastError === null);
 } catch (error) {
   console.error('The 3D market could not start.', error);
-  document.querySelector('#loading')!.innerHTML =
-    '<strong>The 3D market needs WebGL 2.</strong><p>Try an updated browser with hardware acceleration enabled. Your saved market is safe.</p><button class="primary-button" id="retry-game">Try again</button>';
+  document.querySelector('#loading')!.innerHTML = html(
+    '<strong>The 3D market needs WebGL 2.</strong><p>Try an updated browser with hardware acceleration enabled. Your saved market is safe.</p><button class="primary-button" id="retry-game">Try again</button>',
+  );
   document.querySelector('#retry-game')!.addEventListener('click', () => location.reload());
 }
 
@@ -153,17 +158,18 @@ function showDialog(kind: 'settings' | 'help'): void {
   dialogWasPaused = paused;
   setPaused(true);
   const zoomPercent = Math.round(engine.state.cameraZoom * 100);
-  dialog.innerHTML =
+  dialog.innerHTML = html(
     `<div class="dialog-heading"><h2>${kind === 'settings' ? 'Make yourself at home.' : 'Small steps. Fresh starts.'}</h2><button class="icon-button" id="dialog-close" aria-label="Close dialog">${icon('close')}</button></div>` +
-    (kind === 'help'
-      ? '<p>Gold footprint circles show a place to stand. They turn green when you are close enough to collect, stock, or load items.</p>'
-      : '') +
-    (kind === 'settings'
-      ? `<section class="zoom-setting" aria-label="Camera settings"><div class="zoom-heading"><label for="camera-zoom">Camera zoom</label><output id="camera-zoom-value" for="camera-zoom">${zoomPercent}%</output></div><input id="camera-zoom" type="range" min="${CAMERA_ZOOM.min * 100}" max="${CAMERA_ZOOM.max * 100}" step="${CAMERA_ZOOM.step * 100}" value="${zoomPercent}" aria-valuetext="${zoomPercent}% zoom" aria-describedby="camera-zoom-hint"><div class="zoom-scale" aria-hidden="true"><span>Wider view</span><span>Closer view</span></div><div class="zoom-actions"><small id="camera-zoom-hint">Applies immediately and saves on this device.</small><button id="reset-zoom" class="secondary-button" ${engine.state.cameraZoom === CAMERA_ZOOM.default ? 'disabled' : ''}>Reset zoom</button></div></section>`
-      : '') +
-    (kind === 'help'
-      ? helpContent()
-      : `<div class="setting-row"><span>Market sounds<small>Original melodies & little rewards</small></span><button id="dialog-sound" class="secondary-button">${engine.state.soundEnabled ? 'Sound on' : 'Sound off'}</button></div><div class="setting-row audio-setting"><label for="effects-volume">Sound effects<small>Pickups, stocking and register chimes</small></label><input id="effects-volume" type="range" min="0" max="100" value="${Math.round(engine.state.effectsVolume * 100)}" aria-label="Sound effects volume"></div><div class="setting-row audio-setting"><label for="music-volume">Background music<small>Cheerful original tune · set to 0 to mute</small></label><input id="music-volume" type="range" min="0" max="100" value="${Math.round(engine.state.musicVolume * 100)}" aria-label="Background music volume"></div><div class="setting-row"><span>Your little business<small>${engine.state.totalServed} customers · $${engine.state.totalEarned} lifetime earned</small></span>${icon('leaf')}</div><div class="setting-row"><span>A fresh beginning<small>Erase this device’s market progress</small></span><button id="reset-button" class="danger-button">Reset game</button></div><p>Your market is saved automatically in this browser. Clearing browser data also clears your save.</p>`);
+      (kind === 'help'
+        ? '<p>Gold footprint circles show a place to stand. They turn green when you are close enough to collect, stock, or load items.</p>'
+        : '') +
+      (kind === 'settings'
+        ? `<section class="zoom-setting" aria-label="Camera settings"><div class="zoom-heading"><label for="camera-zoom">Camera zoom</label><output id="camera-zoom-value" for="camera-zoom">${zoomPercent}%</output></div><input id="camera-zoom" type="range" min="${CAMERA_ZOOM.min * 100}" max="${CAMERA_ZOOM.max * 100}" step="${CAMERA_ZOOM.step * 100}" value="${zoomPercent}" aria-valuetext="${zoomPercent}% zoom" aria-describedby="camera-zoom-hint"><div class="zoom-scale" aria-hidden="true"><span>Wider view</span><span>Closer view</span></div><div class="zoom-actions"><small id="camera-zoom-hint">Applies immediately and saves on this device.</small><button id="reset-zoom" class="secondary-button" ${engine.state.cameraZoom === CAMERA_ZOOM.default ? 'disabled' : ''}>Reset zoom</button></div></section>`
+        : '') +
+      (kind === 'help'
+        ? helpContent()
+        : `<div class="setting-row"><span>Market sounds<small>Original melodies & little rewards</small></span><button id="dialog-sound" class="secondary-button">${engine.state.soundEnabled ? 'Sound on' : 'Sound off'}</button></div><div class="setting-row audio-setting"><label for="effects-volume">Sound effects<small>Pickups, stocking and register chimes</small></label><input id="effects-volume" type="range" min="0" max="100" value="${Math.round(engine.state.effectsVolume * 100)}" aria-label="Sound effects volume"></div><div class="setting-row audio-setting"><label for="music-volume">Background music<small>Cheerful original tune · set to 0 to mute</small></label><input id="music-volume" type="range" min="0" max="100" value="${Math.round(engine.state.musicVolume * 100)}" aria-label="Background music volume"></div><div class="setting-row"><span>Your little business<small>${engine.state.totalServed} customers · $${engine.state.totalEarned} lifetime earned</small></span>${icon('leaf')}</div><div class="setting-row"><span>A fresh beginning<small>Erase this device’s market progress</small></span><button id="reset-button" class="danger-button">Reset game</button></div><p>Your market is saved automatically in this browser. Clearing browser data also clears your save.</p>`),
+  );
   dialog.querySelector('#dialog-close')!.addEventListener('click', () => dialog.close());
   if (kind === 'settings')
     mountSettingsExtras(dialog, engine, save, {
@@ -181,8 +187,8 @@ function showDialog(kind: 'settings' | 'help'): void {
     runtime.world.setZoom(engine.state.cameraZoom);
     const percent = Math.round(engine.state.cameraZoom * 100);
     zoomSlider!.value = String(percent);
-    zoomSlider!.setAttribute('aria-valuetext', `${percent}% zoom`);
-    dialog.querySelector('#camera-zoom-value')!.textContent = `${percent}%`;
+    zoomSlider!.setAttribute('aria-valuetext', t(`${percent}% zoom`));
+    dialog.querySelector('#camera-zoom-value')!.textContent = t(`${percent}%`);
     dialog.querySelector<HTMLButtonElement>('#reset-zoom')!.disabled =
       engine.state.cameraZoom === CAMERA_ZOOM.default;
     runtime.persist();
@@ -204,12 +210,14 @@ function showDialog(kind: 'settings' | 'help'): void {
   }
   dialog.querySelector('#dialog-sound')?.addEventListener('click', () => {
     toggleSound();
-    dialog.querySelector('#dialog-sound')!.textContent = engine.state.soundEnabled
-      ? 'Sound on'
-      : 'Sound off';
+    dialog.querySelector('#dialog-sound')!.textContent = t(
+      engine.state.soundEnabled ? 'Sound on' : 'Sound off',
+    );
   });
   dialog.querySelector('#reset-button')?.addEventListener('click', () => {
-    dialog.innerHTML = `<div class="dialog-heading"><h2>Start fresh?</h2></div><p>This will erase your money, upgrades, and farm progress on this device. This cannot be undone.</p><div class="dialog-actions"><button id="cancel-reset" class="secondary-button">Keep my market</button><button id="confirm-reset" class="danger-button">Yes, reset game</button></div>`;
+    dialog.innerHTML = html(
+      `<div class="dialog-heading"><h2>Start fresh?</h2></div><p>This will erase your money, upgrades, and farm progress on this device. This cannot be undone.</p><div class="dialog-actions"><button id="cancel-reset" class="secondary-button">Keep my market</button><button id="confirm-reset" class="danger-button">Yes, reset game</button></div>`,
+    );
     dialog.querySelector('#cancel-reset')!.addEventListener('click', () => dialog.close());
     dialog.querySelector('#confirm-reset')!.addEventListener('click', () => {
       if (save.reset()) {
@@ -218,8 +226,9 @@ function showDialog(kind: 'settings' | 'help'): void {
         runtime.setPaused(true);
         location.reload();
       } else
-        dialog.innerHTML =
-          '<h2>Reset unavailable</h2><p>Your browser blocked access to storage. Please check site storage permissions and reload.</p><form method="dialog"><button class="secondary-button">Close</button></form>';
+        dialog.innerHTML = html(
+          '<h2>Reset unavailable</h2><p>Your browser blocked access to storage. Please check site storage permissions and reload.</p><form method="dialog"><button class="secondary-button">Close</button></form>',
+        );
     });
   });
   dialog.showModal();
@@ -499,8 +508,18 @@ function renderManagement(): void {
   const tab = managementTabs.find((entry) => entry.id === managementCategory)!;
   const state = engine.state;
   const recommended = recommendedUpgrades(state);
-  const rushCard = `<section class="rush-card" aria-label="Rush hour challenge"><div><strong>Optional rush hour · 90 seconds</strong><p>Pick a challenge that fits your shop. No cash penalty. ${state.safePause ? 'Safe pause freezes challenge timers in menus.' : 'Timers keep running in Manage.'}</p><label class="management-control">Challenge<select id="rush-tier" aria-label="Rush hour difficulty">${RUSH_TIERS.map((t) => `<option value="${t.id}" ${selectedRushTier === t.id ? 'selected' : ''}>${t.name} · ${t.goal} orders · ${t.xp} XP</option>`).join('')}</select></label><small id="management-rush-result"></small></div><button id="start-rush" class="primary-button"></button></section>`;
-  dialog.innerHTML = `<div class="management-header"><div><span class="eyebrow">YOUR LITTLE BUSINESS</span><h2>Make room to grow.</h2></div><button class="icon-button" id="management-close" aria-label="Close management">${icon('close')}</button></div>
+  const rushCard = `<section class="rush-card" aria-label="Rush hour challenge">
+    <div><strong>Optional rush hour · 90 seconds</strong><p>Pick a challenge that fits your shop. No cash penalty. ${state.safePause ? 'Safe pause freezes challenge timers in menus.' : 'Timers keep running in Manage.'}</p></div>
+    <fieldset class="rush-choices"><legend>Challenge</legend><div class="rush-choice-grid">${RUSH_TIERS.map(
+      (tier) => `<label class="rush-choice" for="rush-tier-${tier.id}">
+        <input type="radio" name="rush-tier" id="rush-tier-${tier.id}" value="${tier.id}" ${selectedRushTier === tier.id ? 'checked' : ''}>
+        <span class="rush-choice-tile"><span class="rush-choice-heading"><strong>${tier.name}</strong><span class="rush-choice-check" aria-hidden="true">${icon('check', 14)}</span></span><span class="rush-choice-stats"><span>${tier.goal} orders</span><span class="rush-choice-reward">${icon('star', 14)}<span>${tier.xp} XP</span></span></span></span>
+      </label>`,
+    ).join('')}</div></fieldset>
+    <div class="rush-card-footer"><small id="management-rush-result" role="status"></small><button id="start-rush" class="primary-button"></button></div>
+  </section>`;
+  dialog.innerHTML =
+    html(`<div class="management-header"><div><span class="eyebrow">YOUR LITTLE BUSINESS</span><h2>Make room to grow.</h2></div><button class="icon-button" id="management-close" aria-label="Close management">${icon('close')}</button></div>
     <div class="management-summary"><span>${icon('coin', 18)} <strong id="management-money">$${state.money.toLocaleString()}</strong></span><span>${icon('star', 16)} <span id="management-xp"></span></span><span>${state.workers.length} ${state.workers.length === 1 ? 'helper' : 'helpers'} working</span></div>
     <div class="management-tabs" role="tablist" aria-label="Management categories">${managementTabs.map((entry) => `<button id="management-tab-${entry.id}" role="tab" aria-selected="${entry.id === managementCategory}" aria-controls="management-panel" tabindex="${entry.id === managementCategory ? 0 : -1}" data-category="${entry.id}">${icon(entry.icon, 18)}${entry.title}</button>`).join('')}</div>
     <div class="management-content" id="management-panel" role="tabpanel" aria-labelledby="management-tab-${managementCategory}" tabindex="0">${managementCategory === 'goals' ? `${goalsPanel(state)}${rushCard}<details class="future-upgrades"><summary>Player-level roadmap</summary>${progressionOverview()}</details>` : insightPanel(state)}${managementCategory === 'staff' ? staffPanel(state) : ''}${managementCategory === 'machines' ? productionPanel(state) : ''}<p class="management-intro">${tab.subtitle}</p><div class="upgrade-grid">${UPGRADES.filter(
@@ -544,7 +563,7 @@ function renderManagement(): void {
       })
       .join(
         '',
-      )}</div></div><div id="management-status" class="management-status" role="status" aria-live="polite">${managementMessage || (state.safePause ? 'Safe pause is on. Your market and timers are paused.' : 'Your market keeps running. Theft is protected while menus are open.')}</div>`;
+      )}</div></div><div id="management-status" class="management-status" role="status" aria-live="polite">${managementMessage || (state.safePause ? 'Safe pause is on. Your market and timers are paused.' : 'Your market keeps running. Theft is protected while menus are open.')}</div>`);
   dialog.querySelectorAll('details').forEach((d) => {
     d.open = openDetails.has(d.querySelector('summary')?.textContent);
   });
@@ -579,7 +598,8 @@ function refreshManagementValues(dialog: HTMLDialogElement): void {
   const { rush, xp, totalServed } = engine.state;
   const setText = (selector: string, text: string) => {
     const node = dialog.querySelector(selector);
-    if (node && node.textContent !== text) node.textContent = text;
+    const translated = t(text);
+    if (node && node.textContent !== translated) node.textContent = translated;
   };
   const start = dialog.querySelector<HTMLButtonElement>('#start-rush');
   const requirement = rushRequirement(engine.state, selectedRushTier);
@@ -640,8 +660,27 @@ function closeManagement(): void {
   managementDialog.close();
   restoreManagementPause();
 }
-managementDialog.addEventListener('click', (event) => {
+managementDialog.addEventListener('click', async (event) => {
   const target = event.target as Element;
+  const adjust = target.closest<HTMLButtonElement>('[data-stock-adjust]');
+  if (adjust) {
+    if (adjust.disabled) return;
+    const input = document.getElementById(
+      adjust.getAttribute('aria-controls')!,
+    ) as HTMLInputElement;
+    const current = Number(input.value);
+    input.value = String(
+      Math.max(
+        0,
+        Math.min(
+          Number(input.max),
+          (Number.isFinite(current) ? current : 0) + Number(adjust.dataset.stockAdjust),
+        ),
+      ),
+    );
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    return;
+  }
   if (target.closest('#start-rush')) {
     if (engine.rush.start(selectedRushTier)) {
       runtime.persist();
@@ -675,7 +714,9 @@ managementDialog.addEventListener('click', (event) => {
     else if (style) changed = engine.career.setStyle(style.dataset.style as ShopStyle);
     else if (target.closest('#claim-contract')) changed = engine.career.claimContract();
     else if (
-      confirm('Abandon this optional contract? Progress on it will be cleared; no money is lost.')
+      await confirmAction(
+        'Abandon this optional contract? Progress on it will be cleared; no money is lost.',
+      )
     ) {
       engine.career.cancelContract();
       changed = true;
@@ -708,7 +749,7 @@ managementDialog.addEventListener('click', (event) => {
 });
 managementDialog.addEventListener('change', (event) => {
   const control = event.target as HTMLInputElement | HTMLSelectElement;
-  if (control.id === 'rush-tier') {
+  if (control.name === 'rush-tier') {
     if (RUSH_TIERS.some((t) => t.id === control.value))
       selectedRushTier = control.value as RushTier;
     refreshManagementValues(managementDialog);
@@ -722,7 +763,7 @@ managementDialog.addEventListener('change', (event) => {
       worker.priority = workerPriority(control.value, engine.state);
       const note = managementDialog.querySelector(`#helper-${worker.id}-focus-note`);
       if (note && control.dataset.focusDescription)
-        note.textContent = control.dataset.focusDescription;
+        note.textContent = t(control.dataset.focusDescription);
     }
   } else if (control.dataset.machinePolicy) {
     const id = control.dataset.machinePolicy as MachineId;
@@ -745,20 +786,31 @@ managementDialog.addEventListener('change', (event) => {
         Math.min(engine.state.shelfCapacities[id], Math.floor(value)),
       );
     control.value = String(engine.state.career.stockTargets[id]);
+    control
+      .closest('.stock-stepper')
+      ?.querySelectorAll<HTMLButtonElement>('[data-stock-adjust]')
+      .forEach((button) => {
+        button.disabled =
+          Number(button.dataset.stockAdjust) < 0
+            ? Number(control.value) <= 0
+            : Number(control.value) >= engine.state.shelfCapacities[id];
+      });
   } else return;
   runtime.persist();
   managementMessage =
     'Plan saved. Helpers finish their current delivery before following the new priority.';
   const status = managementDialog.querySelector('#management-status');
-  if (status) status.textContent = managementMessage;
+  if (status) status.textContent = t(managementMessage);
 });
 managementDialog.addEventListener('keydown', (event) => {
   if (!(event.target instanceof HTMLElement) || event.target.getAttribute('role') !== 'tab') return;
   const index = managementTabs.findIndex((tab) => tab.id === managementCategory);
+  const forwardKey = getLanguage() === 'ckb' ? 'ArrowLeft' : 'ArrowRight';
+  const backwardKey = getLanguage() === 'ckb' ? 'ArrowRight' : 'ArrowLeft';
   const nextIndex =
-    event.key === 'ArrowRight'
+    event.key === forwardKey
       ? (index + 1) % managementTabs.length
-      : event.key === 'ArrowLeft'
+      : event.key === backwardKey
         ? (index + managementTabs.length - 1) % managementTabs.length
         : event.key === 'Home'
           ? 0

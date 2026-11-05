@@ -1,3 +1,4 @@
+import { t } from '../../i18n';
 import type { GameEvent } from '../types';
 
 interface FloatLabel {
@@ -31,7 +32,7 @@ export class FloatingText {
     if (this.active.length >= 16) return;
     const element = this.pool.pop() ?? document.createElement('span');
     element.className = `world-float ${event.type}`;
-    element.textContent = event.text;
+    element.textContent = t(event.text);
     element.hidden = false;
     this.layer.append(element);
     this.active.push({ element, event, started: time, lift: 0 });

@@ -1,3 +1,4 @@
+import { html, t } from '../../i18n';
 import { PRODUCTS } from '../data/products';
 import { GAME_CONFIG } from '../data/gameConfig';
 import { CASH_POINTS, uncollectedCash } from '../data/cashPoints';
@@ -30,7 +31,7 @@ export class Hud {
   private cached = '';
 
   constructor(root: HTMLElement, actions: HudActions) {
-    root.innerHTML = `
+    root.innerHTML = html(`
       <main id="game-frame" class="game-frame">
           <div id="game-canvas" aria-label="Market and farm game world. Move with WASD, arrow keys, or the touch joystick." role="application" tabindex="0"></div>
           <div class="game-hud">
@@ -70,7 +71,7 @@ export class Hud {
       <dialog id="account-dialog" class="game-dialog account-dialog" aria-label="Player account"></dialog>
       <dialog id="management-dialog" class="game-dialog management-dialog" aria-label="Manage market"></dialog>
       <div class="sr-only" id="announcements" aria-live="polite" role="status"></div>
-    `;
+    `);
     this.money = root.querySelector('#money-value')!;
     this.inventory = root.querySelector('#inventory-items')!;
     this.hint = root.querySelector('#objective-text')!;
@@ -100,7 +101,7 @@ export class Hud {
       inventoryToggle.setAttribute('aria-expanded', String(!this.inventoryDetail.hidden));
       inventoryToggle.setAttribute(
         'aria-label',
-        this.inventoryDetail.hidden ? 'Show basket contents' : 'Hide basket contents',
+        t(this.inventoryDetail.hidden ? 'Show basket contents' : 'Hide basket contents'),
       );
       root.querySelector<HTMLElement>('#game-canvas')!.focus({ preventScroll: true });
     });
@@ -111,7 +112,9 @@ export class Hud {
     rushStatus.hidden = !state.rush.remainingMs;
     if (state.rush.remainingMs) {
       const seconds = Math.ceil(state.rush.remainingMs / 1000);
-      rushStatus.textContent = `Rush ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')} · ${state.rush.completed}/${state.rush.goal} orders`;
+      rushStatus.textContent = t(
+        `Rush ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')} · ${state.rush.completed}/${state.rush.goal} orders`,
+      );
       rushStatus.classList.toggle('urgent', seconds <= 15);
     }
     document
@@ -120,7 +123,7 @@ export class Hud {
     const pending = uncollectedCash(state);
     const cashReady = document.querySelector<HTMLElement>('#cash-ready')!;
     cashReady.hidden = pending === 0;
-    cashReady.textContent = `Uncollected: $${pending.toLocaleString()}`;
+    cashReady.textContent = t(`Uncollected: $${pending.toLocaleString()}`);
     document.querySelector<HTMLElement>('#sprint-energy')!.style.width =
       `${Math.round(state.sprintEnergy * 100)}%`;
     document.querySelector('#sprint-button')!.classList.toggle('exhausted', state.sprintExhausted);
@@ -160,7 +163,8 @@ export class Hud {
     )
       securityText = 'Cash has been unattended a long time. Collect it before a thief visits.';
     banner.hidden = !securityText;
-    if (banner.textContent !== securityText) banner.textContent = securityText;
+    const translatedSecurity = t(securityText);
+    if (banner.textContent !== translatedSecurity) banner.textContent = translatedSecurity;
     const nearTrash =
       Math.hypot(state.player.x - GAME_CONFIG.trash.x, state.player.y - GAME_CONFIG.trash.y) < 85;
     const nearDriveThrough =
@@ -190,21 +194,21 @@ export class Hud {
     ].join(',');
     if (key === this.cached) return;
     this.cached = key;
-    this.money.textContent = `$${state.money.toLocaleString()}`;
+    this.money.textContent = t(`$${state.money.toLocaleString()}`);
     const level = playerLevel(state.xp);
     const levelXp = state.xp - xpForLevel(level);
     const nextXp = xpForLevel(level + 1) - xpForLevel(level);
-    this.levelLabel.textContent = `LV ${level}`;
-    this.xpLabel.textContent = `${levelXp.toLocaleString()} / ${nextXp.toLocaleString()} XP`;
+    this.levelLabel.textContent = t(`LV ${level}`);
+    this.xpLabel.textContent = t(`${levelXp.toLocaleString()} / ${nextXp.toLocaleString()} XP`);
     const xpPercent = Math.min(100, Math.round((levelXp / nextXp) * 100));
     this.xpFill.style.width = `${xpPercent}%`;
     this.xpFill.parentElement!.setAttribute('aria-valuenow', String(xpPercent));
     this.xpFill.parentElement!.setAttribute(
       'aria-valuetext',
-      `Level ${level}, ${levelXp} of ${nextXp} XP to next level`,
+      t(`Level ${level}, ${levelXp} of ${nextXp} XP to next level`),
     );
     const count = Object.values(state.inventory).reduce((a, b) => a + b, 0);
-    this.basketCount.textContent = `${count} / ${state.inventoryCapacity}`;
+    this.basketCount.textContent = t(`${count} / ${state.inventoryCapacity}`);
     this.basketCount.classList.toggle('full', count === state.inventoryCapacity);
     const sortedProducts = [...PRODUCTS].sort(
       (a, b) =>
@@ -213,17 +217,20 @@ export class Hud {
           Number(state.unlockedProducts.includes(a.id)),
     );
     const visibleProducts = sortedProducts.slice(0, 3);
-    this.inventory.innerHTML =
+    this.inventory.innerHTML = html(
       visibleProducts
         .map(
           (product) =>
             `<span class="inventory-product ${state.inventory[product.id] ? '' : 'empty'}" title="${product.plural}">${productIcon(product.id)}<b>${state.inventory[product.id]}</b></span>`,
         )
         .join('') +
-      (sortedProducts.slice(3).some((product) => state.inventory[product.id] > 0)
-        ? '<span class="inventory-extra" title="Open basket to see all products">+ more</span>'
-        : '');
-    this.inventoryDetail.innerHTML = `<strong>Everything in your basket</strong>${PRODUCTS.map((product) => `<div class="inventory-detail-row ${state.unlockedProducts.includes(product.id) ? '' : 'locked'}">${productIcon(product.id)}<span>${product.plural}${state.unlockedProducts.includes(product.id) ? '' : '<small>Not unlocked yet</small>'}</span><b>${state.inventory[product.id]}</b></div>`).join('')}`;
+        (sortedProducts.slice(3).some((product) => state.inventory[product.id] > 0)
+          ? '<span class="inventory-extra" title="Open basket to see all products">+ more</span>'
+          : ''),
+    );
+    this.inventoryDetail.innerHTML = html(
+      `<strong>Everything in your basket</strong>${PRODUCTS.map((product) => `<div class="inventory-detail-row ${state.unlockedProducts.includes(product.id) ? '' : 'locked'}">${productIcon(product.id)}<span>${product.plural}${state.unlockedProducts.includes(product.id) ? '' : '<small>Not unlocked yet</small>'}</span><b>${state.inventory[product.id]}</b></div>`).join('')}`,
+    );
     const hints = [
       ['Your first harvest', 'Head to the tomato patch.'],
       ['Pick something fresh', 'Stand near ripe plants to collect tomatoes.'],
@@ -237,63 +244,74 @@ export class Hud {
     ];
     const hint = hints[Math.min(state.tutorialStep, hints.length - 1)];
     const goal = nextBusinessGoal(state);
-    this.hint.innerHTML =
+    this.hint.innerHTML = html(
       state.tutorialStep >= 6
         ? `<strong>${goal.title}</strong><span>${goal.detail}</span>`
-        : `<strong>${hint[0]}</strong><span>${hint[1]}</span>`;
+        : `<strong>${hint[0]}</strong><span>${hint[1]}</span>`,
+    );
     if (nearTrash)
-      this.hint.innerHTML = count
-        ? `<strong>Trash bin · ${count} item${count === 1 ? '' : 's'}</strong><span>Stay close for 1 second to discard everything.</span>`
-        : '<strong>Trash bin · basket empty</strong><span>Carry unwanted items here to discard them.</span>';
+      this.hint.innerHTML = html(
+        count
+          ? `<strong>Trash bin · ${count} item${count === 1 ? '' : 's'}</strong><span>Stay close for 1 second to discard everything.</span>`
+          : '<strong>Trash bin · basket empty</strong><span>Carry unwanted items here to discard them.</span>',
+      );
     if (nearDriveThrough) {
       const order = state.driveThroughOrders.find((entry) => entry.state !== 'LEAVING');
       if (!order)
-        this.hint.innerHTML =
-          '<strong>Drive-through is ready</strong><span>The next car or bike is on its way.</span>';
+        this.hint.innerHTML = html(
+          '<strong>Drive-through is ready</strong><span>The next car or bike is on its way.</span>',
+        );
       else if (order.state === 'ARRIVING')
-        this.hint.innerHTML =
-          '<strong>Vehicle approaching</strong><span>Wait for it to stop at the pickup window.</span>';
+        this.hint.innerHTML = html(
+          '<strong>Vehicle approaching</strong><span>Wait for it to stop at the pickup window.</span>',
+        );
       else if (['READY_TO_PAY', 'PAYING'].includes(order.state))
-        this.hint.innerHTML = state.upgrades.driveCashier
-          ? '<strong>Drive-through payment</strong><span>Your cashier stacks the cash. Collect it at the separate cash pile.</span>'
-          : '<strong>Drive-through payment ready</strong><span>Serve here, then walk to the cash pile to collect.</span>';
+        this.hint.innerHTML = html(
+          state.upgrades.driveCashier
+            ? '<strong>Drive-through payment</strong><span>Your cashier stacks the cash. Collect it at the separate cash pile.</span>'
+            : '<strong>Drive-through payment ready</strong><span>Serve here, then walk to the cash pile to collect.</span>',
+        );
       else {
         const remaining = PRODUCTS.filter(({ id }) => order.requested[id] > order.delivered[id])
           .map(({ id, name }) => `${order.requested[id] - order.delivered[id]} ${name}`)
           .join(' · ');
-        this.hint.innerHTML = state.upgrades.driveRunner
-          ? `<strong>Drive-through order</strong><span>${remaining || 'Loaded'} · Your runner is working.</span>`
-          : `<strong>Drive-through order</strong><span>Bring ${remaining || 'the last item'} here from your basket.</span>`;
+        this.hint.innerHTML = html(
+          state.upgrades.driveRunner
+            ? `<strong>Drive-through order</strong><span>${remaining || 'Loaded'} · Your runner is working.</span>`
+            : `<strong>Drive-through order</strong><span>Bring ${remaining || 'the last item'} here from your basket.</span>`,
+        );
       }
     }
-    this.soundButton.innerHTML = icon(state.soundEnabled ? 'sound' : 'mute');
+    this.soundButton.innerHTML = html(icon(state.soundEnabled ? 'sound' : 'mute'));
     this.soundButton.setAttribute(
       'aria-label',
-      state.soundEnabled ? 'Turn sound off' : 'Turn sound on',
+      t(state.soundEnabled ? 'Turn sound off' : 'Turn sound on'),
     );
-    this.soundButton.title = state.soundEnabled ? 'Sound on' : 'Sound off';
+    this.soundButton.title = t(state.soundEnabled ? 'Sound on' : 'Sound off');
   }
 
   setPaused(paused: boolean, safe = false): void {
     document.querySelector<HTMLElement>('#pause-overlay')!.hidden = !paused;
-    this.pauseButton.innerHTML = icon(paused ? 'play' : 'pause');
-    this.pauseButton.setAttribute('aria-label', paused ? 'Resume game' : 'Pause game');
-    document.querySelector('#pause-overlay h2')!.textContent = safe
-      ? 'Your market is paused.'
-      : 'Controls paused.';
-    document.querySelector('#pause-overlay p')!.textContent = safe
-      ? 'Safe pause stops the shop, rush-hour timers and theft. Resume whenever you are ready.'
-      : 'Your market and rush-hour timers keep running. Theft is protected while controls are paused. Enable Safe pause in Settings to stop everything.';
+    this.pauseButton.innerHTML = html(icon(paused ? 'play' : 'pause'));
+    this.pauseButton.setAttribute('aria-label', t(paused ? 'Resume game' : 'Pause game'));
+    document.querySelector('#pause-overlay h2')!.textContent = t(
+      safe ? 'Your market is paused.' : 'Controls paused.',
+    );
+    document.querySelector('#pause-overlay p')!.textContent = t(
+      safe
+        ? 'Safe pause stops the shop, rush-hour timers and theft. Resume whenever you are ready.'
+        : 'Your market and rush-hour timers keep running. Theft is protected while controls are paused. Enable Safe pause in Settings to stop everything.',
+    );
   }
 
   setSaved(success: boolean): void {
-    this.saveLabel.textContent = success
-      ? '● Saved on this device'
-      : '○ Saving unavailable — keep this tab open';
+    this.saveLabel.textContent = t(
+      success ? '● Saved on this device' : '○ Saving unavailable — keep this tab open',
+    );
     this.saveLabel.classList.toggle('save-error', !success);
   }
 
   announce(text: string): void {
-    document.querySelector('#announcements')!.textContent = text;
+    document.querySelector('#announcements')!.textContent = t(text);
   }
 }
