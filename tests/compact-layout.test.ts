@@ -78,6 +78,7 @@ describe('compact store layout', () => {
 
   it('routes between all shelves, plots, machines and checkout stations without crossing furniture or walls', () => {
     const state = fullStore();
+    const solids = worldSolids(state);
     const destinations = [
       GAME_CONFIG.playerStart,
       GAME_CONFIG.entrance,
@@ -107,12 +108,12 @@ describe('compact store layout', () => {
         let start: Vec2 = from;
         for (const end of route) {
           expect(clearWalk(state, start, end)).toBe(true);
-          expect(worldSolids(state).some((rect) => crossesRect(start, end, rect))).toBe(false);
+          expect(solids.some((rect) => crossesRect(start, end, rect))).toBe(false);
           start = end;
         }
       }
     }
-  });
+  }, 30_000); // The fully expanded store has over 15,000 ordered route pairs.
 
   it('uses the front doorway on departure instead of cutting through the front wall', () => {
     const state = fullStore();
