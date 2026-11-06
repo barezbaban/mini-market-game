@@ -5,7 +5,7 @@ import { cartCapacity } from '../data/upgrades';
 import { REGULARS } from '../data/career';
 import type { CustomerData, GameState, ProductId, Vec2 } from '../types';
 import { InventorySystem, itemCount } from './InventorySystem';
-import { canStand, clearWalk, walkRoute } from './Navigation';
+import { canStand, clearWalk, walkRoute, vaultAccessAllows } from './Navigation';
 
 const COLORS = [0x739ebd, 0xe58b71, 0xa78bb7, 0xe7bd67, 0x78a68f, 0xd599ae];
 export const distance = (a: Vec2, b: Vec2): number => Math.hypot(a.x - b.x, a.y - b.y);
@@ -23,6 +23,15 @@ export const remainingCustomerNeed = (customer: CustomerData): number =>
   );
 export function queuePosition(index: number): Vec2 {
   const safe = Math.max(0, Math.min(GAME_CONFIG.customerMax - 1, index));
+  if (safe >= 15) {
+    const n = safe - 15,
+      column = Math.floor(n / 4),
+      slot = n % 4;
+    return {
+      x: GAME_CONFIG.queueStart.x - 100 + column * 72,
+      y: 725 - (column % 2 === 0 ? slot : 3 - slot) * GAME_CONFIG.queueSpacing,
+    };
+  }
   const column = Math.floor(safe / 5),
     slot = safe % 5;
   return {
@@ -41,6 +50,7 @@ function move(customer: CustomerData, deltaMs: number): void {
   let remaining = (GAME_CONFIG.customerSpeed * exteriorMultiplier * deltaMs) / 1000;
   while (customer.path.length && remaining > 0) {
     const target = customer.path[0];
+    if (!vaultAccessAllows(customer, target)) break;
     const length = distance(customer, target);
     if (length <= remaining) {
       customer.x = target.x;

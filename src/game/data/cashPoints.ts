@@ -11,7 +11,10 @@ export const cashPointOpen = (state: GameState, id: CashPointId): boolean =>
 export const cashPosition = (id: CashPointId): Vec2 =>
   CASH_POINTS.find((point) => point.id === id)!.position;
 export const uncollectedCash = (state: GameState): number =>
-  CASH_POINTS.reduce((sum, { id }) => sum + state.cashStacks[id].amount, 0);
+  CASH_POINTS.reduce(
+    (sum, { id }) => sum + state.cashStacks[id].amount,
+    state.office.vault + state.office.accountant.carrying,
+  );
 
 const compactCash = new Intl.NumberFormat('en-US', {
   notation: 'compact',

@@ -57,6 +57,14 @@ export class EconomySystem {
     return amount;
   }
 
+  collectVault(): number {
+    const amount = this.state.office.vault;
+    if (!amount || !Number.isSafeInteger(this.state.money + amount)) return 0;
+    this.state.money += amount;
+    this.state.office.vault = 0;
+    return amount;
+  }
+
   recover(amount: number): boolean {
     if (
       !Number.isSafeInteger(amount) ||

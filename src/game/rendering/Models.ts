@@ -293,7 +293,9 @@ export function createCow(): Group {
   return cow;
 }
 
+export type OfficePose = 'walking' | 'typing' | 'paperwork' | 'carrying' | 'deposit';
 export interface CharacterModel {
+  setOfficePose?(pose: OfficePose): void;
   dispose?(): void;
   reach(action: HandAction): void;
   setRegularApron(color: number | null): void;
@@ -306,7 +308,7 @@ export interface CharacterModel {
 
 /** Rounded, modestly proportioned people. Their forward direction is +Z. */
 export function createCharacter(
-  kind: 'player' | 'customer' | 'cashier',
+  kind: 'player' | 'customer' | 'cashier' | 'office',
   color = kind === 'customer' ? 0xe9a458 : PALETTE.teal,
   pushesCart = false,
 ): CharacterModel {
@@ -324,9 +326,12 @@ export function createCharacter(
   at(body, roundedBox(0.15, 0.081, 0.118, 0.024, PALETTE.ink), 0, 0.233, -0.004);
 
   const limbs: Group[] = [];
+  const knees: Group[] = [];
+  const feet: Group[] = [];
+  let officePose: OfficePose = 'walking';
   for (const side of [-1, 1]) {
     const leg = at(body, new Group(), side * 0.047, 0.227, 0);
-    if (pushesCart) {
+    if (pushesCart || kind === 'office') {
       const suffix = side < 0 ? 'L' : 'R';
       const bend = Math.acos(0.203 / 0.224);
       leg.name = 'CartHip' + suffix;
@@ -335,10 +340,12 @@ export function createCharacter(
       const knee = at(leg, new Group(), 0, -0.112, 0);
       knee.name = 'CartKnee' + suffix;
       knee.rotation.x = 2 * bend;
+      knees.push(knee);
       at(knee, pill(0.025, 0.065, 0x415854), 0, -0.056, 0);
       const foot = at(knee, new Group(), 0, -0.112, 0);
       foot.name = 'CartFoot' + suffix;
       foot.rotation.x = -bend;
+      feet.push(foot);
       at(foot, roundedBox(0.07, 0.042, 0.11, 0.016, PALETTE.cream), 0, 0, 0.015);
       limbs.push(leg);
       continue;
@@ -351,12 +358,21 @@ export function createCharacter(
   }
 
   const arms: Group[] = [];
+  const elbows: Group[] = [];
   const sleeves: Mesh[] = [];
   for (const side of [-1, 1]) {
     const arm = at(body, new Group(), side * 0.11, 0.405, 0);
     sleeves.push(at(arm, pill(0.036, 0.038, color), 0, -0.031, 0));
-    at(arm, pill(0.027, 0.072, PALETTE.skin), 0, -0.095, 0);
-    const hand = at(arm, ball(0.03, 0.034, 0.03, PALETTE.skin), 0, -0.151, 0);
+    const elbow = kind === 'office' ? at(arm, new Group(), 0, -0.085, 0) : arm;
+    if (kind === 'office') elbows.push(elbow);
+    at(elbow, pill(0.027, 0.072, PALETTE.skin), 0, kind === 'office' ? -0.035 : -0.095, 0);
+    const hand = at(
+      elbow,
+      ball(0.03, 0.034, 0.03, PALETTE.skin),
+      0,
+      kind === 'office' ? -0.085 : -0.151,
+      0,
+    );
     arm.rotation.z = side * 0.14;
     if (pushesCart) {
       hand.name = side < 0 ? 'CartHandL' : 'CartHandR';
@@ -422,6 +438,9 @@ export function createCharacter(
 
   return {
     group,
+    setOfficePose(pose) {
+      officePose = pose;
+    },
     reach(action) {
       if (pushesCart) return;
       (handMotion ??= new ReachMotion()).request(action);
@@ -467,6 +486,37 @@ export function createCharacter(
         arms[1].rotation.x += reach;
         body.rotation.x = -reach * 0.1;
       }
+      if (kind === 'office') {
+        const seated = officePose === 'typing' || officePose === 'paperwork';
+        body.position.y = seated ? -0.08 : bob;
+        body.rotation.x = seated ? 0.025 : 0;
+        limbs.forEach((leg, i) => {
+          leg.rotation.x = seated ? -Math.PI / 2 : (i ? -stride : stride) * 0.42;
+          knees[i].rotation.x = seated
+            ? Math.PI / 2
+            : 0.12 + Math.max(0, i ? stride : -stride) * 0.3;
+          feet[i].rotation.x = seated ? 0 : -0.12;
+        });
+        arms.forEach((arm, i) => {
+          const work =
+            officePose === 'typing'
+              ? Math.sin(time * 0.018 + i * 2) * 0.065
+              : i
+                ? Math.sin(time * 0.012) * 0.07
+                : 0;
+          arm.rotation.x = seated
+            ? -1.85 + work
+            : officePose === 'carrying' || officePose === 'deposit'
+              ? -1.1
+              : (i ? stride : -stride) * 0.32;
+          arm.rotation.z = (i ? 1 : -1) * 0.08;
+          elbows[i].rotation.x = seated
+            ? 0.28
+            : officePose === 'carrying' || officePose === 'deposit'
+              ? -0.55
+              : -0.15;
+        });
+      }
       cargo.rotation.x = moving ? stride * 0.035 : 0;
       cargo.rotation.z = moving ? stride * 0.04 : 0;
     },
@@ -478,7 +528,7 @@ export function createCharacter(
       cargoItems.clear();
       const products: ProductId[] = [];
       for (const { id } of PRODUCTS) {
-        const count = Math.min(28 - products.length, Math.max(0, Math.floor(counts[id] ?? 0)));
+        const count = Math.min(6 - products.length, Math.max(0, Math.floor(counts[id] ?? 0)));
         for (let index = 0; index < count; index++) products.push(id);
       }
       carrying = products.length > 0;
@@ -494,7 +544,8 @@ export function createCharacter(
         const poolIndex = used[id]++;
         const product = pool[poolIndex] ?? createProduce(id);
         pool[poolIndex] = product;
-        product.position.set(((index % 3) - 1) * 0.13, 0.104 + Math.floor(index / 3) * 0.14, 0);
+        product.scale.setScalar(0.65);
+        product.position.set(((index % 3) - 1) * 0.09, 0.065, (Math.floor(index / 3) - 0.5) * 0.09);
         product.rotation.y = index * 1.6;
         cargoItems.add(product);
       });

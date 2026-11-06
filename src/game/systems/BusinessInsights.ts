@@ -1,3 +1,4 @@
+import { OFFICE } from '../data/office';
 import { shelfStandSpot } from '../data/standSpots';
 import { GAME_CONFIG } from '../data/gameConfig';
 import { PRODUCTS, plotPosition } from '../data/products';
@@ -114,7 +115,12 @@ export function guidanceTarget(state: GameState): { position: Vec2; label: strin
       ? { position: plotPosition(crop.id, readyPlot), label: 'Harvest' }
       : null;
   }
-  if (state.tutorialStep === 5) return { position: GAME_CONFIG.storeCash, label: 'Collect cash' };
+  if (state.office.vault > 0) return { position: OFFICE.vaultCollect, label: 'Collect vault cash' };
+  if (state.tutorialStep === 5) {
+    if (state.office.accountant.carrying)
+      return { position: OFFICE.vaultCollect, label: 'Cash on its way' };
+    return { position: GAME_CONFIG.storeCash, label: 'Collect cash' };
+  }
   if (state.career.pinnedGoal) return null;
   if (
     BUSINESS_MILESTONES.some((m) => !state.career.claimed.includes(m.id) && m.progress(state) >= 1)

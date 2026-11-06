@@ -1,6 +1,8 @@
 import type { GameState, MachineDefinition } from '../types';
 export const machineDuration = (state: GameState, machine: MachineDefinition): number =>
-  machine.batchMs / 1.2 ** state.upgrades.machineSpeed;
+  machine.batchMs / equipmentSpeed(state.upgrades.machineSpeed);
+export const equipmentSpeed = (level: number): number =>
+  1.2 ** Math.min(4, level) * 1.06 ** Math.max(0, level - 4);
 export const MACHINES: MachineDefinition[] = [
   {
     id: 'paste',

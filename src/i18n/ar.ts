@@ -1,5 +1,7 @@
+import { officeCopy, officePatterns } from './office';
 /** Modern Standard Arabic. Keys are presentation copy, never game/save identifiers. */
 export const arabic: Record<string, string> = {
+  ...Object.fromEntries(officeCopy.map((row) => [row[0], row[2]])),
   'Movement and controls': 'الحركة والتحكم',
   'Farms are on the left, machines on the right. Use the clear middle path for delivery. Stop on a harvest circle to collect.':
     'المزارع على اليسار والآلات على اليمين. استخدم الممر الأوسط المفتوح للتوصيل. توقف عند دائرة الحصاد لجمع المحصول.',
@@ -735,6 +737,7 @@ export const arabic: Record<string, string> = {
 };
 
 export const arabicPatterns: Array<[string, string]> = [
+  ...officePatterns.map(([key, , ar]): [string, string] => [key, ar]),
   ['Orders served while you were away: {0}', 'طلبات خدمها أمين الصندوق في غيابك: {0}'],
   ['{0} upgraded. Saved to this device.', 'تمت ترقية {0}. حُفظ التقدّم على هذا الجهاز.'],
   [

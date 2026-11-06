@@ -1,3 +1,4 @@
+import { OfficeSystem } from './OfficeSystem';
 import { sprintDuration } from '../data/movement';
 import { GAME_CONFIG } from '../data/gameConfig';
 import { PRODUCTS, plotCount, plotPosition, productById } from '../data/products';
@@ -19,7 +20,7 @@ import { SecuritySystem } from './SecuritySystem';
 import { RushHourSystem } from './RushHourSystem';
 import { PatienceSystem } from './PatienceSystem';
 import { CareerSystem } from './CareerSystem';
-import { canStand, clearWalk, repairWalk } from './Navigation';
+import { canStand, clearMovement, repairWalk, secureVaultVisitors } from './Navigation';
 
 /** The renderer owns no game rules. This headless simulation runs in browser and tests. */
 export class GameEngine {
@@ -32,6 +33,7 @@ export class GameEngine {
   readonly machines: MachineSystem;
   readonly workers: WorkerSystem;
   readonly progression: ProgressionSystem;
+  readonly office: OfficeSystem;
   readonly driveThrough: DriveThroughSystem;
   readonly cashCollection: CashCollectionSystem;
   readonly security: SecuritySystem;
@@ -51,6 +53,7 @@ export class GameEngine {
   private trashUsedThisVisit = false;
 
   constructor(readonly state: GameState = createInitialState()) {
+    secureVaultVisitors(state);
     if (!this.canWalk(state.player)) state.player = { ...GAME_CONFIG.playerStart };
     const emit = (event: GameEvent) => this.events.push(event);
     this.economy = new EconomySystem(state);
@@ -65,6 +68,7 @@ export class GameEngine {
     this.machines = new MachineSystem(state, this.inventory, emit);
     this.workers = new WorkerSystem(state, this.inventory, this.machines, emit);
     this.progression = new ProgressionSystem(state, emit);
+    this.office = new OfficeSystem(state, emit);
     this.driveThrough = new DriveThroughSystem(state, this.inventory, this.economy, emit);
     this.cashCollection = new CashCollectionSystem(state, this.economy, emit);
     this.security = new SecuritySystem(state, this.economy, emit, (from, to) => {
@@ -100,6 +104,7 @@ export class GameEngine {
         ),
       ])
         repairWalk(this.state, actor);
+      repairWalk(this.state, this.state.office.accountant, 'accountant');
     }
     return purchased;
   }
@@ -116,7 +121,7 @@ export class GameEngine {
   }
 
   private canWalk(point: Vec2): boolean {
-    return canStand(this.state, point);
+    return canStand(this.state, point, 'manager');
   }
 
   private updateTrash(deltaMs: number): void {
@@ -177,12 +182,12 @@ export class GameEngine {
     const y = Math.min(bounds.bottom, Math.max(bounds.top, this.state.player.y + input.y * scale));
     if (
       this.canWalk({ x, y: this.state.player.y }) &&
-      clearWalk(this.state, this.state.player, { x, y: this.state.player.y })
+      clearMovement(this.state, this.state.player, { x, y: this.state.player.y }, 'manager')
     )
       this.state.player.x = x;
     if (
       this.canWalk({ x: this.state.player.x, y }) &&
-      clearWalk(this.state, this.state.player, { x: this.state.player.x, y })
+      clearMovement(this.state, this.state.player, { x: this.state.player.x, y }, 'manager')
     )
       this.state.player.y = y;
   }
@@ -310,6 +315,7 @@ export class GameEngine {
       this.machines.update(step);
       this.workers.update(step);
       this.progression.update(step);
+      this.office.update(step);
       this.driveThrough.update(step);
       this.rush.update(step);
       if (!this.securityProtected) this.security.update(step);

@@ -1,3 +1,4 @@
+import { VAULT_DOOR, VAULT_RESTRICTED, type VaultAccess } from '../data/office';
 import { GAME_CONFIG } from '../data/gameConfig';
 import { MACHINES } from '../data/machines';
 import { crossesRect, worldSolids } from '../data/worldLayout';
@@ -5,8 +6,10 @@ import type { Rect } from '../data/worldLayout';
 import type { GameState, Vec2 } from '../types';
 
 const distance = (a: Vec2, b: Vec2) => Math.hypot(a.x - b.x, a.y - b.y);
-let cached: { key: string; solids: Rect[]; nodes: Vec2[]; edges: number[][] } | null = null;
-function graph(state: GameState) {
+type Graph = { solids: Rect[]; nodes: Vec2[]; edges: number[][] };
+let topologyKey = '';
+const cached = new Map<boolean, Graph>();
+function graph(state: GameState, access: VaultAccess) {
   const key = [
     state.upgrades.expansion,
     state.upgrades.secondCashier,
@@ -15,8 +18,14 @@ function graph(state: GameState) {
     state.upgrades.wheatPlots > 0,
     ...MACHINES.map(({ upgrade }) => state.upgrades[upgrade] > 0),
   ].join(':');
-  if (cached?.key === key) return cached;
-  const solids = worldSolids(state);
+  if (key !== topologyKey) {
+    cached.clear();
+    topologyKey = key;
+  }
+  const authorized = access !== 'public';
+  const previous = cached.get(authorized);
+  if (previous) return previous;
+  const solids = [...worldSolids(state), ...(authorized ? [] : [VAULT_RESTRICTED])];
   const nodes = solids
     .flatMap((r) => [
       { x: r.left - 10, y: r.top - 10 },
@@ -39,33 +48,42 @@ function graph(state: GameState) {
         edges[a].push(b);
         edges[b].push(a);
       }
-  cached = { key, solids, nodes, edges };
-  return cached;
+  const result = { solids, nodes, edges };
+  cached.set(authorized, result);
+  return result;
 }
-export function canStand(state: GameState, p: Vec2): boolean {
+export function canStand(state: GameState, p: Vec2, access: VaultAccess = 'public'): boolean {
   const b = GAME_CONFIG.bounds;
   return (
     p.x >= b.left &&
     p.x <= b.right &&
     p.y >= b.top &&
     p.y <= b.bottom &&
-    !graph(state).solids.some((r) => crossesRect(p, p, r))
+    !graph(state, access).solids.some((r) => crossesRect(p, p, r))
   );
 }
-export const clearWalk = (state: GameState, from: Vec2, to: Vec2): boolean =>
-  !graph(state).solids.some((r) => crossesRect(from, to, r));
+export const clearWalk = (
+  state: GameState,
+  from: Vec2,
+  to: Vec2,
+  access: VaultAccess = 'public',
+): boolean => !graph(state, access).solids.some((r) => crossesRect(from, to, r));
 
 /** A new department can add furniture across an actor's already-planned route. */
-export function repairWalk(state: GameState, actor: Vec2 & { path: Vec2[] }): void {
+export function repairWalk(
+  state: GameState,
+  actor: Vec2 & { path: Vec2[] },
+  access: VaultAccess = 'public',
+): void {
   let changed = false;
-  if (!clearWalk(state, actor, actor)) {
+  if (!clearWalk(state, actor, actor, access)) {
     search: for (let radius = 10; radius <= 200; radius += 10) {
       for (let i = 0; i < 16; i++) {
         const candidate = {
           x: actor.x + Math.cos((i * Math.PI) / 8) * radius,
           y: actor.y + Math.sin((i * Math.PI) / 8) * radius,
         };
-        if (canStand(state, candidate)) {
+        if (canStand(state, candidate, access)) {
           Object.assign(actor, candidate);
           changed = true;
           break search;
@@ -75,15 +93,21 @@ export function repairWalk(state: GameState, actor: Vec2 & { path: Vec2[] }): vo
   }
   let from: Vec2 = actor;
   for (const point of actor.path) {
-    if (!clearWalk(state, from, point)) changed = true;
+    if (!clearWalk(state, from, point, access)) changed = true;
     from = point;
   }
-  if (changed && actor.path.length) actor.path = walkRoute(state, actor, actor.path.at(-1)!);
+  if (changed && actor.path.length)
+    actor.path = walkRoute(state, actor, actor.path.at(-1)!, access);
 }
 
 /** Cached furniture visibility graph. A route is planned only when a destination changes. */
-export function walkRoute(state: GameState, from: Vec2, to: Vec2): Vec2[] {
-  const g = graph(state);
+export function walkRoute(
+  state: GameState,
+  from: Vec2,
+  to: Vec2,
+  access: VaultAccess = 'public',
+): Vec2[] {
+  const g = graph(state, access);
   const clear = (a: Vec2, b: Vec2) => !g.solids.some((r) => crossesRect(a, b, r));
   if (clear(from, to)) return [{ ...to }];
   const nodes = [...g.nodes, { ...from }, { ...to }];
@@ -134,4 +158,33 @@ export function exitRoute(state: GameState, from: Vec2): Vec2[] {
     { ...GAME_CONFIG.cartStation },
     { ...GAME_CONFIG.customerExit },
   ];
+}
+
+/** Access remains enforced even while an authorized visitor holds the door open. */
+export const vaultAccessAllows = (from: Vec2, to: Vec2, access: VaultAccess = 'public'): boolean =>
+  access !== 'public' || !crossesRect(from, to, VAULT_RESTRICTED);
+export const clearMovement = (
+  state: GameState,
+  from: Vec2,
+  to: Vec2,
+  access: VaultAccess,
+): boolean =>
+  clearWalk(state, from, to, access) &&
+  (state.office.doorOpen >= 0.95 || !crossesRect(from, to, VAULT_DOOR.barrier));
+
+/** Old saved routes must not bypass the new secure room or strand an existing visitor. */
+export function secureVaultVisitors(state: GameState): void {
+  for (const actor of [
+    ...state.customers,
+    ...state.workers,
+    ...[state.security.thief, state.security.police].filter((a): a is NonNullable<typeof a> => !!a),
+  ]) {
+    const inside = !vaultAccessAllows(actor, actor);
+    const destination = actor.path.at(-1) ?? state.workers.find((w) => w === actor)?.target;
+    const unsafe =
+      inside || actor.path.some((p, i) => !vaultAccessAllows(i ? actor.path[i - 1] : actor, p));
+    if (!unsafe) continue;
+    if (inside) Object.assign(actor, { x: VAULT_DOOR.x, y: VAULT_DOOR.y - 60 });
+    actor.path = destination ? walkRoute(state, actor, destination) : [];
+  }
 }

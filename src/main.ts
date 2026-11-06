@@ -8,7 +8,7 @@ import { helpContent } from './game/ui/HelpPanel';
 import { AuthClient } from './auth/AuthClient';
 import { GAME_CONFIG } from './game/data/gameConfig';
 import { CAMERA_ZOOM, clampCameraZoom } from './game/data/cameraConfig';
-import { MACHINES, machineDuration } from './game/data/machines';
+import { MACHINES, equipmentSpeed } from './game/data/machines';
 import { plotCount, PRODUCTS } from './game/data/products';
 import {
   playerLevel,
@@ -19,11 +19,13 @@ import {
   requiredPlayerLevel,
   requiredOrders,
   checkoutDuration,
+  cashierSpeedMultiplier,
   LEVEL_MILESTONES,
   SHELF_COLUMNS,
   shelfRows,
   xpForLevel,
 } from './game/data/upgrades';
+import { helperSpeedMultiplier } from './game/systems/WorkerSystem';
 import { GameRuntime } from './game/GameRuntime';
 import { AudioManager } from './game/managers/AudioManager';
 import { GameEngine } from './game/systems/GameEngine';
@@ -315,7 +317,7 @@ function upgradePresentation(upgrade: UpgradeDefinition): {
   if (machine) {
     result.current = level ? `Up to ${2 * level} ${machine.outputUnit}` : 'Not built';
     result.next = `Up to ${2 * next} ${machine.outputUnit} / batch`;
-    result.detail = `${machine.recipe}. A batch takes ${(machineDuration(state, machine) / 1000).toFixed(1)}s and starts with available input. Upgrade its limit from 2 to 4, 6, then 8 ingredients.`;
+    result.detail = `${t(machine.recipe)} · ${t('Twelve machine levels, from 2 to 24 items per batch. Upgrade production speed separately.')}`;
     return result;
   }
   switch (upgrade.id) {
@@ -333,13 +335,13 @@ function upgradePresentation(upgrade: UpgradeDefinition): {
       result.current = `${shelfRows(level)} rows · ${shelfRows(level) * SHELF_COLUMNS} items`;
       result.next = `${shelfRows(next)} rows · ${shelfRows(next) * SHELF_COLUMNS} items`;
       result.detail =
-        'Add one visible row of four spaces to every shelf, including future shelves. Buy extra rows at player levels 3, 10, and 20. Your current stock stays in place.';
+        'Add four spaces to every shelf at player levels 3, 10, 20, 30 and 40. Maximum: 8 rows, 32 items. Keep your existing stock.';
       break;
     case 'carts':
       result.current = `${GAME_CONFIG.customerStartCarts + level} carts`;
       result.next = `${GAME_CONFIG.customerStartCarts + next} carts`;
       result.detail =
-        'Each purchase adds one cart and space for one more shopper. Grow from 3 to 10 carts, then unlock carts 11–15 at player levels 20, 22, 24, 26, and 28. More carts help marketing turn arrivals into sales.';
+        'Start with 3 carts and buy one more at a time. After 10 carts, unlock another every two player levels from level 20. Reach 50 carts at player level 98.';
       break;
     case 'expansion': {
       const areas = [
@@ -370,37 +372,38 @@ function upgradePresentation(upgrade: UpgradeDefinition): {
       result.detail = 'The first plot grows 2 corn every 5s. Add more with the Corn plots upgrade.';
       break;
     case 'machineSpeed':
-      result.current = `${(1.2 ** level).toFixed(2)}× production speed`;
-      result.next = `${(1.2 ** next).toFixed(2)}× production speed`;
+      result.current = `${equipmentSpeed(level).toFixed(2)}× production speed`;
+      result.next = `${equipmentSpeed(next).toFixed(2)}× production speed`;
       result.detail =
-        'All built and future processors run 20% faster per tier. Batch capacity is upgraded separately. Higher speed tiers unlock at player levels 5, 10 and 20.';
+        'Twenty production-speed upgrades. The first four add 20% each; later tiers add 6% each. Applies to every processor.';
       break;
     case 'helpers':
       result.current = `${level} ${level === 1 ? 'helper' : 'helpers'}`;
       result.next = `${next} ${next === 1 ? 'helper' : 'helpers'}`;
       result.detail =
-        'Helpers harvest crops, feed machines, collect finished goods, and restock shelves automatically. Hire up to three.';
+        'Hire up to 20 helpers. After the first three, another hire unlocks every five player levels, starting at level 15. They harvest, process and restock.';
       break;
     case 'helperCapacity':
       result.current = `${GAME_CONFIG.helperCapacities[level]} items each`;
       result.next = `${GAME_CONFIG.helperCapacities[next]} items each`;
       result.level = `LEVEL ${level + 1} / ${upgrade.maxLevel + 1}`;
-      result.detail = 'Increase the carrying capacity of every helper: 2 → 3 → 4 → 5 → 6 items.';
+      result.detail =
+        'Thirty carrying levels: start with 2 items, then add one space per level for every helper, up to 31 items.';
       break;
     case 'helperSpeed':
-      result.current = `${(1.1 ** level).toFixed(2)}× speed`;
-      result.next = `${(1.1 ** next).toFixed(2)}× speed`;
+      result.current = `${helperSpeedMultiplier(level).toFixed(2)}× speed`;
+      result.next = `${helperSpeedMultiplier(next).toFixed(2)}× speed`;
       result.level = `LEVEL ${level + 1} / ${upgrade.maxLevel + 1}`;
       result.detail =
-        'Each new level multiplies every helper’s walking speed by 1.10. Ten speed levels in total.';
+        'Thirty walking-speed levels. Early upgrades add 10%; advanced upgrades add 2.5% to keep movement controllable.';
       break;
     case 'cashier':
       result.current = level
         ? `${(checkoutDuration(state) / 1000).toFixed(2)}s / customer`
         : 'Not hired';
-      result.next = `${(4.5 / 1.25 ** (next - 1)).toFixed(2)}s / customer`;
+      result.next = `${(4.5 / cashierSpeedMultiplier(next)).toFixed(2)}s / customer`;
       result.detail = level
-        ? 'Your cashier serves customers and keeps their payments in a compact cash pile with no storage limit. Collect it yourself before a thief visits. Each tier after hiring multiplies service speed by 1.25.'
+        ? 'Thirty checkout levels. Early upgrades add 25% service speed; advanced tiers add 5%. Cash stays in the pile until you or your accountant collect it.'
         : 'You serve in 1 second. A new cashier takes 4.5 seconds but keeps selling while you harvest. Collect the cash yourself.';
       break;
     case 'secondCashier':
@@ -413,13 +416,13 @@ function upgradePresentation(upgrade: UpgradeDefinition): {
       result.current = level ? `+${level * 20}% arrivals` : 'Not hired';
       result.next = `+${next * 20}% arrivals`;
       result.detail =
-        'Increase arrival rate by 20% of the base rate per upgrade. More arrivals need free carts and stocked shelves; only completed sales earn XP. Advanced tiers open at player levels 20, 25, and 30.';
+        'Thirty marketing levels. Each adds 20% of the base arrival rate. Shoppers still need available carts and stocked shelves.';
       break;
     case 'accountant':
-      result.current = level ? `${level * 2} bonus XP / 5 orders` : 'Not hired';
-      result.next = `${next * 2} bonus XP / 5 orders`;
+      result.current = level ? `$${level * 100} / trip` : 'Not hired';
+      result.next = `$${next * 100} / trip`;
       result.detail =
-        'Audits new paid orders every 10 seconds. Every five fulfilled orders earn 2 bonus XP per accountant tier. No sales means no passive XP.';
+        'Thirty accountant levels. Carry $100 per level from registers to the office, complete paperwork, then deposit in the vault. Collect from the vault yourself to spend it. Audits still earn bonus XP from paid orders.';
       break;
     case 'driveThrough':
       result.current = level ? 'Lane open' : 'Not built';
@@ -429,18 +432,16 @@ function upgradePresentation(upgrade: UpgradeDefinition): {
         'Cars and bikes arrive with two to four requested items. Load each item at the drive window, then collect payment.';
       break;
     case 'driveRunner':
-      result.current = level ? 'Runner working' : 'Not hired';
-      result.next = 'Automatic order loading';
-      result.level = level ? 'HIRED' : 'DRIVE-THROUGH STAFF';
+      result.current = level ? `${(1.07 ** (level - 1)).toFixed(2)}× speed` : 'Not hired';
+      result.next = `${(1.07 ** (next - 1)).toFixed(2)}× speed`;
       result.detail =
-        'This dedicated runner takes only requested products from stocked shelves and loads them into drive-through orders one at a time.';
+        'Twenty runner levels. Take requested items from shelves and load vehicles. Each training level adds 7% loading speed.';
       break;
     case 'driveCashier':
-      result.current = level ? 'Cashier working' : 'Not hired';
-      result.next = 'Automatic payment';
-      result.level = level ? 'HIRED' : 'DRIVE-THROUGH STAFF';
+      result.current = level ? `${(1.07 ** (level - 1)).toFixed(2)}× speed` : 'Not hired';
+      result.next = `${(1.07 ** (next - 1)).toFixed(2)}× speed`;
       result.detail =
-        'This cashier takes payment for loaded drive-through orders and keeps it in a compact cash pile with no storage limit. The window keeps serving; collect your money before a thief visits.';
+        'Twenty drive-through cashier levels. Each training level adds 7% payment speed. Cash waits for you or the accountant to collect it.';
       break;
   }
   return result;

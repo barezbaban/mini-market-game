@@ -128,7 +128,12 @@ export class DriveThroughSystem {
         return;
       }
       this.state.driveThroughHandoffProgress += deltaMs;
-      if (this.state.driveThroughHandoffProgress < GAME_CONFIG.driveThroughHandoffTime) return;
+      if (
+        this.state.driveThroughHandoffProgress <
+        GAME_CONFIG.driveThroughHandoffTime /
+          1.07 ** Math.max(0, this.state.upgrades.driveRunner - 1)
+      )
+        return;
       this.state.driveThroughHandoffProgress = 0;
       this.transferOne(order);
       if (driveThroughComplete(order)) order.state = 'READY_TO_PAY';
@@ -146,7 +151,12 @@ export class DriveThroughSystem {
     }
     order.state = 'PAYING';
     this.state.driveThroughCheckoutProgress += deltaMs;
-    if (this.state.driveThroughCheckoutProgress < GAME_CONFIG.driveThroughCheckoutTime) return;
+    if (
+      this.state.driveThroughCheckoutProgress <
+      GAME_CONFIG.driveThroughCheckoutTime /
+        1.07 ** Math.max(0, this.state.upgrades.driveCashier - 1)
+    )
+      return;
     if (!this.economy.deposit('drive', amount)) return;
     this.state.driveThroughCheckoutProgress = 0;
     this.state.driveThroughServed += 1;

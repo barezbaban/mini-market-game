@@ -1,6 +1,7 @@
 import { GAME_CONFIG } from '../src/game/data/gameConfig';
 import { expect, test, type Page } from '@playwright/test';
-import { UPGRADES } from '../src/game/data/upgrades';
+import { UPGRADES, upgradeCost } from '../src/game/data/upgrades';
+import type { GameState } from '../src/game/types';
 import { PRODUCTS } from '../src/game/data/products';
 
 async function open(page: Page): Promise<void> {
@@ -8,14 +9,15 @@ async function open(page: Page): Promise<void> {
   await page.waitForFunction(() => window.__MARKET__?.ready);
 }
 
-test('management buys every expansion with real costs, caps levels, and preserves purchases on reload', async ({
+test('management buys available level-30 upgrades with real costs and preserves purchases on reload', async ({
   page,
 }) => {
+  test.setTimeout(120000);
   await open(page);
   await page.evaluate(() => {
     // Isolated browser fixture funds, never applied to a player's saved game.
     window.__MARKET__.engine.economy.earn(1_000_000);
-    window.__MARKET__.engine.state.xp = 43_500; // Player level 30, all milestone tiers available.
+    window.__MARKET__.engine.state.xp = 43_500; // Player level 30: later tiers must remain locked.
     window.__MARKET__.engine.state.totalServed = 260;
   });
   await page.locator('#manage-button').click();
@@ -61,9 +63,12 @@ test('management buys every expansion with real costs, caps levels, and preserve
   for (const id of order) {
     const upgrade = UPGRADES.find((entry) => entry.id === id)!;
     await page.locator(`#management-tab-${upgrade.category}`).click();
-    for (let level = 0; level < upgrade.maxLevel; level++) {
+    const available = Array.from({ length: upgrade.maxLevel }, (_, i) => i + 1).filter(
+      (tier) => (upgrade.playerLevels?.[tier] ?? 1) <= 30,
+    ).length;
+    for (let level = 0; level < available; level++) {
       await page.locator(`#buy-${id}`).click();
-      expectedMoney -= Math.ceil(upgrade.cost * upgrade.costGrowth ** level);
+      expectedMoney -= upgradeCost({ upgrades: { [id]: level } } as GameState, upgrade.id);
       expect(await page.evaluate(() => window.__MARKET__.engine.state.money)).toBe(expectedMoney);
     }
     await expect(page.locator(`#buy-${id}`)).toBeDisabled();
@@ -72,17 +77,17 @@ test('management buys every expansion with real costs, caps levels, and preserve
     openedAt,
   );
   const before = await page.evaluate(() => window.__MARKET__.engine.snapshot());
-  expect(before.workers).toHaveLength(3);
+  expect(before.workers).toHaveLength(7);
   expect(before.unlockedProducts).toHaveLength(PRODUCTS.length);
-  expect(Object.values(before.shelfCapacities)).toEqual(PRODUCTS.map(() => 24));
-  expect(before.upgrades.helperCapacity).toBe(4);
-  expect(before.upgrades.helperSpeed).toBe(9);
+  expect(Object.values(before.shelfCapacities)).toEqual(PRODUCTS.map(() => 28));
+  expect(before.upgrades.helperCapacity).toBe(11);
+  expect(before.upgrades.helperSpeed).toBe(13);
   await page.reload();
   await page.waitForFunction(() => window.__MARKET__?.ready);
   const after = await page.evaluate(() => window.__MARKET__.engine.snapshot());
   expect(after.money).toBe(expectedMoney);
   expect(after.upgrades).toEqual(before.upgrades);
-  expect(after.workers).toHaveLength(3);
+  expect(after.workers).toHaveLength(7);
   expect(await page.evaluate(() => window.__MARKET__.world.renderer.shadowMap.enabled)).toBe(false);
 });
 

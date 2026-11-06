@@ -1,9 +1,11 @@
+import { officeCopy } from './office';
 import { managementCopy } from './management';
 import { helpCopy } from './help';
 import { accountCopy } from './account';
 
 /** Central Kurdish (Sorani). Engine identifiers and user-entered names stay unchanged. */
 export const sorani: Record<string, string> = {
+  ...Object.fromEntries(officeCopy.map((row) => [row[0], row[1]])),
   'Movement and controls': 'جووڵە و کۆنترۆڵ',
   'Farms are on the left, machines on the right. Use the clear middle path for delivery. Stop on a harvest circle to collect.':
     'کێڵگەکان لە چەپن و ئامێرەکان لە ڕاستن. بۆ گەیاندن ڕێڕەوی ناوەڕاست بەکاربهێنە. بۆ کۆکردنەوە لە بازنەی دروێنە بوەستە.',

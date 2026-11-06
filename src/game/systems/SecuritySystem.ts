@@ -2,12 +2,13 @@ import { CASH_POINTS, cashPointOpen, cashPosition } from '../data/cashPoints';
 import { GAME_CONFIG } from '../data/gameConfig';
 import type { GameEvent, GameState, Vec2 } from '../types';
 import { EconomySystem } from './EconomySystem';
-import { exitRoute, walkRoute } from './Navigation';
+import { exitRoute, walkRoute, vaultAccessAllows } from './Navigation';
 
 function move(actor: Vec2 & { path: Vec2[] }, delta: number, speed: number): void {
   let remaining = (speed * delta) / 1000;
   while (remaining > 0 && actor.path.length) {
     const target = actor.path[0];
+    if (!vaultAccessAllows(actor, target)) break;
     const distance = Math.hypot(target.x - actor.x, target.y - actor.y);
     if (distance <= remaining) {
       Object.assign(actor, target);
@@ -212,8 +213,10 @@ export class SecuritySystem {
       }
     } else if (thief.phase === 'ESCORTED' && security.police) {
       move(security.police, deltaMs, 190);
-      thief.x = security.police.x - 22;
-      thief.y = security.police.y;
+      const besidePolice = { x: security.police.x - 22, y: security.police.y };
+      // The escort offset must not place the thief across the vault's side wall.
+      thief.x = vaultAccessAllows(thief, besidePolice) ? besidePolice.x : security.police.x;
+      thief.y = besidePolice.y;
       if (!security.police.path.length) this.finish();
     }
   }

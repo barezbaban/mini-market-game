@@ -23,6 +23,6 @@ export const machineStandSpot = (machine: MachineDefinition): Vec2 => ({
 
 /** Compact waiting pockets keep shoppers out of the next aisle. */
 export const customerShelfSpot = (product: ProductDefinition, index: number): Vec2 => ({
-  x: product.shelf.x + [0, -30, 30, -60, 60][Math.max(0, index) % 5],
-  y: product.shelf.y + 75 + Math.floor(Math.max(0, index) / 5) * 30,
+  x: product.shelf.x + [0, -25, 25, -50, 50, -75, 75, -100, 100, 125][Math.max(0, index) % 10],
+  y: product.shelf.y + 75 + Math.floor(Math.max(0, index) / 10) * 22,
 });

@@ -7,6 +7,7 @@ import { queuePosition } from '../src/game/systems/CustomerSystem';
 import { GameEngine } from '../src/game/systems/GameEngine';
 import { validateSave } from '../src/game/systems/SaveSystem';
 import { applyUpgradeEffects } from '../src/game/systems/UpgradeSystem';
+import { exitRoute } from '../src/game/systems/Navigation';
 import type { CustomerData, ThiefData } from '../src/game/types';
 import { collectTakings } from './helpers/collectCash';
 
@@ -36,10 +37,7 @@ function fleeing(engine: GameEngine, amount = 100): ThiefData {
     target: 'store',
     stolen: amount,
     elapsed: 0,
-    path: [
-      { x: 1210, y: 900 },
-      { x: -250, y: 900 },
-    ],
+    path: exitRoute(engine.state, { x: 600, y: 610 }),
   };
   return engine.state.security.thief;
 }
@@ -418,10 +416,9 @@ describe('cash security and net rescue', () => {
   it('records escaped cash as lost without granting player money or duplicate revenue', () => {
     const engine = new GameEngine();
     engine.state.player = { x: 200, y: 200 };
-    const thief = fleeing(engine, 75);
-    thief.path = [{ x: -250, y: 900 }];
+    fleeing(engine, 75);
     engine.state.totalEarned = 75;
-    securityAdvance(engine, 10000);
+    securityAdvance(engine, 20000);
     expect(engine.state.security.lost).toBe(75);
     expect(engine.state.security.thief).toBeNull();
     expect(engine.state.money).toBe(0);

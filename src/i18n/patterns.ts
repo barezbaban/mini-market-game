@@ -1,3 +1,4 @@
+import { officePatterns } from './office';
 /** Complete variable phrases. {!0} preserves user-entered content without translation. */
 // All other arguments are numbers. Restricting them prevents a short pattern such
 // as "{0} nests" from swallowing an entire list of upgrade rewards.
@@ -47,6 +48,7 @@ export const textArguments: Record<string, number[]> = {
   '{0} upgraded. Saving is unavailable; keep this tab open.': [0],
 };
 export const soraniPatterns: Array<[string, string]> = [
+  ...officePatterns.map(([key, ckb]): [string, string] => [key, ckb]),
   [
     'Orders served while you were away: {0}',
     'ژمارەی داواکارییە تەواوکراوەکان کاتێک لە کاشێر دوور بوویت: {0}',

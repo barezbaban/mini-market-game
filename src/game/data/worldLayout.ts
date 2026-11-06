@@ -1,9 +1,10 @@
+import { OFFICE_WALLS, OFFICE_FURNITURE } from './office';
 import { GAME_CONFIG } from './gameConfig';
 import { MACHINES } from './machines';
 import { PRODUCTS, shelfBuilt } from './products';
 import type { GameState, Vec2 } from '../types';
 
-export const LAYOUT_VERSION = 4 as const;
+export const LAYOUT_VERSION = 5 as const;
 export interface Rect {
   left: number;
   right: number;
@@ -12,8 +13,8 @@ export interface Rect {
 }
 export const STORE_WALLS: Rect[] = [
   { left: 90, right: 2110, top: 120, bottom: 140 },
-  { left: 90, right: 110, top: 130, bottom: 740 },
-  { left: 90, right: 110, top: 860, bottom: 1100 },
+  { left: 90, right: 110, top: 130, bottom: 580 },
+  { left: 90, right: 110, top: 700, bottom: 1100 },
   { left: 2090, right: 2110, top: 130, bottom: 1100 },
   { left: 100, right: 1000, top: 1090, bottom: 1110 },
   { left: 1200, right: 2100, top: 1090, bottom: 1110 },
@@ -25,7 +26,7 @@ export const rectangle = (point: Vec2, halfWidth: number, halfDepth: number): Re
   bottom: point.y + halfDepth,
 });
 export function worldSolids(state: GameState): Rect[] {
-  const solids = [...STORE_WALLS];
+  const solids = [...STORE_WALLS, ...OFFICE_WALLS, ...OFFICE_FURNITURE];
   for (const product of PRODUCTS)
     if (shelfBuilt(state, product)) {
       const side = Boolean(product.shelf.facing);
@@ -43,8 +44,6 @@ export function worldSolids(state: GameState): Rect[] {
       top: counter.y - 53,
       bottom: counter.y + 35,
     });
-  for (const x of [-58, 58])
-    solids.push(rectangle({ x: GAME_CONFIG.office.x + x, y: GAME_CONFIG.office.y }, 43, 29));
   if (state.upgrades.driveThrough) solids.push(rectangle(GAME_CONFIG.driveThroughWindow, 36, 45));
   solids.push(rectangle(GAME_CONFIG.trash, 32, 32));
   return solids;
