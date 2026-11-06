@@ -230,9 +230,24 @@ export interface DriveThroughOrder {
   requested: ItemCounts;
   delivered: ItemCounts;
 }
+export type AccountantPhase =
+  'DESK' | 'TO_CASH' | 'PICKUP' | 'TO_DESK' | 'PAPERWORK' | 'TO_VAULT' | 'DEPOSIT' | 'RETURNING';
+export interface OfficeState {
+  vault: number;
+  doorOpen: number;
+  collectionArmed: boolean;
+  accountant: Vec2 & {
+    phase: AccountantPhase;
+    carrying: number;
+    target: CashPointId | null;
+    lastTarget: CashPointId | null;
+    path: Vec2[];
+    elapsed: number;
+  };
+}
 export interface GameState {
   version: 2;
-  layoutVersion: 4;
+  layoutVersion: 5;
   money: number;
   inventory: ItemCounts;
   inventoryCapacity: number;
@@ -284,6 +299,7 @@ export interface GameState {
   workers: WorkerData[];
   xp: number;
   accountantElapsed: number;
+  office: OfficeState;
   driveThroughOrders: DriveThroughOrder[];
   driveThroughSpawnElapsed: number;
   driveThroughHandoffProgress: number;

@@ -396,7 +396,7 @@ export class StoreDisplays {
       ? new InstancedMesh(
           new BoxGeometry(1, 1, 1),
           material(kind === 'heated' ? 0xa4b7b0 : 0xc3915d),
-          30,
+          5 * shelfRows(upgradeById('shelf').maxLevel),
         )
       : undefined;
     if (dividers) {

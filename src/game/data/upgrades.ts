@@ -431,6 +431,50 @@ export const UPGRADES: UpgradeDefinition[] = [
     requires: { driveThrough: 1 },
   },
 ];
+// Advanced tiers preserve all existing purchases and early unlocks. Costs grow more
+// gently beyond the original tiers so late-game progression stays attainable.
+const advanced: Partial<
+  Record<UpgradeId, { max: number; previous: number; start: number; every: number }>
+> = {
+  carts: { max: 47, previous: 12, start: 30, every: 2 },
+  helpers: { max: 20, previous: 3, start: 15, every: 5 },
+  accountant: { max: 30, previous: 1, start: 3, every: 2 },
+  helperCapacity: { max: 29, previous: 4, start: 12, every: 3 },
+  helperSpeed: { max: 29, previous: 9, start: 20, every: 3 },
+  customers: { max: 30, previous: 13, start: 32, every: 2 },
+  cashier: { max: 30, previous: 8, start: 32, every: 2 },
+  inventory: { max: 30, previous: 8, start: 32, every: 2 },
+  machineSpeed: { max: 20, previous: 4, start: 24, every: 4 },
+  shelf: { max: 5, previous: 3, start: 30, every: 10 },
+  driveRunner: { max: 20, previous: 1, start: 10, every: 4 },
+  driveCashier: { max: 20, previous: 1, start: 10, every: 4 },
+};
+for (const machine of MACHINES)
+  advanced[machine.upgrade] = { max: 12, previous: 4, start: 25, every: 4 };
+for (const upgrade of UPGRADES) {
+  const tier = advanced[upgrade.id];
+  if (!tier) continue;
+  upgrade.maxLevel = tier.max;
+  if (upgrade.id === 'driveRunner' || upgrade.id === 'driveCashier') upgrade.costGrowth = 1.18;
+  upgrade.playerLevels = { ...upgrade.playerLevels };
+  for (let n = tier.previous + 1; n <= tier.max; n++)
+    upgrade.playerLevels[n] = tier.start + (n - tier.previous - 1) * tier.every;
+}
+const descriptions: Partial<Record<UpgradeId, string>> = {
+  carts: 'Add one shopping cart per purchase, up to 50 with player-level unlocks',
+  helpers: 'Hire up to 20 helpers as your player level grows',
+  helperCapacity: 'Thirty carrying levels: 2 to 31 items per helper',
+  helperSpeed: 'Thirty speed levels with steady improvements',
+  accountant: 'Carry $100 more per level to the vault; collect it yourself',
+  shelf: 'Expand every display up to 8 rows and 32 items',
+  customers: 'Improve arrivals across 30 marketing levels',
+  cashier: 'Thirty service levels for faster checkout',
+  machineSpeed: 'Twenty equipment-speed tiers for all processors',
+  driveRunner: 'Hire and train the delivery runner for faster loading',
+  driveCashier: 'Hire and train the drive-through cashier for faster payments',
+};
+for (const upgrade of UPGRADES)
+  if (descriptions[upgrade.id]) upgrade.description = descriptions[upgrade.id]!;
 // Upgrade notices follow the remodeled stations; there are no purchase pads on the map.
 for (const upgrade of UPGRADES) {
   const farm = PRODUCTS.find(
@@ -450,7 +494,12 @@ export const upgradeById = (id: UpgradeId): UpgradeDefinition =>
   UPGRADES.find((entry) => entry.id === id)!;
 export const upgradeCost = (state: GameState, id: UpgradeId): number => {
   const upgrade = upgradeById(id);
-  return Math.ceil(upgrade.cost * upgrade.costGrowth ** state.upgrades[id]);
+  const level = state.upgrades[id];
+  const original = advanced[id]?.previous;
+  const softStart = id === 'accountant' ? 5 : original;
+  if (softStart !== undefined && level >= softStart)
+    return Math.ceil(upgrade.cost * upgrade.costGrowth ** softStart * 1.12 ** (level - softStart));
+  return Math.ceil(upgrade.cost * upgrade.costGrowth ** level);
 };
 export const upgradePrerequisitesMet = (state: GameState, id: UpgradeId): boolean =>
   Object.entries(upgradeById(id).requires ?? {}).every(
@@ -482,8 +531,9 @@ export const LEVEL_MILESTONES = [
         .map(([tier]) => ({ id: upgrade.id, tier: Number(tier) })),
     ),
   }));
+export const cashierSpeedMultiplier = (level: number): number =>
+  1.25 ** Math.min(7, Math.max(0, level - 1)) * 1.05 ** Math.max(0, level - 8);
 export const checkoutDuration = (state: GameState): number =>
-  // Staff free the player to do other work; speed tiers now relieve a real queue.
-  (state.cashier ? 4500 : 1000) / 1.25 ** Math.max(0, state.upgrades.cashier - 1);
+  (state.cashier ? 4500 : 1000) / cashierSpeedMultiplier(state.upgrades.cashier);
 export const cartCapacity = (state: GameState): number =>
   Math.min(GAME_CONFIG.customerMax, GAME_CONFIG.customerStartCarts + state.upgrades.carts);

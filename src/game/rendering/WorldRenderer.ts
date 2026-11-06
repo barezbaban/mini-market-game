@@ -1,3 +1,5 @@
+import { OfficeDisplays } from './world/OfficeDisplays';
+import { OFFICE } from '../data/office';
 import { shelfStandSpot } from '../data/standSpots';
 import { t } from '../../i18n';
 import {
@@ -148,8 +150,7 @@ export class WorldRenderer {
     cashier: CharacterModel;
   };
   private readonly workers: { model: CharacterModel; previous: Vec2 }[] = [];
-  private readonly officeStaff: { model: CharacterModel; upgrade: 'customers' | 'accountant' }[] =
-    [];
+  private readonly officeDisplays: OfficeDisplays;
   private readonly transfers: Transfer[] = [];
   private readonly cameraTarget = new Vector3(-0.85, 0, 0.2);
   private readonly cameraOffset = new Vector3(Math.sin(YAW) * 18, 25.7, Math.cos(YAW) * 18);
@@ -208,7 +209,7 @@ export class WorldRenderer {
     this.cartStationLabel = cartStation.label;
     this.parkedCarts = cartStation.carts;
     this.displays = new StoreDisplays(this.scene);
-    this.drawOffice();
+    this.officeDisplays = new OfficeDisplays(this.scene);
     const checkout = this.drawCheckout();
     this.checkoutRing = checkout.ring;
     this.checkoutProgress = checkout.progress;
@@ -240,12 +241,6 @@ export class WorldRenderer {
     this.cashier.setFacing(-1, 0);
     this.cashier.group.visible = false;
     this.scene.add(this.cashier.group);
-    [0x659ec0, 0xba85b2, 0xe5a44e].forEach((color) => {
-      const model = createCharacter('cashier', color);
-      model.group.visible = false;
-      this.scene.add(model.group);
-      this.workers.push({ model, previous: { x: 0, y: 0 } });
-    });
     for (let index = 0; index < GAME_CONFIG.driveThroughMax; index += 1)
       this.driveVehicles.push(this.createDriveVehicle(index));
     this.resize();
@@ -477,9 +472,9 @@ export class WorldRenderer {
     });
     const totalCarts = cartCapacity(state);
     const availableCarts = Math.max(0, totalCarts - state.customers.length);
-    if (this.parkedCarts.length < totalCarts) {
+    if (this.parkedCarts.length < Math.min(15, totalCarts)) {
       const station = this.scene.getObjectByName('cart-station')!;
-      while (this.parkedCarts.length < totalCarts)
+      while (this.parkedCarts.length < Math.min(15, totalCarts))
         this.parkedCarts.push(this.createParkedCart(station, this.parkedCarts.length));
     }
     this.cartStationLabel.setText(
@@ -513,6 +508,14 @@ export class WorldRenderer {
     this.storeDoorLeft.position.x = -0.34 - this.storeDoorOpen * 0.62;
     this.storeDoorRight.position.x = 0.34 + this.storeDoorOpen * 0.62;
     this.displays.update(state, timeMs);
+    while (this.workers.length < state.workers.length) {
+      const model = createCharacter(
+        'cashier',
+        [0x659ec0, 0xba85b2, 0xe5a44e][this.workers.length % 3],
+      );
+      this.scene.add(model.group);
+      this.workers.push({ model, previous: { ...state.workers[this.workers.length] } });
+    }
     this.workers.forEach((visual, index) => {
       const worker = state.workers[index];
       visual.model.group.visible = Boolean(worker);
@@ -526,10 +529,7 @@ export class WorldRenderer {
       visual.model.animate(timeMs + worker.id * 113, moving);
       visual.previous = { x: worker.x, y: worker.y };
     });
-    this.officeStaff.forEach(({ model, upgrade }) => {
-      model.group.visible = state.upgrades[upgrade] > 0;
-      model.animate(timeMs, false);
-    });
+    this.officeDisplays.update(state, timeMs);
     const driveOpen = state.upgrades.driveThrough > 0;
     this.driveArea.visible = driveOpen;
     this.driveSpot.visible = driveOpen;
@@ -730,6 +730,7 @@ export class WorldRenderer {
     else if (state.tutorialStep <= 4) destination = GAME_CONFIG.cashierSpot;
     const uncollected = CASH_POINTS.find(({ id }) => state.cashStacks[id].amount > 0);
     if (uncollected && state.tutorialStep >= 5) destination = uncollected.position;
+    if (state.office.vault > 0) destination = OFFICE.vaultCollect;
     if (
       state.security.thief &&
       ['APPROACHING', 'STEALING', 'FLEEING'].includes(state.security.thief.phase)
@@ -763,7 +764,7 @@ export class WorldRenderer {
       }
     }
     for (const [x, y, scale] of [
-      [-45, 300, 1.2],
+      [-900, 250, 1.2],
       [2300, 160, 1.2],
       [2300, 650, 1],
       [-60, 1300, 1],
@@ -1159,54 +1160,6 @@ export class WorldRenderer {
     return { group, car, bike, board, status, id: -1, slots };
   }
 
-  private drawOffice(): void {
-    const office = new Group();
-    office.position.copy(toWorld(GAME_CONFIG.office));
-    this.scene.add(office);
-    block(office, 0, 0.015, 0, 2.35, 0.06, 1.5, C.cream);
-    block(office, 0, 1.08, -0.59, 1.66, 0.32, 0.06, C.green);
-    block(office, 0, 0.72, -0.59, 0.055, 0.58, 0.055, C.green);
-    const sign = label(office, 'TEAM OFFICE', 1.48, 0.28, {
-      id: 'office:team:title',
-      kind: 'area',
-      foreground: '#ffffff',
-      mount: 'surface',
-      border: false,
-    });
-    sign.object.position.set(0, 1.08, -0.555);
-    const roles = [
-      { upgrade: 'customers' as const, title: 'MARKETING', color: 0xa788be },
-      { upgrade: 'accountant' as const, title: 'ACCOUNTANT', color: 0x6a9db4 },
-    ];
-    roles.forEach((role, index) => {
-      const x = index ? 0.58 : -0.58;
-      const desk = addMarketProp(office, index ? 'desk_accountant' : 'desk_marketing');
-      if (desk) desk.position.x = x;
-      else {
-        block(office, x, 0.4, 0, 0.83, 0.09, 0.55, C.wood);
-        [-0.31, 0.31].forEach((side) => block(office, x + side, 0.2, 0, 0.07, 0.38, 0.4, C.cream));
-        block(office, x, 0.6, -0.11, 0.33, 0.29, 0.045, role.color);
-        block(office, x, 0.6, -0.082, 0.25, 0.19, 0.015, 0xdbefd4);
-      }
-      const title = label(office, role.title, role.upgrade === 'accountant' ? 1.24 : 1.14, 0.26, {
-        id: `office:${role.upgrade}:title`,
-        kind: 'object',
-        mount: 'surface',
-        foreground: '#ffffff',
-        background: role.upgrade === 'customers' ? '#80639a' : '#477f94',
-        border: false,
-      });
-      title.object.position.set(index ? 0.61 : -0.61, 0.82, -0.2);
-      const worker = createCharacter('cashier', role.color);
-      worker.group.position.copy(
-        toWorld({ x: GAME_CONFIG.office.x + x * 100, y: GAME_CONFIG.office.y + 37 }),
-      );
-      worker.setFacing(0, -1);
-      this.scene.add(worker.group);
-      this.officeStaff.push({ model: worker, upgrade: role.upgrade });
-    });
-  }
-
   private drawCheckout(second = false): {
     ring: Mesh;
     progress: Mesh;
@@ -1244,7 +1197,7 @@ export class WorldRenderer {
     highlight.position.y = 0.095;
     const progress = ring(spot, 0.4, C.green, 0.064);
     progress.position.y = 0.102;
-    for (let index = 0; index < (second ? 0 : 15); index += 1) {
+    for (let index = 0; index < (second ? 0 : GAME_CONFIG.customerMax); index += 1) {
       const point = toWorld(queuePosition(index));
       block(this.scene, point.x, 0.077, point.z, 0.27, 0.012, 0.055, 0xd1c8ad);
     }

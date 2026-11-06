@@ -1,3 +1,4 @@
+import { OFFICE } from '../../src/game/data/office';
 import { CASH_POINTS } from '../../src/game/data/cashPoints';
 import type { GameEngine } from '../../src/game/systems/GameEngine';
 
@@ -11,6 +12,8 @@ export function collectTakings(engine: GameEngine): void {
     engine.state.player = { ...position };
     engine.cashCollection.update(0);
   }
+  engine.state.player = { ...OFFICE.vaultCollect };
+  engine.cashCollection.update(0);
   engine.state.player = previous;
   engine.cashCollection.update(0);
 }

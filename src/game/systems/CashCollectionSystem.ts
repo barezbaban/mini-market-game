@@ -1,3 +1,4 @@
+import { OFFICE } from '../data/office';
 import { CASH_POINTS, cashPointOpen } from '../data/cashPoints';
 import { GAME_CONFIG } from '../data/gameConfig';
 import type { GameEvent, GameState } from '../types';
@@ -11,6 +12,25 @@ export class CashCollectionSystem {
   ) {}
   update(deltaMs: number): void {
     if (!Number.isFinite(deltaMs) || deltaMs < 0) return;
+    const vault = this.state.office;
+    const distanceToVault = Math.hypot(
+      this.state.player.x - OFFICE.vaultCollect.x,
+      this.state.player.y - OFFICE.vaultCollect.y,
+    );
+    if (distanceToVault > GAME_CONFIG.cashCollectRadius + 25) vault.collectionArmed = true;
+    if (distanceToVault <= GAME_CONFIG.cashCollectRadius && vault.collectionArmed) {
+      vault.collectionArmed = false;
+      const amount = this.economy.collectVault();
+      if (amount) {
+        this.state.tutorialStep = Math.max(6, this.state.tutorialStep);
+        this.state.career.firstActions.cash ??= this.state.elapsed;
+        this.emit({
+          type: 'money',
+          text: `Collected $${amount} from vault`,
+          ...OFFICE.vaultCollect,
+        });
+      }
+    }
     for (const point of CASH_POINTS) {
       if (!cashPointOpen(this.state, point.id)) continue;
       const stack = this.state.cashStacks[point.id];

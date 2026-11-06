@@ -133,3 +133,10 @@ To configure a new fork or renamed repository:
 The workflow uses official GitHub actions with versioned releases. Deployment receives `pages: write` and `id-token: write`; pull request build checks need only repository read access.
 
 If Pages returns 404, verify the repository Pages source and the deployment result. If the HTML loads but game assets fail, check the Vite base path and avoid root-relative asset URLs. Build output is generated locally and in CI; do not edit `dist/` as source code.
+
+### Office and advanced progression regression checks
+
+- Run `tests/office.test.ts` for cash conservation, reload at all eight accountant phases, all office paths, manual vault collection and anti-camping, register competition, exact cart level gates, 20 helpers, and 24-item processor batches. A fully occupied 50-cart queue must clear without walkouts or blocked furniture.
+- Run `e2e/office.spec.ts` for English, Arabic and Sorani phone layouts, office labels, vault pickup, paid accountant upgrades and reload. Check seated staff, animated work, an unoccupied manager desk, the security door and the collection ring visually. Run `tests/vault-security.test.ts` and `e2e/vault-security.spec.ts` for entry/exit at both walking speeds, mobile controls, automatic opening from either side, accountant deposits, public access denial while open, and old-save route repair.
+- Test new saves and old layout-version-4 saves. Confirm no register cash is lost when moving the office, and that wallet/lifetime revenue never increase just because the accountant moves money.
+- Late-game tiers should not create one mesh per cash dollar or carried item. Visual checks use isolated browser fixtures, never the player's stored game.

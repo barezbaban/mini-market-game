@@ -203,7 +203,7 @@ describe('compact store layout', () => {
     expect(restored.driveThroughHandoffProgress).toBe(200);
     expect(restored.security.thief?.stolen).toBe(80);
     expect(restored.player).toEqual(GAME_CONFIG.playerStart);
-    expect(restored.layoutVersion).toBe(4);
+    expect(restored.layoutVersion).toBe(5);
     restored.player = { x: 600, y: 1100 };
     expect(validateSave(restored)!.player).toEqual(restored.player);
   });

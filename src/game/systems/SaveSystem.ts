@@ -1,3 +1,5 @@
+import { createOfficeState } from '../data/office';
+import { restoreOffice } from './OfficeSystem';
 import { DEFAULT_BINDINGS, WALK_SPEED, clampWalkSpeed, validateBindings } from '../data/movement';
 import { GAME_CONFIG } from '../data/gameConfig';
 import { CAMERA_ZOOM, clampCameraZoom } from '../data/cameraConfig';
@@ -103,6 +105,7 @@ export function createInitialState(): GameState {
     workers: [],
     xp: 0,
     accountantElapsed: 0,
+    office: createOfficeState(),
     driveThroughOrders: [],
     driveThroughSpawnElapsed: GAME_CONFIG.driveThroughSpawnInterval - 2500,
     driveThroughHandoffProgress: 0,
@@ -498,6 +501,7 @@ export function validateSave(value: unknown): GameState | null {
     }
   }
   if (raw.layoutVersion !== LAYOUT_VERSION) migrateLayout(state);
+  restoreOffice(raw.office, state);
   state.career = validateCareer(raw.career, state);
   return state;
 }

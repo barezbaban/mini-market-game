@@ -1,3 +1,4 @@
+import { OFFICE } from '../src/game/data/office';
 import { MACHINES } from '../src/game/data/machines';
 import { expect, test, type Page } from '@playwright/test';
 import { GAME_CONFIG } from '../src/game/data/gameConfig';
@@ -506,15 +507,18 @@ test('critical signs stay legible and contained in the compact landscape view', 
     });
     world.update(engine.state, engine.state.elapsed, 0);
   });
-  await focusCamera(page, GAME_CONFIG.office);
-  bounds = await labelBounds(page);
-  const office = ['office:team:title', 'office:customers:title', 'office:accountant:title'].map(
-    (id) => expectContained(bounds, id, viewport),
-  );
-  expectVisibleLabelsLegible(bounds, viewport);
-  for (let first = 0; first < office.length; first += 1)
-    for (let second = first + 1; second < office.length; second += 1)
-      expect(polygonsOverlap(office[first], office[second])).toBe(false);
+  // The office is now a separate four-room wing. Tour each room at normal zoom.
+  for (const [id, spot] of [
+    ['customers', OFFICE.marketingSeat],
+    ['accountant', OFFICE.accountantSeat],
+    ['manager', OFFICE.managerSeat],
+    ['vault', OFFICE.vaultCollect],
+  ] as const) {
+    await focusCamera(page, spot);
+    const roomLabels = await labelBounds(page);
+    expectContained(roomLabels, `office:${id}:title`, viewport);
+    expectVisibleLabelsLegible(roomLabels, viewport);
+  }
 
   await focusCamera(page, GAME_CONFIG.trash);
   expectContained(await labelBounds(page), 'trash:title', viewport);

@@ -2,6 +2,7 @@ import { GAME_CONFIG } from '../data/gameConfig';
 import { PRODUCTS, emptyItems } from '../data/products';
 import {
   UPGRADES,
+  upgradeById,
   upgradeAvailable,
   upgradeCost,
   requiredPlayerLevel,
@@ -14,7 +15,10 @@ import { EconomySystem } from './EconomySystem';
 import { refreshFarmTotals } from './FarmingSystem';
 
 export function createWorker(id: number): WorkerData {
-  const position = { x: GAME_CONFIG.helperHub.x + (id - 1) * 22, y: GAME_CONFIG.helperHub.y };
+  const position = {
+    x: GAME_CONFIG.helperHub.x + (((id - 1) % 4) - 1.5) * 25,
+    y: GAME_CONFIG.helperHub.y + Math.floor((id - 1) / 4) * 25,
+  };
   return {
     id,
     ...position,
@@ -30,7 +34,7 @@ export function createWorker(id: number): WorkerData {
 
 /** Hiring adds workers; level upgrades preserve all existing workers and their baskets. */
 export function syncWorkers(state: GameState): void {
-  const desired = Math.min(3, state.upgrades.helpers);
+  const desired = Math.min(upgradeById('helpers').maxLevel, state.upgrades.helpers);
   while (state.workers.length < desired) {
     const id = Math.max(0, ...state.workers.map((worker) => worker.id)) + 1;
     state.workers.push(createWorker(id));

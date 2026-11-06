@@ -2,6 +2,7 @@ import { keyLabel } from '../data/movement';
 import { html, t } from '../../i18n';
 import { PRODUCTS } from '../data/products';
 import { GAME_CONFIG } from '../data/gameConfig';
+import { OFFICE, nearVaultDoor } from '../data/office';
 import { CASH_POINTS, uncollectedCash } from '../data/cashPoints';
 import { playerLevel, xpForLevel } from '../data/upgrades';
 import { nextBusinessGoal, pinnedGoalView } from '../data/career';
@@ -174,6 +175,10 @@ export class Hud {
     banner.hidden = !securityText;
     const translatedSecurity = t(securityText);
     if (banner.textContent !== translatedSecurity) banner.textContent = translatedSecurity;
+    const atVaultDoor = nearVaultDoor(state.player);
+    const nearVault =
+      Math.hypot(state.player.x - OFFICE.vaultCollect.x, state.player.y - OFFICE.vaultCollect.y) <
+      180;
     const nearTrash =
       Math.hypot(state.player.x - GAME_CONFIG.trash.x, state.player.y - GAME_CONFIG.trash.y) < 85;
     const nearDriveThrough =
@@ -198,6 +203,9 @@ export class Hud {
       state.xp,
       ...Object.values(state.upgrades),
       state.unlockedProducts.join(':'),
+      atVaultDoor,
+      nearVault,
+      state.office.vault,
       nearTrash,
       nearDriveThrough,
       pending,
@@ -279,6 +287,14 @@ export class Hud {
         ? `<strong>${goal.title}</strong><span>${goal.detail}</span>`
         : `<strong>${hint[0]}</strong><span>${hint[1]}</span>`,
     );
+    if (nearVault)
+      this.hint.innerHTML = html(
+        '<strong>Cash vault</strong><span>Step onto the gold circle to collect deposited cash. Step away before collecting again.</span>',
+      );
+    if (atVaultDoor)
+      this.hint.innerHTML = html(
+        '<strong>Secure vault</strong><span>Only the manager and accountant can enter. Approach the door to unlock it.</span>',
+      );
     if (nearTrash)
       this.hint.innerHTML = html(
         count

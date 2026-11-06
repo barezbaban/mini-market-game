@@ -5,12 +5,14 @@ import { FARM_PRODUCTS, plotCount, plotPosition, productById } from '../data/pro
 import type { GameEvent, GameState, MachineId, ProductId, Vec2, WorkerData } from '../types';
 import { InventorySystem, itemCount } from './InventorySystem';
 import { MachineSystem } from './MachineSystem';
-import { walkRoute } from './Navigation';
+import { walkRoute, vaultAccessAllows } from './Navigation';
 
 export const helperCapacity = (state: GameState): number =>
-  GAME_CONFIG.helperCapacities[Math.min(4, Math.max(0, state.upgrades.helperCapacity))];
+  GAME_CONFIG.helperCapacities[Math.min(29, Math.max(0, state.upgrades.helperCapacity))];
+export const helperSpeedMultiplier = (level: number): number =>
+  1.1 ** Math.min(9, Math.max(0, level)) * 1.025 ** Math.max(0, level - 9);
 export const helperSpeed = (state: GameState): number =>
-  GAME_CONFIG.helperBaseSpeed * 1.1 ** Math.min(9, Math.max(0, state.upgrades.helperSpeed));
+  GAME_CONFIG.helperBaseSpeed * helperSpeedMultiplier(state.upgrades.helperSpeed);
 
 interface Job {
   task: Exclude<WorkerData['task'], 'idle'>;
@@ -246,6 +248,7 @@ export class WorkerSystem {
     let remaining = (helperSpeed(this.state) * deltaMs) / 1000;
     while (worker.path.length && remaining > 0) {
       const point = worker.path[0];
+      if (!vaultAccessAllows(worker, point)) break;
       const distance = Math.hypot(point.x - worker.x, point.y - worker.y);
       if (distance <= remaining) {
         worker.x = point.x;
