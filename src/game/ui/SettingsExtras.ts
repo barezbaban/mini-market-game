@@ -1,3 +1,4 @@
+import { mountMovementSettings } from './MovementSettings';
 import { t, html, errorText, getLanguage, isLanguage, storeLanguage } from '../../i18n';
 import type { GameEngine } from '../systems/GameEngine';
 import type { SaveSystem } from '../systems/SaveSystem';
@@ -70,6 +71,7 @@ export function mountSettingsExtras(
     html(`<section class="comfort-settings"><h3>Play comfortably</h3><label class="setting-row"><span>Low-power mode<small>30 FPS rendering, lower resolution. Game speed is unchanged.</small></span><input type="checkbox" id="low-power" ${engine.state.lowPower ? 'checked' : ''}></label><label class="setting-row"><span>Safe pause<small>Freeze the whole shop and all timers in Pause, Manage and Settings. Off by default; theft is always protected in menus.</small></span><input type="checkbox" id="safe-pause" ${engine.state.safePause ? 'checked' : ''}></label></section>
     <section class="backup-settings"><h3>Protect your market</h3><p>Download a backup before changing devices. Import only replaces this device after you confirm. Your previous save is kept as a recovery copy.</p><div class="backup-actions"><button class="secondary-button" id="export-backup">Download backup</button><label class="secondary-button backup-picker">Choose backup<input id="import-backup" type="file" accept=".json,application/json"></label><button class="secondary-button" id="recover-backup" ${save.previousBackup() ? '' : 'disabled'}>Previous local save</button></div><div id="backup-preview" role="status"></div><details><summary>Playtest report (local only)</summary><p>Export milestones and shop totals for a playtest. Nothing is uploaded automatically.</p><button class="secondary-button" id="export-playtest">Download playtest report</button></details></section>`),
   );
+  mountMovementSettings(dialog, engine, actions.persist);
   dialog.querySelector<HTMLInputElement>('#low-power')!.addEventListener('change', (event) => {
     engine.state.lowPower = (event.target as HTMLInputElement).checked;
     actions.persist();

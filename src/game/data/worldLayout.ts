@@ -3,7 +3,7 @@ import { MACHINES } from './machines';
 import { PRODUCTS, shelfBuilt } from './products';
 import type { GameState, Vec2 } from '../types';
 
-export const LAYOUT_VERSION = 3 as const;
+export const LAYOUT_VERSION = 4 as const;
 export interface Rect {
   left: number;
   right: number;
@@ -11,12 +11,12 @@ export interface Rect {
   bottom: number;
 }
 export const STORE_WALLS: Rect[] = [
-  { left: 90, right: 1410, top: 120, bottom: 140 },
-  { left: 90, right: 110, top: 130, bottom: 670 },
-  { left: 90, right: 110, top: 790, bottom: 900 },
-  { left: 1390, right: 1410, top: 130, bottom: 900 },
-  { left: 100, right: 530, top: 890, bottom: 910 },
-  { left: 710, right: 1400, top: 890, bottom: 910 },
+  { left: 90, right: 2110, top: 120, bottom: 140 },
+  { left: 90, right: 110, top: 130, bottom: 740 },
+  { left: 90, right: 110, top: 860, bottom: 1100 },
+  { left: 2090, right: 2110, top: 130, bottom: 1100 },
+  { left: 100, right: 1000, top: 1090, bottom: 1110 },
+  { left: 1200, right: 2100, top: 1090, bottom: 1110 },
 ];
 export const rectangle = (point: Vec2, halfWidth: number, halfDepth: number): Rect => ({
   left: point.x - halfWidth,

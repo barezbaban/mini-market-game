@@ -192,8 +192,8 @@ describe('production and player interaction', () => {
       Math.hypot(diagonal.state.player.x - start.x, diagonal.state.player.y - start.y),
     ).toBeCloseTo(straight.state.player.x - start.x);
     straight.state.player = shelfStandSpot(PRODUCTS[0], 70);
-    straight.update(1000, { x: -1, y: 0 });
-    expect(straight.state.player.x).toBeGreaterThanOrEqual(PRODUCTS[0].shelf.x + 44);
+    straight.update(1000, { x: 0, y: -1 });
+    expect(straight.state.player.y).toBeGreaterThanOrEqual(PRODUCTS[0].shelf.y + 44);
   });
 
   it('gives rate-limited feedback for full baskets and shelves', () => {

@@ -1,6 +1,21 @@
+import { PRODUCTS } from './products';
+import { MACHINES } from './machines';
+import { farmStandSpot, machineStandSpot } from './standSpots';
 import { GAME_CONFIG } from './gameConfig';
 import type { GameState, UpgradeDefinition, UpgradeId } from '../types';
 export const UPGRADES: UpgradeDefinition[] = [
+  {
+    id: 'sprint',
+    name: 'Sprint endurance',
+    description: '30 upgrades, each adds half a second of sprint time',
+    cost: 90,
+    costGrowth: 1.2,
+    type: 'speed',
+    maxLevel: 30,
+    position: { ...GAME_CONFIG.playerStart },
+    icon: 'leaf',
+    category: 'store',
+  },
   {
     id: 'strawberryBeds',
     name: 'Strawberry beds',
@@ -416,6 +431,21 @@ export const UPGRADES: UpgradeDefinition[] = [
     requires: { driveThrough: 1 },
   },
 ];
+// Upgrade notices follow the remodeled stations; there are no purchase pads on the map.
+for (const upgrade of UPGRADES) {
+  const farm = PRODUCTS.find(
+    (p) => p.kind === 'farm' && (p.plotUpgrade === upgrade.id || p.unlockUpgrade === upgrade.id),
+  );
+  const machine = MACHINES.find((m) => m.upgrade === upgrade.id);
+  if (farm) upgrade.position = farmStandSpot(farm.id, 0);
+  else if (machine) upgrade.position = machineStandSpot(machine);
+  else if (
+    ['helpers', 'helperSpeed', 'helperCapacity', 'accountant', 'customers'].includes(upgrade.id)
+  )
+    upgrade.position = { ...GAME_CONFIG.office };
+  else if (['sprint', 'shelf', 'inventory', 'carts', 'expansion'].includes(upgrade.id))
+    upgrade.position = { ...GAME_CONFIG.playerStart };
+}
 export const upgradeById = (id: UpgradeId): UpgradeDefinition =>
   UPGRADES.find((entry) => entry.id === id)!;
 export const upgradeCost = (state: GameState, id: UpgradeId): number => {

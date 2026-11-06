@@ -20,3 +20,9 @@ export const machineStandSpot = (machine: MachineDefinition): Vec2 => ({
   x: machine.position.x,
   y: machine.position.y + 50,
 });
+
+/** Compact waiting pockets keep shoppers out of the next aisle. */
+export const customerShelfSpot = (product: ProductDefinition, index: number): Vec2 => ({
+  x: product.shelf.x + [0, -30, 30, -60, 60][Math.max(0, index) % 5],
+  y: product.shelf.y + 75 + Math.floor(Math.max(0, index) / 5) * 30,
+});

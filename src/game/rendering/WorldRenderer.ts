@@ -655,6 +655,7 @@ export class WorldRenderer {
   }
 
   dispose(): void {
+    this.player.dispose?.();
     this.customers.forEach(({ walk }) => walk.dispose());
     const geometries = new Set<BufferGeometry>();
     const materials = new Set<Material>();
@@ -747,25 +748,26 @@ export class WorldRenderer {
       const p = toWorld({ x, y });
       block(this.scene, p.x, -0.015, p.z, width / 100, 0.06, depth / 100, 0xe8dfc7);
     };
-    path(750, 948, 1380, 74);
-    for (const y of [1065, 1290, 1545]) path(750, y, 1330, 58);
-    for (const x of [480, 920]) path(x, 1285, 58, 520);
-    path(620, 965, 150, 125);
-    // A short, readable garden perimeter, with gaps at the walking paths.
-    for (const x of [70, 1455]) {
-      for (let y = 1060; y < 1510; y += 60) {
-        if (Math.abs(y - 1290) < 40) continue;
+    path(1100, 1155, 2060, 90);
+    // A protected main route: no harvest or machine interaction circles touch it.
+    path(1100, 1770, 220, 1240);
+    for (const y of [1450, 1740, 2030, 2320]) path(1100, y, 2040, 90);
+    path(525, 1770, 90, 1240);
+    path(1750, 1770, 100, 1240);
+    for (const x of [65, 2225]) {
+      for (let y = 1220; y < 2320; y += 70) {
+        if ([1450, 1740, 2030, 2320].some((cross) => Math.abs(y - cross) < 70)) continue;
         const p = toWorld({ x, y });
         block(this.scene, p.x, 0.2, p.z, 0.06, 0.4, 0.06, C.cream);
-        block(this.scene, p.x, 0.24, p.z + 0.22, 0.045, 0.045, 0.45, C.cream);
+        block(this.scene, p.x, 0.24, p.z + 0.25, 0.045, 0.045, 0.5, C.cream);
       }
     }
     for (const [x, y, scale] of [
       [-45, 300, 1.2],
-      [1500, 160, 1.2],
-      [1530, 650, 1],
+      [2300, 160, 1.2],
+      [2300, 650, 1],
       [-60, 1300, 1],
-      [1500, 1430, 1.2],
+      [2300, 1900, 1.2],
       [300, 50, 1],
       [1100, 20, 1.2],
     ]) {
@@ -823,21 +825,21 @@ export class WorldRenderer {
       x: (bounds.left + bounds.right) / 2,
       y: (bounds.top + bounds.bottom) / 2,
     });
-    block(this.scene, center.x, -0.015, center.z, 13, 0.12, 7.7, C.cream).name =
+    block(this.scene, center.x, -0.015, center.z, 20, 0.12, 9.7, C.cream).name =
       'compact-store-floor';
-    block(this.scene, center.x, 0.05, center.z, 12.8, 0.015, 7.5, C.tile);
-    for (let x = 130; x < 1390; x += 55) {
-      const p = toWorld({ x, y: 515 });
-      block(this.scene, p.x, 0.062, p.z, 0.01, 0.009, 7.45, C.grout, false);
+    block(this.scene, center.x, 0.05, center.z, 19.8, 0.015, 9.5, C.tile);
+    for (let x = 130; x < 2090; x += 55) {
+      const p = toWorld({ x, y: 615 });
+      block(this.scene, p.x, 0.062, p.z, 0.01, 0.009, 9.45, C.grout, false);
     }
-    for (let y = 150; y < 890; y += 55) {
-      const p = toWorld({ x: 750, y });
-      block(this.scene, p.x, 0.062, p.z, 12.8, 0.009, 0.01, C.grout, false);
+    for (let y = 150; y < 1090; y += 55) {
+      const p = toWorld({ x: 1100, y });
+      block(this.scene, p.x, 0.062, p.z, 19.8, 0.009, 0.01, C.grout, false);
     }
     for (const wall of STORE_WALLS) {
       const p = toWorld({ x: (wall.left + wall.right) / 2, y: (wall.top + wall.bottom) / 2 });
       const back = wall.top === 120;
-      const height = back ? 0.95 : wall.top === 890 ? 0.19 : 0.38;
+      const height = back ? 0.95 : wall.top === 1090 ? 0.19 : 0.38;
       block(
         this.scene,
         p.x,
@@ -860,7 +862,7 @@ export class WorldRenderer {
       );
     }
     const sign = new Group();
-    sign.position.copy(toWorld({ x: 740, y: 137 }, 1.15));
+    sign.position.copy(toWorld({ x: 1100, y: 137 }, 1.15));
     this.scene.add(sign);
     block(sign, 0, 0, 0, 3.4, 0.45, 0.09, C.green);
     const brand = label(sign, 'MINI MARKET', 3.05, 0.34, {
@@ -872,8 +874,8 @@ export class WorldRenderer {
     this.brand = brand;
     brand.object.position.set(0, 0, 0.052);
     // Keep the work area and queue visibly distinct without oversized floating signs.
-    const checkout = toWorld({ x: 1100, y: 760 });
-    block(this.scene, checkout.x, 0.075, checkout.z, 4.5, 0.012, 1.7, 0xe3edd8);
+    const checkout = toWorld({ x: 1700, y: 930 });
+    block(this.scene, checkout.x, 0.075, checkout.z, 6.2, 0.012, 2.7, 0xe3edd8);
     const service = new Group();
     service.position.copy(toWorld(GAME_CONFIG.serviceDoor));
     this.scene.add(service);

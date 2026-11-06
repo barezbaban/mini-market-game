@@ -1,3 +1,4 @@
+import { DEFAULT_BINDINGS, WALK_SPEED, clampWalkSpeed, validateBindings } from '../data/movement';
 import { GAME_CONFIG } from '../data/gameConfig';
 import { CAMERA_ZOOM, clampCameraZoom } from '../data/cameraConfig';
 import { PRODUCTS, emptyItems, plotCount } from '../data/products';
@@ -22,7 +23,7 @@ import { applyUpgradeEffects } from './UpgradeSystem';
 import { RUSH } from './RushHourSystem';
 import { CUSTOMER_PATIENCE_MS } from './PatienceSystem';
 import { LAYOUT_VERSION } from '../data/worldLayout';
-import { migrateLayout, migrateShelfRoutes } from './migrateLayout';
+import { migrateLayout } from './migrateLayout';
 import { createCareer, REGULARS } from '../data/career';
 import { validateCareer, workerPriority } from './validateCareer';
 
@@ -79,6 +80,8 @@ export function createInitialState(): GameState {
     effectsVolume: 0.7,
     musicVolume: 0.35,
     cameraZoom: CAMERA_ZOOM.default,
+    walkSpeed: WALK_SPEED.default,
+    controls: structuredClone(DEFAULT_BINDINGS),
     lowPower: false,
     safePause: false,
     career: createCareer(),
@@ -182,6 +185,8 @@ export function validateSave(value: unknown): GameState | null {
   state.effectsVolume = number(raw.effectsVolume, 0.7, 1);
   state.musicVolume = number(raw.musicVolume, 0.35, 1);
   state.cameraZoom = clampCameraZoom(raw.cameraZoom);
+  state.walkSpeed = clampWalkSpeed(raw.walkSpeed);
+  state.controls = validateBindings(raw.controls);
   state.lowPower = raw.lowPower === true;
   state.safePause = raw.safePause === true;
   state.totalWalkouts = integer(raw.totalWalkouts);
@@ -445,8 +450,7 @@ export function validateSave(value: unknown): GameState | null {
   const activeDriveOrder = state.driveThroughOrders.find(
     (order) =>
       ['WAITING_FOR_ITEMS', 'READY_TO_PAY', 'PAYING'].includes(order.state) &&
-      ((raw.layoutVersion !== 2 && raw.layoutVersion !== LAYOUT_VERSION) ||
-        order.x === GAME_CONFIG.driveThroughVehicleSpot.x),
+      (raw.layoutVersion !== LAYOUT_VERSION || order.x === GAME_CONFIG.driveThroughVehicleSpot.x),
   );
   state.driveThroughHandoffProgress =
     activeDriveOrder?.state === 'WAITING_FOR_ITEMS'
@@ -493,8 +497,7 @@ export function validateSave(value: unknown): GameState | null {
         phase === 'CAUGHT' && state.workers.some(({ id }) => id === guardId) ? guardId : null;
     }
   }
-  if (raw.layoutVersion === 2) migrateShelfRoutes(state);
-  else if (raw.layoutVersion !== LAYOUT_VERSION) migrateLayout(state);
+  if (raw.layoutVersion !== LAYOUT_VERSION) migrateLayout(state);
   state.career = validateCareer(raw.career, state);
   return state;
 }

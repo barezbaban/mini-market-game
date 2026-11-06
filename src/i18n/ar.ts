@@ -1,5 +1,42 @@
 /** Modern Standard Arabic. Keys are presentation copy, never game/save identifiers. */
 export const arabic: Record<string, string> = {
+  'Movement and controls': 'الحركة والتحكم',
+  'Farms are on the left, machines on the right. Use the clear middle path for delivery. Stop on a harvest circle to collect.':
+    'المزارع على اليسار والآلات على اليمين. استخدم الممر الأوسط المفتوح للتوصيل. توقف عند دائرة الحصاد لجمع المحصول.',
+  'Walking speed': 'سرعة المشي',
+  'Normal to 35% faster. Applies to keyboard and touch controls.':
+    'من السرعة العادية إلى أسرع بنسبة ٣٥٪. ينطبق على لوحة المفاتيح والتحكم باللمس.',
+  'Sprint endurance': 'قدرة الركض',
+  '30 upgrades, each adds half a second of sprint time':
+    '٣٠ ترقية، تضيف كل منها نصف ثانية إلى مدة الركض',
+  'Keyboard controls': 'أزرار لوحة المفاتيح',
+  'Choose a key button, then press a new key. Escape cancels. Each action has two keys.':
+    'اختر زرًا ثم اضغط المفتاح الجديد. يلغي مفتاح الإلغاء التغيير. لكل حركة مفتاحان.',
+  'Reset movement settings': 'إعادة ضبط إعدادات الحركة',
+  'Move up': 'التحرك للأعلى',
+  'Move down': 'التحرك للأسفل',
+  'Move left': 'التحرك لليسار',
+  'Move right': 'التحرك لليمين',
+  Level: 'المستوى',
+  seconds: 'ثوانٍ',
+  Upgrade: 'ترقية',
+  'Sprint upgraded.': 'تمت ترقية قدرة الركض.',
+  'Not enough cash for this upgrade.': 'لا تملك نقودًا كافية لهذه الترقية.',
+  'Press a key…': 'اضغط مفتاحًا…',
+  'Press a new key. Escape cancels.': 'اضغط مفتاحًا جديدًا. يلغي مفتاح الإلغاء التغيير.',
+  'Key change cancelled.': 'أُلغي تغيير المفتاح.',
+  'Choose a letter, number, arrow, Shift, Space or another single key.':
+    'اختر حرفًا أو رقمًا أو سهمًا أو Shift أو مفتاح المسافة أو مفتاحًا مفردًا آخر.',
+  'That key is already assigned. Choose another key.':
+    'هذا المفتاح مستخدم بالفعل. اختر مفتاحًا آخر.',
+  'Controls saved.': 'تم حفظ أزرار التحكم.',
+  'Movement settings restored. Sprint upgrades are kept.':
+    'أُعيدت إعدادات الحركة. تمت المحافظة على ترقيات الركض.',
+  'Left Shift': 'Shift الأيسر',
+  'Right Shift': 'Shift الأيمن',
+  Space: 'المسافة',
+  'Use your movement keys, the joystick, or drag the world. Change keys and walking speed in Settings. Hold your sprint key or Sprint for a burst. Upgrade sprint duration in Settings. Gold circles mark places to stand; green means you are close enough. Stop briefly to harvest.':
+    'استخدم مفاتيح الحركة أو عصا التحكم أو اسحب الخريطة. غيّر المفاتيح وسرعة المشي في الإعدادات. اضغط باستمرار على مفتاح الركض أو زر الركض للاندفاع. يمكنك ترقية مدة الركض في الإعدادات. تحدد الدوائر الذهبية أماكن الوقوف، ويعني اللون الأخضر أنك قريب بما يكفي. توقف قليلًا للحصاد.',
   Strawberry: 'فراولة',
   Strawberries: 'فراولة',
   'Strawberry beds': 'أحواض الفراولة',
@@ -499,6 +536,8 @@ export const arabic: Record<string, string> = {
   Sprint: 'اركض',
   Hold: 'اضغط مطوّلًا',
   'Touch movement joystick': 'عصا التحكّم باللمس',
+  'Market and farm game world. Use your movement keys or the touch joystick.':
+    'عالم لعبة المتجر والمزرعة. استخدم أزرار الحركة التي اخترتها أو عصا التحكم باللمس.',
   'Market and farm game world. Move with WASD, arrow keys, or the touch joystick.':
     'عالم المتجر والمزرعة. تحرّك بمفاتيح WASD أو الأسهم أو عصا التحكّم باللمس.',
   'Collected money available to spend': 'النقود التي جمعتها ويمكنك إنفاقها',
@@ -866,8 +905,8 @@ export const arabicPatterns: Array<[string, string]> = [
     'لص يقترب من {0}! المسافة {1} متر {2}. اجمع النقود أو حاصره داخل دائرة الشبكة.',
   ],
   [
-    'Thief stealing! {0}s left. Sprint into net range — Shift or hold Sprint.',
-    'اللص يسرق النقود! تبقّى {0} ثانية. اركض حتى يدخل نطاق الشبكة باستخدام Shift أو زر الركض.',
+    'Thief stealing! {0}s left. Sprint into net range — use your sprint key or hold Sprint.',
+    'اللص يسرق النقود! تبقّى {0} ثانية. اركض حتى يدخل نطاق الشبكة باستخدام مفتاح الركض أو زر الركض.',
   ],
   [
     'Thief fleeing with ${0}! {1}m {2}. Sprint into net range to catch them.',

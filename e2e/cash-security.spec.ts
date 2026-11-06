@@ -36,11 +36,11 @@ test('both checkout cash signs clear the front wall at every zoom setting', asyn
     for (const zoom of [0.75, 1, 1.75]) {
       for (const id of ['store', 'second'] as const) {
         const sign = await page.evaluate(
-          ({ id, zoom }) => {
+          ({ id, zoom, cash }) => {
             const { world, engine } = window.__MARKET__;
             const root = world.scene.getObjectByName(`cash-stack-${id}`)!;
             const label = world.scene.getObjectByName(`label:cash:${id}:status`)!;
-            engine.state.player = { x: id === 'store' ? 1040 : 1310, y: 800 };
+            engine.state.player = { x: cash.x, y: cash.y - 45 };
             engine.state.cameraZoom = zoom;
             for (let frame = 0; frame < 35; frame++)
               world.update(engine.state, engine.state.elapsed, 100);
@@ -50,18 +50,22 @@ test('both checkout cash signs clear the front wall at every zoom setting', asyn
                 const worldPoint = label.localToWorld(label.position.clone().set(x, y, 0));
                 const local = root.worldToLocal(worldPoint.clone());
                 const projected = worldPoint.project(world.camera);
-                return { height: local.y, front: local.z * 100 + 845, screen: projected.toArray() };
+                return {
+                  height: local.y,
+                  front: local.z * 100 + cash.y,
+                  screen: projected.toArray(),
+                };
               }),
             );
             return { corners, text: label.userData.worldLabel.text };
           },
-          { id, zoom },
+          { id, zoom, cash: id === 'store' ? GAME_CONFIG.storeCash : GAME_CONFIG.secondCash },
         );
         expect(sign.text).toBe(id === 'store' ? 'PICK UP $5' : 'PICK UP $9,999');
         for (const corner of sign.corners) {
-          // Front wall: top at 0.235 world units, rear face at map y=890.
+          // Front wall: top at 0.235 world units, rear face at the configured store front.
           expect(corner.height).toBeGreaterThan(0.26);
-          expect(corner.front).toBeLessThan(890);
+          expect(corner.front).toBeLessThan(GAME_CONFIG.storeBounds.bottom - 10);
           expect(Math.abs(corner.screen[0])).toBeLessThan(1);
           expect(Math.abs(corner.screen[1])).toBeLessThan(1);
         }

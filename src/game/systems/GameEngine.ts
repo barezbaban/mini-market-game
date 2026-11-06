@@ -1,3 +1,4 @@
+import { sprintDuration } from '../data/movement';
 import { GAME_CONFIG } from '../data/gameConfig';
 import { PRODUCTS, plotCount, plotPosition, productById } from '../data/products';
 import { MACHINES } from '../data/machines';
@@ -18,7 +19,7 @@ import { SecuritySystem } from './SecuritySystem';
 import { RushHourSystem } from './RushHourSystem';
 import { PatienceSystem } from './PatienceSystem';
 import { CareerSystem } from './CareerSystem';
-import { canStand, repairWalk } from './Navigation';
+import { canStand, clearWalk, repairWalk } from './Navigation';
 
 /** The renderer owns no game rules. This headless simulation runs in browser and tests. */
 export class GameEngine {
@@ -45,6 +46,7 @@ export class GameEngine {
   private machineElapsed: number = GAME_CONFIG.harvestInterval;
   private lastBlockedZone: string | null = null;
   private nextBlockedNotice = 0;
+  private harvestStillMs = 0;
   private trashElapsed = 0;
   private trashUsedThisVisit = false;
 
@@ -142,13 +144,14 @@ export class GameEngine {
 
   private movePlayer(deltaMs: number, input: PlayerInput): void {
     const magnitude = Math.hypot(input.x, input.y);
+    this.harvestStillMs = magnitude === 0 ? Math.min(200, this.harvestStillMs + deltaMs) : 0;
     const wantsSprint = Boolean(input.sprint) && Number.isFinite(magnitude) && magnitude > 0;
     this.state.sprinting =
       wantsSprint && !this.state.sprintExhausted && this.state.sprintEnergy > 0;
     if (this.state.sprinting) {
       this.state.sprintEnergy = Math.max(
         0,
-        this.state.sprintEnergy - deltaMs / GAME_CONFIG.sprintDuration,
+        this.state.sprintEnergy - deltaMs / sprintDuration(this.state),
       );
       if (!this.state.sprintEnergy) this.state.sprintExhausted = true;
     } else {
@@ -161,6 +164,7 @@ export class GameEngine {
     if (!Number.isFinite(magnitude) || magnitude === 0) return;
     const scale =
       (GAME_CONFIG.playerSpeed *
+        this.state.walkSpeed *
         (this.state.sprinting ? GAME_CONFIG.sprintMultiplier : 1) *
         deltaMs) /
       1000 /
@@ -171,8 +175,16 @@ export class GameEngine {
       Math.max(bounds.left, this.state.player.x + input.x * scale),
     );
     const y = Math.min(bounds.bottom, Math.max(bounds.top, this.state.player.y + input.y * scale));
-    if (this.canWalk({ x, y: this.state.player.y })) this.state.player.x = x;
-    if (this.canWalk({ x: this.state.player.x, y })) this.state.player.y = y;
+    if (
+      this.canWalk({ x, y: this.state.player.y }) &&
+      clearWalk(this.state, this.state.player, { x, y: this.state.player.y })
+    )
+      this.state.player.x = x;
+    if (
+      this.canWalk({ x: this.state.player.x, y }) &&
+      clearWalk(this.state, this.state.player, { x: this.state.player.x, y })
+    )
+      this.state.player.y = y;
   }
 
   private interact(deltaMs: number): void {
@@ -187,7 +199,7 @@ export class GameEngine {
         { length: plotCount(this.state, product.id) },
         (_, index) => index,
       ).find((index) => distance(this.state.player, plotPosition(product.id, index)) <= 55);
-      if (plotIndex !== undefined) {
+      if (plotIndex !== undefined && this.harvestStillMs >= 200) {
         const harvestPosition = plotPosition(product.id, plotIndex);
         this.state.tutorialStep = Math.max(this.state.tutorialStep, 1);
         if (

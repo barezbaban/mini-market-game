@@ -1,3 +1,4 @@
+import { keyLabel } from '../data/movement';
 import { html, t } from '../../i18n';
 import { PRODUCTS } from '../data/products';
 import { GAME_CONFIG } from '../data/gameConfig';
@@ -33,7 +34,7 @@ export class Hud {
   constructor(root: HTMLElement, actions: HudActions) {
     root.innerHTML = html(`
       <main id="game-frame" class="game-frame">
-          <div id="game-canvas" aria-label="Market and farm game world. Move with WASD, arrow keys, or the touch joystick." role="application" tabindex="0"></div>
+          <div id="game-canvas" aria-label="Market and farm game world. Use your movement keys or the touch joystick." role="application" tabindex="0"></div>
           <div class="game-hud">
             <div class="hud-left">
               <div class="money-card" aria-label="Collected money available to spend"><span class="coin" aria-hidden="true">$</span><strong id="money-value">$0</strong></div>
@@ -124,6 +125,14 @@ export class Hud {
     const cashReady = document.querySelector<HTMLElement>('#cash-ready')!;
     cashReady.hidden = pending === 0;
     cashReady.textContent = t(`Uncollected: $${pending.toLocaleString()}`);
+    const sprintKey = state.controls.sprint[0].startsWith('Shift')
+      ? 'Shift'
+      : keyLabel(state.controls.sprint[0]);
+    document.querySelector('#sprint-button small')!.textContent = matchMedia('(pointer: coarse)')
+      .matches
+      ? t('Hold')
+      : `${t('Hold')} / ${t(sprintKey)}`;
+    document.querySelector('#sprint-button')!.setAttribute('title', t('Hold to sprint'));
     document.querySelector<HTMLElement>('#sprint-energy')!.style.width =
       `${Math.round(state.sprintEnergy * 100)}%`;
     document.querySelector('#sprint-button')!.classList.toggle('exhausted', state.sprintExhausted);
@@ -147,7 +156,7 @@ export class Hud {
       if (thief.phase === 'APPROACHING')
         securityText = `Thief approaching ${CASH_POINTS.find(({ id }) => id === thief.target)!.name}! ${distance}m ${direction}. Collect the cash or catch them in your net circle.`;
       if (thief.phase === 'STEALING')
-        securityText = `Thief stealing! ${Math.max(0, Math.ceil((GAME_CONFIG.thiefStealTime - thief.elapsed) / 1000))}s left. Sprint into net range — Shift or hold Sprint.`;
+        securityText = `Thief stealing! ${Math.max(0, Math.ceil((GAME_CONFIG.thiefStealTime - thief.elapsed) / 1000))}s left. Sprint into net range — use your sprint key or hold Sprint.`;
       if (thief.phase === 'FLEEING')
         securityText = `Thief fleeing${thief.stolen ? ` with $${thief.stolen}` : ''}! ${distance}m ${direction}. Sprint into net range to catch them.`;
       if (thief.phase === 'CAUGHT')
