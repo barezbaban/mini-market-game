@@ -25,7 +25,7 @@ test('a real pickup loads the Blender reach once and the actor settles afterward
     const m = window.__MARKET__;
     return (
       m.engine.state.inventory.tomato > 0 &&
-      m.world.scene.getObjectByName('player-character')!.children[0].rotation.x > 0.015
+      Math.abs(m.world.scene.getObjectByName('player-character')!.children[0].rotation.x) > 0.015
     );
   });
   await expect.poll(() => loads).toEqual([200]);

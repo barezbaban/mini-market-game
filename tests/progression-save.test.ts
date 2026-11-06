@@ -126,7 +126,7 @@ describe('expanded market progression and compatibility', () => {
   it('unlocks four departments without stretching the map bounds', () => {
     const engine = establishedEngine();
     engine.economy.earn(10000);
-    engine.state.player = { x: 1400, y: 1250 };
+    engine.state.player = { x: GAME_CONFIG.bounds.right - 30, y: 1450 };
     engine.update(1000, { x: 1, y: 0 });
     expect(engine.state.player.x).toBe(GAME_CONFIG.areaBounds[0]);
     expect(engine.purchaseUpgrade('pasteMachine')).toBe(false);

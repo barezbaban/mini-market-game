@@ -13,8 +13,8 @@ export const PRODUCTS: ProductDefinition[] = [
     unlockCost: 0,
     sprite: 'tomato',
     color: 0xe96850,
-    shelf: { x: 178, y: 642, facing: 'east' },
-    farm: { x: 260, y: 1130 },
+    shelf: { x: 300, y: 250 },
+    farm: { x: 300, y: 1280 },
     kind: 'farm',
     area: 0,
     maxPlots: 5,
@@ -32,8 +32,8 @@ export const PRODUCTS: ProductDefinition[] = [
     unlockCost: 0,
     sprite: 'egg',
     color: 0xe8b94d,
-    shelf: { x: 1322, y: 642, facing: 'west' },
-    farm: { x: 700, y: 1130 },
+    shelf: { x: 300, y: 740 },
+    farm: { x: 750, y: 1280 },
     kind: 'farm',
     area: 0,
     maxPlots: 5,
@@ -51,8 +51,8 @@ export const PRODUCTS: ProductDefinition[] = [
     unlockCost: 150,
     sprite: 'corn',
     color: 0xe3b443,
-    shelf: { x: 178, y: 452, facing: 'east' },
-    farm: { x: 1140, y: 1130 },
+    shelf: { x: 620, y: 250 },
+    farm: { x: 300, y: 1570 },
     kind: 'farm',
     area: 0,
     maxPlots: 5,
@@ -71,8 +71,8 @@ export const PRODUCTS: ProductDefinition[] = [
     unlockCost: 220,
     sprite: 'tomatoPaste',
     color: 0xdc7656,
-    shelf: { x: 418, y: 465 },
-    farm: { x: 200, y: 1000 },
+    shelf: { x: 940, y: 530 },
+    farm: { x: 1550, y: 1280 },
     kind: 'processed',
     area: 1,
     maxPlots: 0,
@@ -90,8 +90,8 @@ export const PRODUCTS: ProductDefinition[] = [
     unlockCost: 0,
     sprite: 'coffee',
     color: 0x865846,
-    shelf: { x: 760, y: 202 },
-    farm: { x: 260, y: 1390 },
+    shelf: { x: 1580, y: 250 },
+    farm: { x: 300, y: 1860 },
     kind: 'farm',
     area: 2,
     maxPlots: 5,
@@ -109,8 +109,8 @@ export const PRODUCTS: ProductDefinition[] = [
     unlockCost: 280,
     sprite: 'groundCoffee',
     color: 0xb98759,
-    shelf: { x: 955, y: 202 },
-    farm: { x: 440, y: 1000 },
+    shelf: { x: 1900, y: 250 },
+    farm: { x: 1950, y: 1280 },
     kind: 'processed',
     area: 2,
     maxPlots: 0,
@@ -128,8 +128,8 @@ export const PRODUCTS: ProductDefinition[] = [
     unlockCost: 0,
     sprite: 'carrot',
     color: 0xf0953d,
-    shelf: { x: 178, y: 262, facing: 'east' },
-    farm: { x: 700, y: 1390 },
+    shelf: { x: 940, y: 250 },
+    farm: { x: 750, y: 1570 },
     kind: 'farm',
     area: 3,
     maxPlots: 8,
@@ -147,8 +147,8 @@ export const PRODUCTS: ProductDefinition[] = [
     unlockCost: 0,
     sprite: 'milk',
     color: 0xb6dceb,
-    shelf: { x: 1322, y: 452, facing: 'west' },
-    farm: { x: 1140, y: 1390 },
+    shelf: { x: 620, y: 740 },
+    farm: { x: 750, y: 1860 },
     kind: 'farm',
     area: 4,
     maxPlots: 5,
@@ -166,8 +166,8 @@ export const PRODUCTS: ProductDefinition[] = [
     unlockCost: 420,
     sprite: 'cheese',
     color: 0xf5c96b,
-    shelf: { x: 1322, y: 262, facing: 'west' },
-    farm: { x: 1280, y: 1000 },
+    shelf: { x: 940, y: 740 },
+    farm: { x: 1550, y: 1570 },
     kind: 'processed',
     area: 4,
     maxPlots: 0,
@@ -186,8 +186,8 @@ PRODUCTS.push({
   unlockCost: 360,
   sprite: 'grilledCorn',
   color: 0xdf9b37,
-  shelf: { x: 638, y: 465 },
-  farm: { x: 900, y: 1000 },
+  shelf: { x: 1900, y: 530 },
+  farm: { x: 1950, y: 1570 },
   kind: 'processed',
   area: 3,
   maxPlots: 0,
@@ -207,8 +207,8 @@ PRODUCTS.push(
     unlockCost: 300,
     sprite: 'strawberry',
     color: 0xca475b,
-    shelf: { x: 370, y: 202 },
-    farm: { x: 480, y: 1140 },
+    shelf: { x: 1260, y: 250 },
+    farm: { x: 300, y: 2150 },
     area: 2,
     maxPlots: 4,
     plotUpgrade: 'strawberryBeds',
@@ -228,8 +228,8 @@ PRODUCTS.push(
     unlockCost: 480,
     sprite: 'jam',
     color: 0x993859,
-    shelf: { x: 565, y: 202 },
-    farm: { x: 280, y: 1280 },
+    shelf: { x: 620, y: 530 },
+    farm: { x: 1550, y: 1860 },
     area: 2,
     maxPlots: 0,
     unlockUpgrade: 'jamKettle',
@@ -248,8 +248,8 @@ PRODUCTS.push(
     unlockCost: 420,
     sprite: 'wheat',
     color: 0xcfaa43,
-    shelf: { x: 858, y: 465 },
-    farm: { x: 920, y: 1140 },
+    shelf: { x: 300, y: 530 },
+    farm: { x: 750, y: 2150 },
     area: 3,
     maxPlots: 4,
     plotUpgrade: 'wheatPlots',
@@ -269,8 +269,8 @@ PRODUCTS.push(
     unlockCost: 650,
     sprite: 'bread',
     color: 0xc78346,
-    shelf: { x: 1150, y: 202 },
-    farm: { x: 720, y: 1280 },
+    shelf: { x: 1580, y: 530 },
+    farm: { x: 1950, y: 1860 },
     area: 3,
     maxPlots: 0,
     unlockUpgrade: 'breadOven',
@@ -289,8 +289,8 @@ PRODUCTS.push(
     unlockCost: 780,
     sprite: 'carrotJuice',
     color: 0xf29843,
-    shelf: { x: 1078, y: 465 },
-    farm: { x: 1160, y: 1280 },
+    shelf: { x: 1260, y: 530 },
+    farm: { x: 1550, y: 2150 },
     area: 3,
     maxPlots: 0,
     unlockUpgrade: 'juicePress',
@@ -331,17 +331,18 @@ export function plotCount(state: GameState, id: ProductId): number {
     : 0;
 }
 export function plotPosition(id: ProductId, index: number): Vec2 {
-  const product = productById(id)!;
-  if (id === 'strawberry' || id === 'wheat')
-    return { x: product.farm.x, y: product.farm.y + index * 86 };
+  const { farm } = productById(id)!;
   if (id === 'carrot')
-    return {
-      x: product.farm.x + (index % 4) * 80 - 120,
-      y: product.farm.y + Math.floor(index / 4) * 90,
-    };
-  if (index === 0) return { ...product.farm };
-  return {
-    x: product.farm.x + [-90, 90, -90, 0][index - 1],
-    y: product.farm.y + (index >= 3 ? 90 : 0),
-  };
+    return { x: farm.x + (index % 4) * 100 - 150, y: farm.y + Math.floor(index / 4) * 110 };
+  const column = [0, -1, 1][index % 3];
+  return { x: farm.x + column * 110, y: farm.y + Math.floor(index / 3) * 110 };
+}
+
+export type DisplayKind = 'produce' | 'chilled' | 'heated' | 'bakery' | 'pantry';
+export function displayKind(id: ProductId): DisplayKind {
+  if (['tomato', 'corn', 'carrot', 'strawberry', 'coffee', 'wheat'].includes(id)) return 'produce';
+  if (['egg', 'milk', 'cheese', 'carrotJuice'].includes(id)) return 'chilled';
+  if (id === 'grilledCorn') return 'heated';
+  if (id === 'bread') return 'bakery';
+  return 'pantry';
 }

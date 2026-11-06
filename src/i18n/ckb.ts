@@ -4,6 +4,43 @@ import { accountCopy } from './account';
 
 /** Central Kurdish (Sorani). Engine identifiers and user-entered names stay unchanged. */
 export const sorani: Record<string, string> = {
+  'Movement and controls': 'جووڵە و کۆنترۆڵ',
+  'Farms are on the left, machines on the right. Use the clear middle path for delivery. Stop on a harvest circle to collect.':
+    'کێڵگەکان لە چەپن و ئامێرەکان لە ڕاستن. بۆ گەیاندن ڕێڕەوی ناوەڕاست بەکاربهێنە. بۆ کۆکردنەوە لە بازنەی دروێنە بوەستە.',
+  'Walking speed': 'خێرایی ڕۆیشتن',
+  'Normal to 35% faster. Applies to keyboard and touch controls.':
+    'لە ئاساییەوە تا ٣٥٪ خێراتر. بۆ تەختەکلیل و کۆنترۆڵی دەست‌لێدانیش کار دەکات.',
+  'Sprint endurance': 'توانای ڕاکردن',
+  '30 upgrades, each adds half a second of sprint time':
+    '٣٠ ئاستی بەرزکردنەوە، هەر یەکەیان نیو چرکە بۆ ماوەی ڕاکردن زیاد دەکات',
+  'Keyboard controls': 'کۆنترۆڵی تەختەکلیل',
+  'Choose a key button, then press a new key. Escape cancels. Each action has two keys.':
+    'دوگمەیەک هەڵبژێرە، پاشان کلیلێکی نوێ دابگرە. کلیلی هەڵوەشاندنەوە هەڵدەوەشێنێتەوە. هەر جووڵەیەک دوو کلیلی هەیە.',
+  'Reset movement settings': 'گەڕاندنەوەی ڕێکخستنەکانی جووڵە',
+  'Move up': 'جووڵان بۆ سەرەوە',
+  'Move down': 'جووڵان بۆ خوارەوە',
+  'Move left': 'جووڵان بۆ چەپ',
+  'Move right': 'جووڵان بۆ ڕاست',
+  Level: 'ئاست',
+  seconds: 'چرکە',
+  Upgrade: 'بەرزکردنەوە',
+  'Sprint upgraded.': 'توانای ڕاکردن بەرز کرایەوە.',
+  'Not enough cash for this upgrade.': 'پارەی پێویست بۆ ئەم بەرزکردنەوەیە نییە.',
+  'Press a key…': 'کلیلێک دابگرە…',
+  'Press a new key. Escape cancels.': 'کلیلێکی نوێ دابگرە. کلیلی هەڵوەشاندنەوە هەڵدەوەشێنێتەوە.',
+  'Key change cancelled.': 'گۆڕینی کلیل هەڵوەشایەوە.',
+  'Choose a letter, number, arrow, Shift, Space or another single key.':
+    'پیتێک، ژمارەیەک، تیرێک، Shift، کلیلی بۆشایی یان کلیلێکی تاکی تر هەڵبژێرە.',
+  'That key is already assigned. Choose another key.':
+    'ئەو کلیلە پێشتر دیاری کراوە. کلیلێکی تر هەڵبژێرە.',
+  'Controls saved.': 'کۆنترۆڵەکان پاشەکەوت کران.',
+  'Movement settings restored. Sprint upgrades are kept.':
+    'ڕێکخستنەکانی جووڵە گەڕێنرانەوە. بەرزکردنەوەکانی ڕاکردن پارێزراون.',
+  'Left Shift': 'Shiftی چەپ',
+  'Right Shift': 'Shiftی ڕاست',
+  Space: 'بۆشایی',
+  'Use your movement keys, the joystick, or drag the world. Change keys and walking speed in Settings. Hold your sprint key or Sprint for a burst. Upgrade sprint duration in Settings. Gold circles mark places to stand; green means you are close enough. Stop briefly to harvest.':
+    'کلیلەکانی جووڵە یان جۆیستیک بەکاربهێنە، یان نەخشەکە ڕابکێشە. لە ڕێکخستنەکان کلیل و خێرایی ڕۆیشتن بگۆڕە. بۆ ڕاکردن کلیلی ڕاکردن یان دوگمەکە بەردەوام دابگرە. ماوەی ڕاکردن لە ڕێکخستنەکان بەرز بکەرەوە. بازنە زێڕینەکان شوێنی وەستان دیاری دەکەن؛ سەوز واتە بەشی پێویست نزیکیت. بۆ دروێنە کەمێک بوەستە.',
   Strawberry: 'فرێز',
   Strawberries: 'فرێز',
   'Strawberry beds': 'نەمامگەکانی فرێز',
@@ -82,6 +119,8 @@ export const sorani: Record<string, string> = {
   Sprint: 'خێرا ڕاکردن',
   Hold: 'ڕابگرە',
   'Touch movement joystick': 'کۆنترۆڵی جووڵە بە دەستلێدان',
+  'Market and farm game world. Use your movement keys or the touch joystick.':
+    'جیهانی یاریی مارکێت و کێڵگە. کلیلەکانی جووڵەی خۆت یان کۆنترۆڵی دەست‌لێدان بەکاربهێنە.',
   'Market and farm game world. Move with WASD, arrow keys, or the touch joystick.':
     'جیهانی یاریی مارکێت و کێڵگە. بە دوگمەکانی WASD، تیرەکان، یان کۆنترۆڵی دەستلێدان بجووڵێ.',
   'Collected money available to spend': 'پارەی کۆکراوە کە دەتوانیت خەرجی بکەیت',

@@ -32,7 +32,7 @@ The market occupies the top of the map; the farms and processing areas sit below
 
 All shelves start with **3 rows × 4 spaces = 12 items**. At player levels **3, 10, and 20**, buy an extra visible row for every shelf, including future shelves: **16 → 20 → 24 items**. Existing stock is preserved. Add up to five tomato plants, nests, corn plots, coffee plants, and cows; the carrot garden supports eight beds. Every plot has its own production timer. Machines process **up to** 2, 4, 6, or 8 ingredients per batch as they are upgraded. Choose quick batches or wait for a full upgraded batch in Manage → Machines. Helper allocation can prioritize processing, reserve a fresh-shelf target or pause new batches; in-flight batches finish. Stand near a machine while carrying its raw ingredient to supply it, then collect the finished products when your basket has room.
 
-Fit out the compact store in four stages: **production department (level 3, 20 orders, $250)**, **coffee corner (level 6, 65 orders, $500)**, **carrot garden (level 9, 140 orders, $1,000)**, and **dairy meadow (level 12, 260 orders, $2,000)**. The management cards show current capacity, the next effect, the exact next price, and any prerequisite. Most repeated upgrades grow more expensive; the carrot-bed price increases by 20% each time. Shelves form a U around the store: vegetables on the left, eggs and dairy on the right, and berries, bakery goods and coffee along the back. Four extra shelves form one center row with gaps for crossing the aisle. Each new farm starts with one plot and can grow to four. Buy farms in **Manage → Farms** and processors in **Manage → Machines**. Each purchase adds a shelf for the new product.
+Fit out the expanded store in four stages: **production department (level 3, 20 orders, $250)**, **coffee corner (level 6, 65 orders, $500)**, **carrot garden (level 9, 140 orders, $1,000)**, and **dairy meadow (level 12, 260 orders, $2,000)**. The management cards show current capacity, the next effect, the exact next price, and any prerequisite. Most repeated upgrades grow more expensive; the carrot-bed price increases by 20% each time. The 2300 × 2600 map separates farms into the left court and processors into the right court, with a wide central delivery promenade. Store displays face forward in spacious rows: flat produce tables, chilled dairy cases, a heated corn counter, bakery trays, and packaged-goods shelves. Eggs, milk and cheese are in a front-facing department with visible stock counts. Stop briefly on a harvest circle to collect; walking past no longer fills your basket. Each new farm starts with one plot and can grow to four. Buy farms in **Manage → Farms** and processors in **Manage → Machines**. Each purchase adds a shelf for the new product.
 
 Hire up to **three helpers** to harvest, operate machines, and stock shelves. Their baskets grow **2 → 3 → 4 → 5 → 6** items; ten speed levels multiply walking speed by **1.10** at each upgrade. The cashier starts with five purchasable tiers and marketing with ten. Player levels **20, 25, and 30** unlock three additional tiers for the cashier, marketing director, and player basket (up to 40 carried items). Each cashier tier after hiring divides checkout time by 1.25; each marketing tier adds 20% of the base arrival rate. Every paid store or drive-through order earns **5 customer XP + 2 XP per item sold** (7 XP for one item, 9 XP for two). Picking up goods and unpaid orders do not earn sales XP. The accountant audits every 10 seconds and earns **2 XP per tier per five new paid orders**; idle time and orders completed before hiring earn no audit XP. Base staffed checkout takes 4.5 seconds; active manual service remains 1 second. Manage shows the next unlock, XP remaining, and a complete level roadmap. Unlocks are permission to buy with game money, not automatic purchases; existing saves keep owned upgrades and XP.
 
@@ -86,11 +86,11 @@ The game fills the browser window. The camera and overlays adapt to desktop, tab
 
 ## Screenshots
 
-![Store with a U of department shelves, one center row, and a clear front entrance](docs/screenshots/compact-map.png)
+![Expanded market with separate farm and production courts and a clear delivery promenade](docs/screenshots/organized-market.png)
 
 The screenshots are captured from the running application. Scenery, characters, and produce are original 3D meshes created for this project.
 
-The compact-map overview uses an isolated, fully unlocked demonstration fixture and a zoomed-out camera to show the complete layout. Gameplay normally uses the following camera. Older saves relocate once into this layout while retaining money, inventory, upgrades, orders, XP, and cash awaiting collection. The captures below show earlier layouts.
+The organized-market overview uses an isolated, fully unlocked demonstration fixture and a zoomed-out camera to show the complete layout. Gameplay normally uses the following camera. Older saves relocate once into this layout while retaining money, inventory, upgrades, orders, XP, and cash awaiting collection. The captures below show earlier layouts.
 
 [Mobile landscape screenshot](docs/screenshots/mobile-landscape.png) · [Mobile portrait screenshot](docs/screenshots/mobile-portrait.png)
 
@@ -207,7 +207,7 @@ Game rules live outside rendering. A storage interface separates game state from
 - Configure processing recipes, batch timings, and buffers in `src/game/data/machines.ts`.
 - Keep new content in these definitions and reuse the shared systems. The [extension guide](docs/architecture.md) explains how to add products, workers, and persistent storage.
 
-The world and characters are built from original procedural 3D meshes with shared geometry and materials. SVG icons support the HTML interface; small canvas textures provide readable world labels. Audio uses original procedural sounds, so no external model or sound pack is needed. The interface uses optional Google Fonts with system-font fallbacks. Third-party fonts and libraries retain their respective licenses. See [asset credits](docs/credits.md).
+The world uses original Blender-authored props with shared geometry and materials. The player is a single skinned Blender mesh with distance-driven walking, smooth turning, and blended two-handed carrying. NPCs retain their lightweight existing models. SVG icons support the HTML interface; small canvas textures provide readable world labels. Audio uses original procedural sounds, so no external model or sound pack is needed. The interface uses optional Google Fonts with system-font fallbacks. Third-party fonts and libraries retain their respective licenses. See [asset credits](docs/credits.md).
 
 ## Roadmap
 
@@ -228,3 +228,19 @@ These are future possibilities, not features required to run the current game.
 ## License
 
 Project code and original assets are available under the [MIT License](LICENSE).
+
+### Editing the player in Blender
+
+`assets/blender/player.blend` contains the editable 15-bone player and four looping actions: `Idle`, `Walk`, `CarryIdle`, and `CarryWalk`. `scripts/author-player.py` reproducibly creates this original model and its vertex colors. To regenerate with Blender 4.5:
+
+```sh
+blender -b --python-exit-code 1 -P scripts/author-player.py -- public/models/player.glb assets/blender/player.blend
+```
+
+The player uses one skinned body mesh, no texture downloads, and no shadows. `PlayerCharacter.ts` blends the four clips, advances the gait by distance, ignores teleport distances, and smoothly rotates toward input. Six small product samples fit on a front tray; the basket HUD remains authoritative for quantities. If the model cannot load, the built-in player remains playable. Save files and gameplay rules are unchanged.
+
+### Movement settings
+
+Settings → Movement and controls provides a 100–135% walking-speed slider and two configurable physical keys for each direction and sprint. Conflicting bindings are rejected; Escape cancels capture. Reset restores default WASD/arrows/Shift and walking speed without removing purchased upgrades. Controls and speed persist in local and exported saves.
+
+Sprint endurance has 30 paid upgrades. Each adds 0.5 seconds to the initial 4 seconds (19 seconds at maximum). The first upgrade costs $90, with each next price multiplied by 1.20 and rounded up; upgrades do not refill stamina. Recharge still takes 6 seconds. The larger map uses 110-unit/second customers and 140-unit/second base helper speed to avoid excessive walking downtime.

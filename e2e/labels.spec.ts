@@ -1,3 +1,4 @@
+import { MACHINES } from '../src/game/data/machines';
 import { expect, test, type Page } from '@playwright/test';
 import { GAME_CONFIG } from '../src/game/data/gameConfig';
 import { shelfStandSpot } from '../src/game/data/standSpots';
@@ -505,18 +506,18 @@ test('critical signs stay legible and contained in the compact landscape view', 
     });
     world.update(engine.state, engine.state.elapsed, 0);
   });
-  await focusCamera(page, { x: 350, y: 805 });
+  await focusCamera(page, GAME_CONFIG.office);
   bounds = await labelBounds(page);
-  const office = [
-    'office:team:title',
-    'office:customers:title',
-    'office:accountant:title',
-    'trash:title',
-  ].map((id) => expectContained(bounds, id, viewport));
+  const office = ['office:team:title', 'office:customers:title', 'office:accountant:title'].map(
+    (id) => expectContained(bounds, id, viewport),
+  );
   expectVisibleLabelsLegible(bounds, viewport);
   for (let first = 0; first < office.length; first += 1)
     for (let second = first + 1; second < office.length; second += 1)
       expect(polygonsOverlap(office[first], office[second])).toBe(false);
+
+  await focusCamera(page, GAME_CONFIG.trash);
+  expectContained(await labelBounds(page), 'trash:title', viewport);
 
   await page.evaluate(() => {
     const { engine } = window.__MARKET__;
@@ -531,11 +532,11 @@ test('critical signs stay legible and contained in the compact landscape view', 
 
   for (const tour of [
     {
-      position: { x: 200, y: 1000 },
+      position: MACHINES.find((m) => m.id === 'paste')!.position,
       ids: ['machine:paste:title', 'machine:paste:level', 'machine:paste:status'],
     },
     {
-      position: { x: 440, y: 1000 },
+      position: MACHINES.find((m) => m.id === 'coffee')!.position,
       ids: ['machine:coffee:title', 'machine:coffee:level', 'machine:coffee:status'],
     },
     {

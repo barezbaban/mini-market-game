@@ -226,8 +226,8 @@ export const soraniPatterns: Array<[string, string]> = [
     'دزێک لە {0} نزیک دەبێتەوە! {1} مەتر {2}. پارەکە کۆبکەرەوە یان لە بازنەی تۆڕەکەتدا دزەکە بگرە.',
   ],
   [
-    'Thief stealing! {0}s left. Sprint into net range — Shift or hold Sprint.',
-    'دزەکە پارە دەدزێت! {0} چرکە ماوە. ڕابکە تا بکەوێتە ناو بازنەی تۆڕەکەت — Shift یان خێرا ڕاکردن ڕابگرە.',
+    'Thief stealing! {0}s left. Sprint into net range — use your sprint key or hold Sprint.',
+    'دزەکە پارە دەدزێت! {0} چرکە ماوە. ڕابکە تا بکەوێتە ناو بازنەی تۆڕەکەت — کلیلی ڕاکردن یان دوگمەی خێرا ڕاکردن ڕابگرە.',
   ],
   [
     'Thief fleeing with ${0}! {1}m {2}. Sprint into net range to catch them.',

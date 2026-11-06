@@ -1,4 +1,5 @@
 import { html, initializeLanguage, getLanguage, t } from './i18n';
+import { loadPlayerArt } from './game/rendering/PlayerCharacter';
 import { loadMarketArt } from './game/rendering/MarketArt';
 import { confirmAction } from './game/ui/ConfirmDialog';
 import '../styles/main.css';
@@ -45,7 +46,7 @@ import type {
 
 await initializeLanguage();
 document.querySelector('#app')!.textContent = t('Opening the market…');
-await loadMarketArt();
+await Promise.all([loadMarketArt(), loadPlayerArt()]);
 
 const save = new SaveSystem({
   read: () => localStorage.getItem(GAME_CONFIG.saveKey),
@@ -318,6 +319,10 @@ function upgradePresentation(upgrade: UpgradeDefinition): {
     return result;
   }
   switch (upgrade.id) {
+    case 'sprint':
+      result.current = `${GAME_CONFIG.sprintDuration / 1000 + level * 0.5} ${t('seconds')}`;
+      result.next = `${GAME_CONFIG.sprintDuration / 1000 + next * 0.5} ${t('seconds')}`;
+      break;
     case 'inventory':
       result.current = `${state.inventoryCapacity} items`;
       result.next = `${GAME_CONFIG.playerStartCapacity + next * 4} items`;

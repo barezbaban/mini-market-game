@@ -1,3 +1,4 @@
+import { GAME_CONFIG } from '../src/game/data/gameConfig';
 import { expect, test } from '@playwright/test';
 import type { CustomerData } from '../src/game/types';
 
@@ -107,7 +108,7 @@ for (const viewport of [
     await page.setViewportSize(viewport);
     await page.goto('./?debug=true');
     await page.waitForFunction(() => window.__MARKET__?.ready);
-    const reactions = await page.evaluate(() => {
+    const reactions = await page.evaluate((queueSpot) => {
       const { engine, world, setPaused } = window.__MARKET__;
       setPaused(true);
       const empty = { ...engine.state.inventory };
@@ -156,8 +157,8 @@ for (const viewport of [
       customer.state = 'SECOND_QUEUEING';
       const secondWait = snapshot();
       customer.state = 'QUEUEING';
-      customer.x = 903;
-      customer.y = 790;
+      customer.x = queueSpot.x;
+      customer.y = queueSpot.y;
       customer.basket.tomato = 1;
       engine.state.cashier = true;
       engine.checkout.update(4500);
@@ -187,7 +188,7 @@ for (const viewport of [
         expired,
         walkout,
       };
-    });
+    }, GAME_CONFIG.queueStart);
     for (const reaction of [
       ...reactions.normal,
       reactions.restocked,

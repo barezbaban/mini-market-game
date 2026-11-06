@@ -1,3 +1,4 @@
+import type { ControlBindings } from './data/movement';
 export type ProductId =
   | 'tomato'
   | 'egg'
@@ -16,6 +17,7 @@ export type ProductId =
   | 'carrotJuice';
 export type MachineId = 'paste' | 'coffee' | 'dairy' | 'grill' | 'kettle' | 'oven' | 'press';
 export type UpgradeId =
+  | 'sprint'
   | 'shelf'
   | 'inventory'
   | 'carts'
@@ -230,7 +232,7 @@ export interface DriveThroughOrder {
 }
 export interface GameState {
   version: 2;
-  layoutVersion: 3;
+  layoutVersion: 4;
   money: number;
   inventory: ItemCounts;
   inventoryCapacity: number;
@@ -261,6 +263,8 @@ export interface GameState {
   effectsVolume: number;
   musicVolume: number;
   cameraZoom: number;
+  walkSpeed: number;
+  controls: ControlBindings;
   lowPower: boolean;
   safePause: boolean;
   career: CareerState;

@@ -268,7 +268,7 @@ describe('multi-level upgrade rules', () => {
     state.money = 100_000;
     const upgrades = new UpgradeSystem(state, new EconomySystem(state));
     expect(helperCapacity(state)).toBe(2);
-    expect(helperSpeed(state)).toBe(110);
+    expect(helperSpeed(state)).toBe(GAME_CONFIG.helperBaseSpeed);
     expect(upgrades.purchase('helpers')).toBe(true);
     state.workers[0].basket.tomato = 2;
     const firstWorker = state.workers[0];
@@ -278,7 +278,7 @@ describe('multi-level upgrade rules', () => {
     }
     for (let level = 1; level <= 9; level += 1) {
       expect(upgrades.purchase('helperSpeed')).toBe(true);
-      expect(helperSpeed(state)).toBeCloseTo(110 * 1.1 ** level);
+      expect(helperSpeed(state)).toBeCloseTo(GAME_CONFIG.helperBaseSpeed * 1.1 ** level);
     }
     expect(upgrades.purchase('helpers')).toBe(true);
     expect(upgrades.purchase('helpers')).toBe(true);
@@ -363,7 +363,7 @@ describe('autonomous helper flow', () => {
       expect(itemCount(state.workers[0].basket)).toBeLessThanOrEqual(2);
     }
     expect(greatestStep).toBeGreaterThan(0);
-    expect(greatestStep).toBeLessThanOrEqual(110 * 0.05 + 1e-6);
+    expect(greatestStep).toBeLessThanOrEqual(GAME_CONFIG.helperBaseSpeed * 0.05 + 1e-6);
     expect(state.shelves.egg).toBeGreaterThanOrEqual(6);
     expect(state.shelves.tomato).toBe(12);
     expect(state.farms.tomato.plots[0].ready).toBe(12);
@@ -396,7 +396,7 @@ describe('autonomous helper flow', () => {
     const initial = totalUnits(state);
     let greatestStep = 0;
     let greatestBasket = 0;
-    for (let time = 0; time < 300_000; time += 50) {
+    for (let time = 0; time < 360_000; time += 50) {
       const previous = state.workers.map((worker) => ({ x: worker.x, y: worker.y }));
       machines.update(50);
       workers.update(50);
@@ -446,7 +446,7 @@ describe('autonomous helper flow', () => {
     let paid = 0;
     let enteredSolid = false;
     const furniture = worldSolids(state);
-    for (let time = 0; time < 300_000; time += 50) {
+    for (let time = 0; time < 360_000; time += 50) {
       const before = new Map(
         state.customers.map((customer) => [
           customer.id,

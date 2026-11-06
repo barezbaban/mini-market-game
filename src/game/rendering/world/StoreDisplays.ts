@@ -1,15 +1,24 @@
 import {
   CircleGeometry,
+  BoxGeometry,
+  InstancedMesh,
   Group,
   Matrix4,
   Mesh,
   MeshBasicMaterial,
+  MeshStandardMaterial,
   Vector3,
-  type InstancedMesh,
 } from 'three';
 import type { Scene } from 'three';
 import { GAME_CONFIG } from '../../data/gameConfig';
-import { PRODUCTS, plotCount, plotPosition, productById, shelfBuilt } from '../../data/products';
+import {
+  PRODUCTS,
+  plotCount,
+  plotPosition,
+  productById,
+  shelfBuilt,
+  displayKind,
+} from '../../data/products';
 import { MACHINES, machineDuration } from '../../data/machines';
 import { SHELF_COLUMNS, shelfRows, upgradeById } from '../../data/upgrades';
 import {
@@ -29,7 +38,7 @@ import type {
 import { createChicken, createCow, createProduce } from '../Models';
 import { addMarketProp, marketInstances } from '../MarketArt';
 import { itemCount } from '../../systems/InventorySystem';
-import { block, disc, label, PALETTE as C, ring, sphere } from './WorldKit';
+import { block, disc, label, material, PALETTE as C, ring, sphere } from './WorldKit';
 import type { WorldLabel } from './WorldKit';
 
 const point = (x: number, y: number, height = 0) =>
@@ -56,6 +65,7 @@ interface ProductVisual {
   stand: StandVisual;
   items: Group[];
   stock?: InstancedMesh;
+  dividers?: InstancedMesh;
   count: WorldLabel;
   title: WorldLabel;
   rows: Group[];
@@ -254,6 +264,8 @@ export class StoreDisplays {
     const shelf = new Group();
     shelf.name = `shelf-${product.id}`;
     shelf.position.copy(point(product.shelf.x, product.shelf.y));
+    const kind = displayKind(product.id);
+    shelf.userData.displayKind = kind;
     const facing = product.shelf.facing;
     shelf.rotation.y = facing === 'east' ? Math.PI / 2 : facing === 'west' ? -Math.PI / 2 : 0;
     this.scene.add(shelf);
@@ -264,6 +276,54 @@ export class StoreDisplays {
     const sides = [-0.68, 0.68].map((x) =>
       block(shelf, x, 0.49, -0.015, 0.075, 0.84, 0.81, C.cream),
     );
+    if (kind !== 'pantry') {
+      block(
+        shelf,
+        0,
+        0.3,
+        0,
+        1.44,
+        0.35,
+        0.75,
+        kind === 'chilled' ? 0x87b7bf : kind === 'heated' ? 0x616f69 : C.wood,
+      );
+      if (kind === 'chilled' || kind === 'heated') {
+        const glass = block(
+          shelf,
+          0,
+          kind === 'chilled' ? 1.04 : 0.77,
+          -0.02,
+          1.43,
+          0.025,
+          0.75,
+          C.white,
+        );
+        glass.material = new MeshStandardMaterial({
+          color: 0xc8edf1,
+          transparent: true,
+          opacity: 0.16,
+          roughness: 0.25,
+          depthWrite: false,
+        });
+        glass.name = kind + '-display-cover';
+        for (const x of [-0.7, 0.7])
+          block(
+            shelf,
+            x,
+            kind === 'chilled' ? 0.74 : 0.64,
+            -0.3,
+            0.025,
+            kind === 'chilled' ? 0.6 : 0.35,
+            0.025,
+            0x9eafb0,
+          );
+        if (kind === 'heated') {
+          block(shelf, 0, 0.76, -0.28, 1.2, 0.035, 0.08, 0xf1ae54).name = 'warming-lamp';
+          for (const x of [-0.12, 0.12])
+            disc(shelf, x, 0.31, 0.39, 0.028, 0.015, 0xe99849).rotation.x = Math.PI / 2;
+        }
+      }
+    }
     const items: Group[] = [];
     const name = label(shelf, product.plural.toUpperCase(), 1.4, 0.27, {
       id: `shelf:${product.id}:title`,
@@ -280,7 +340,7 @@ export class StoreDisplays {
     }
     // A forward, angled stock plate stays readable from the overhead camera.
     const stockPlate = new Group();
-    stockPlate.position.set(0, 0.19, 0.53);
+    stockPlate.position.set(0, 0.28, 0.53);
     stockPlate.rotation.x = facing ? -Math.PI / 3 : -0.55;
     shelf.add(stockPlate);
     block(stockPlate, 0, 0, 0, 0.85, 0.28, 0.025, C.green);
@@ -309,18 +369,9 @@ export class StoreDisplays {
       };
       farmSign = new Group();
       farmSign.name = `farm-sign-${product.id}`;
-      // Keep headers out of the two machine aisles. Narrow beds have room for
-      // their sign at the far end; wider farmyards use the open side of the yard.
-      const strip = product.id === 'strawberry' || product.id === 'wheat';
-      farmSign.position.copy(
-        strip
-          ? point(product.farm.x, plotPosition(product.id, product.maxPlots - 1).y + 70)
-          : product.id === 'carrot'
-            ? point(product.farm.x, product.farm.y + 145)
-            : point(product.farm.x + 115, product.farm.y + 40),
-      );
+      farmSign.position.copy(point(product.farm.x, product.farm.y - 72));
       this.scene.add(farmSign);
-      const signWidth = product.id === 'carrot' ? 1.45 : 1.25;
+      const signWidth = 1.6;
       block(farmSign, 0, 0.51, 0, signWidth, 0.24, 0.055, C.green);
       block(farmSign, 0, 0.25, 0, 0.045, 0.42, 0.045, C.green);
       const farmTitle = label(
@@ -340,7 +391,20 @@ export class StoreDisplays {
       for (let index = 0; index < product.maxPlots; index += 1)
         plots.push(this.createPlot(product, index));
     }
+    const flatDisplay = kind !== 'pantry' && kind !== 'chilled';
+    const dividers = flatDisplay
+      ? new InstancedMesh(
+          new BoxGeometry(1, 1, 1),
+          material(kind === 'heated' ? 0xa4b7b0 : 0xc3915d),
+          30,
+        )
+      : undefined;
+    if (dividers) {
+      dividers.name = 'display-bin-dividers';
+      shelf.add(dividers);
+    }
     const visual: ProductVisual = {
+      dividers,
       shelf,
       stand,
       items,
@@ -366,15 +430,27 @@ export class StoreDisplays {
   /** Add rows only when purchased, reusing the same footprint, models, and labels. */
   private resizeShelf(visual: ProductVisual, product: ProductDefinition, count: number): void {
     if (visual.rowCount === count) return;
+    const kind = displayKind(product.id);
+    const flat = kind !== 'pantry' && kind !== 'chilled';
+    const itemScale = flat ? 0.72 : kind === 'chilled' ? 0.85 : 1.05;
     while (visual.rows.length < count) {
       const row = new Group();
       row.name = `shelf-${product.id}:row-${visual.rows.length + 1}`;
-      block(row, 0, 0, 0, 1.44, 0.07, 0.27, C.wood);
+      block(
+        row,
+        0,
+        0,
+        0,
+        1.44,
+        0.045,
+        flat ? 0.55 / count + 0.025 : 0.27,
+        kind === 'chilled' || kind === 'heated' ? 0xd7e3dc : C.wood,
+      );
       block(row, 0, -0.023, 0.145, 1.44, 0.075, 0.025, product.color);
       for (let column = 0; !visual.stock && column < SHELF_COLUMNS; column++) {
         const produce = createProduce(product.id);
-        produce.position.set(-0.47 + column * 0.315, 0.13, 0);
-        produce.scale.setScalar(1.05);
+        produce.position.set(-0.47 + column * 0.315, flat ? 0.085 : 0.13, 0);
+        produce.scale.setScalar(itemScale);
         row.add(produce);
         visual.items.push(produce);
       }
@@ -383,12 +459,33 @@ export class StoreDisplays {
     }
     visual.rows.forEach((row, index) => {
       row.visible = index < count;
-      row.position.set(0, 0.27 + index * 0.24, 0.25 - index * (0.5 / (count - 1)));
+      row.position.set(
+        0,
+        flat
+          ? 0.52
+          : kind === 'chilled'
+            ? 0.29 + index * (0.49 / (count - 1))
+            : 0.27 + index * 0.24,
+        0.25 - index * (0.5 / (count - 1)),
+      );
+      if (visual.dividers && index < count) {
+        for (let col = 0; col <= SHELF_COLUMNS; col++)
+          visual.dividers.setMatrixAt(
+            index * 5 + col,
+            new Matrix4()
+              .makeScale(0.014, 0.05, 0.55 / count)
+              .setPosition(-0.63 + col * 0.315, 0.545, row.position.z),
+          );
+      }
       if (visual.stock && index < count) {
         for (let col = 0; col < SHELF_COLUMNS; col++) {
           const matrix = new Matrix4()
-            .makeScale(1.05, 1.05, 1.05)
-            .setPosition(-0.47 + col * 0.315, row.position.y + 0.13, row.position.z);
+            .makeScale(itemScale, itemScale, itemScale)
+            .setPosition(
+              -0.47 + col * 0.315,
+              row.position.y + (flat ? 0.085 : 0.13),
+              row.position.z,
+            );
           visual.stock.setMatrixAt(index * SHELF_COLUMNS + col, matrix);
         }
       }
@@ -402,6 +499,22 @@ export class StoreDisplays {
     });
     visual.title.object.position.y = 1.14 + extraHeight + (product.shelf.facing ? 0.045 : 0);
     visual.header.position.y = 1.14 + extraHeight;
+    if (kind !== 'pantry') {
+      visual.back.visible = kind === 'chilled';
+      visual.back.scale.y = 0.65;
+      visual.back.position.y = 0.5;
+      visual.sides.forEach((side) => {
+        side.scale.y = 0.32;
+        side.position.y = 0.33;
+      });
+      visual.header.position.y = kind === 'chilled' ? 1.01 : 0.91;
+      visual.title.object.position.y = visual.header.position.y;
+    }
+    if (visual.dividers) {
+      visual.dividers.count = count * 5;
+      visual.dividers.instanceMatrix.needsUpdate = true;
+      visual.dividers.computeBoundingSphere();
+    }
     visual.rowCount = count;
     if (visual.stock) {
       visual.stock.instanceMatrix.needsUpdate = true;
@@ -629,10 +742,9 @@ export class StoreDisplays {
   private createFarmYard(product: ProductDefinition): void {
     const floor = new Group();
     floor.name = 'farm-yard-' + product.id;
-    const strip = product.id === 'strawberry' || product.id === 'wheat';
-    floor.position.copy(point(product.farm.x, product.farm.y + (strip ? 129 : 45)));
+    floor.position.copy(point(product.farm.x, product.farm.y + 55));
     this.scene.add(floor);
-    block(floor, 0, -0.014, 0, strip ? 0.9 : 3.5, 0.045, strip ? 3.45 : 2.22, 0xa8d887);
+    block(floor, 0, -0.014, 0, 3.85, 0.045, 2.35, 0xa8d887);
     this.yards.push({ floor, product });
   }
 }

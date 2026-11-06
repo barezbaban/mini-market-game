@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shelfStandSpot } from '../src/game/data/standSpots';
+import { shelfStandSpot, customerShelfSpot } from '../src/game/data/standSpots';
 import { GAME_CONFIG } from '../src/game/data/gameConfig';
 import { MACHINES } from '../src/game/data/machines';
 import { FARM_PRODUCTS, PRODUCTS, plotPosition, emptyItems } from '../src/game/data/products';
@@ -69,21 +69,17 @@ describe('compact store layout', () => {
     expect(state.totalServed).toBeGreaterThan(30);
   });
 
-  it('groups perimeter shelves around one spaced center row inside the compact store', () => {
-    const left = PRODUCTS.filter((p) => p.shelf.facing === 'east');
-    const right = PRODUCTS.filter((p) => p.shelf.facing === 'west');
-    expect(left.map((p) => p.id).sort()).toEqual(['carrot', 'corn', 'tomato']);
-    expect(right.map((p) => p.id).sort()).toEqual(['cheese', 'egg', 'milk']);
-    const center = PRODUCTS.filter((p) => !p.shelf.facing && p.shelf.y > 300).sort(
-      (a, b) => a.shelf.x - b.shelf.x,
-    );
-    expect(center).toHaveLength(4);
-    expect(new Set(center.map((p) => p.shelf.y)).size).toBe(1);
-    expect(center.slice(1).every((p, i) => p.shelf.x - center[i].shelf.x >= 210)).toBe(true);
-    expect(new Set(FARM_PRODUCTS.map((p) => p.farm.x)).size).toBe(5);
+  it('separates farm and production courts with front-facing shop departments', () => {
+    expect(PRODUCTS.every((p) => !p.shelf.facing)).toBe(true);
+    expect(FARM_PRODUCTS.every((p) => p.farm.x < 1000)).toBe(true);
+    expect(MACHINES.every((m) => m.position.x > 1350)).toBe(true);
+    for (const y of new Set(PRODUCTS.map((p) => p.shelf.y))) {
+      const row = PRODUCTS.filter((p) => p.shelf.y === y).sort((a, b) => a.shelf.x - b.shelf.x);
+      expect(row.slice(1).every((p, i) => p.shelf.x - row[i].shelf.x >= 300)).toBe(true);
+    }
+    expect(GAME_CONFIG.width).toBeGreaterThan(2000);
+    expect(GAME_CONFIG.height).toBeGreaterThan(2300);
     expect(new Set(GAME_CONFIG.areaBounds).size).toBe(1);
-    expect(GAME_CONFIG.width).toBeLessThanOrEqual(1500);
-    expect(Math.abs(GAME_CONFIG.secondCheckout.x - GAME_CONFIG.checkout.x)).toBeLessThan(300);
   });
 
   it('routes between all shelves, plots, machines and checkout stations without crossing furniture or walls', () => {
@@ -101,7 +97,7 @@ describe('compact store layout', () => {
       GAME_CONFIG.driveCash,
       GAME_CONFIG.driveThroughPlayerSpot,
       ...PRODUCTS.map((p) => shelfStandSpot(p, 65)),
-      ...PRODUCTS.flatMap((p) => [0, 1, 2].map((slot) => shelfStandSpot(p, 75 + slot * 34))),
+      ...PRODUCTS.flatMap((p) => [0, 1, 2].map((slot) => customerShelfSpot(p, slot))),
       ...FARM_PRODUCTS.flatMap((p) =>
         Array.from({ length: p.maxPlots }, (_, i) => plotPosition(p.id, i)),
       ),
@@ -133,8 +129,8 @@ describe('compact store layout', () => {
       expect(clearWalk(state, previous, point)).toBe(true);
       previous = point;
     }
-    expect(clearWalk(state, { x: 1100, y: 850 }, { x: 1100, y: 950 })).toBe(false);
-    expect(clearWalk(state, { x: 600, y: 1550 }, { x: 700, y: 1550 })).toBe(false);
+    expect(clearWalk(state, { x: 1400, y: 1050 }, { x: 1400, y: 1150 })).toBe(false);
+    expect(clearWalk(state, { x: 1050, y: 2390 }, { x: 1150, y: 2390 })).toBe(false);
   });
 
   it('relocates legacy saves once while preserving goods, wallet, upgrades, XP, orders and stolen cash', () => {
@@ -207,7 +203,7 @@ describe('compact store layout', () => {
     expect(restored.driveThroughHandoffProgress).toBe(200);
     expect(restored.security.thief?.stolen).toBe(80);
     expect(restored.player).toEqual(GAME_CONFIG.playerStart);
-    expect(restored.layoutVersion).toBe(3);
+    expect(restored.layoutVersion).toBe(4);
     restored.player = { x: 600, y: 1100 };
     expect(validateSave(restored)!.player).toEqual(restored.player);
   });
@@ -247,10 +243,10 @@ describe('compact store layout', () => {
     ];
     const loaded = validateSave({ ...state, layoutVersion: 2 })!;
     const shopper = loaded.customers[0];
-    expect(shopper.state).toBe('MOVING_TO_SHELF');
-    expect(shopper.path.at(-1)).toEqual(shelfStandSpot(PRODUCTS[0], 75));
+    expect(shopper.state).toBe('WAITING_FOR_PRODUCT');
+    expect({ x: shopper.x, y: shopper.y }).toEqual(customerShelfSpot(PRODUCTS[0], 0));
     expect(shopper.basket.tomato).toBe(1);
-    expect(loaded.player).toEqual(state.player);
+    expect(loaded.player).toEqual(GAME_CONFIG.playerStart);
     expect(loaded.shelves.tomato).toBe(5);
   });
 

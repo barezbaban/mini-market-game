@@ -1,3 +1,4 @@
+import { GAME_CONFIG } from '../src/game/data/gameConfig';
 import { expect, test, type Page } from '@playwright/test';
 import { UPGRADES } from '../src/game/data/upgrades';
 import { PRODUCTS } from '../src/game/data/products';
@@ -91,7 +92,7 @@ test('fully staffed expanded store earns money and XP with no player harvesting'
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await open(page);
-  const result = await page.evaluate(() => {
+  const result = await page.evaluate((config) => {
     const { engine, setPaused, save, world } = window.__MARKET__;
     setPaused(true);
     engine.economy.earn(100000);
@@ -120,7 +121,7 @@ test('fully staffed expanded store earns money and XP with no player harvesting'
         /* buy up to the real cap */
       }
     }
-    engine.state.player = { x: 105, y: 920 };
+    engine.state.player = { ...config.playerStart };
     const startingMoney = engine.state.money;
     const sold = new Set<string>();
     for (let time = 0; time < 900000; time += 50) {
@@ -130,9 +131,9 @@ test('fully staffed expanded store earns money and XP with no player harvesting'
       engine.update(50);
       // The player makes collection rounds; helpers never bank register cash.
       if (time % 10000 === 0) {
-        engine.state.player = { x: 1040, y: 845 };
+        engine.state.player = { ...config.storeCash };
         engine.cashCollection.update(0);
-        engine.state.player = { x: 105, y: 920 };
+        engine.state.player = { ...config.playerStart };
         engine.cashCollection.update(0);
       }
       for (const customer of engine.state.customers) {
@@ -146,7 +147,7 @@ test('fully staffed expanded store earns money and XP with no player harvesting'
     const state = engine.snapshot();
     save.save(state);
     return { state, startingMoney, sold: [...sold] };
-  });
+  }, GAME_CONFIG);
   expect(result.state.totalServed).toBeGreaterThan(40);
   expect(result.state.money).toBeGreaterThan(result.startingMoney);
   expect(result.state.xp).toBeGreaterThan(1000);

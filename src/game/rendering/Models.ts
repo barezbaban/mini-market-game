@@ -13,6 +13,7 @@ import {
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import type { ItemCounts, ProductId } from '../types';
 import { emptyItems, PRODUCTS } from '../data/products';
+import { createPlayerCharacter } from './PlayerCharacter';
 import { PUSH_CART } from './CartWalk';
 import { ReachMotion, type HandAction } from './ReachMotion';
 import { addMarketProp, marketGeometry } from './MarketArt';
@@ -293,6 +294,7 @@ export function createCow(): Group {
 }
 
 export interface CharacterModel {
+  dispose?(): void;
   reach(action: HandAction): void;
   setRegularApron(color: number | null): void;
   group: Group;
@@ -308,6 +310,10 @@ export function createCharacter(
   color = kind === 'customer' ? 0xe9a458 : PALETTE.teal,
   pushesCart = false,
 ): CharacterModel {
+  if (kind === 'player') {
+    const player = createPlayerCharacter(createProduce);
+    if (player) return player;
+  }
   const group = new Group();
   group.name = `${kind}-character`;
   const body = new Group();

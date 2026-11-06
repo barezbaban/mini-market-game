@@ -1,3 +1,4 @@
+import { heldAction, CONTROL_ACTIONS } from './data/movement';
 import { t } from '../i18n';
 import { Vector2 } from 'three';
 import { GAME_CONFIG } from './data/gameConfig';
@@ -101,13 +102,18 @@ export class GameRuntime {
           event.target.closest('button, a, input, select, textarea')
         )
           return;
-        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key))
+        if (event.ctrlKey || event.metaKey || event.altKey) return;
+        if (
+          CONTROL_ACTIONS.some((action) =>
+            this.services.engine.state.controls[action].includes(event.code),
+          )
+        )
           event.preventDefault();
-        if (!this.inputBlocked) this.keys.add(event.key.toLowerCase());
+        if (!this.inputBlocked) this.keys.add(event.code);
       },
       options,
     );
-    window.addEventListener('keyup', (event) => this.keys.delete(event.key.toLowerCase()), options);
+    window.addEventListener('keyup', (event) => this.keys.delete(event.code), options);
     window.addEventListener('blur', () => this.clearInput(), options);
     document.addEventListener(
       'visibilitychange',
@@ -176,19 +182,17 @@ export class GameRuntime {
     this.fps = this.fps * 0.95 + (1000 / Math.max(1, delta)) * 0.05;
     const { engine, audio, hud } = this.services;
     if (!this.suspended) {
-      const x =
-        Number(this.keys.has('d') || this.keys.has('arrowright')) -
-        Number(this.keys.has('a') || this.keys.has('arrowleft'));
-      const y =
-        Number(this.keys.has('s') || this.keys.has('arrowdown')) -
-        Number(this.keys.has('w') || this.keys.has('arrowup'));
+      const held = (action: (typeof CONTROL_ACTIONS)[number]) =>
+        heldAction(this.keys, engine.state.controls, action);
+      const x = Number(held('right')) - Number(held('left'));
+      const y = Number(held('down')) - Number(held('up'));
       engine.update(
         delta,
         this.controlsBlocked
           ? { x: 0, y: 0 }
           : {
               ...this.world.screenToWorldInput(x || y ? { x, y } : this.controls.vector),
-              sprint: this.keys.has('shift') || this.touchSprint,
+              sprint: held('sprint') || this.touchSprint,
             },
       );
       this.animationTime += delta;
